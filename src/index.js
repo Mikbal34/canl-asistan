@@ -51,11 +51,8 @@ app.use('/vapi', vapiRoutes);
 
 // React frontend (production build)
 const frontendDistPath = path.join(__dirname, '../frontend/dist');
-const publicPath = path.join(__dirname, '../public');
 
-// Önce React build'i dene, yoksa legacy public klasörünü kullan
 app.use(express.static(frontendDistPath));
-app.use(express.static(publicPath));
 
 // SPA routing - tüm bilinmeyen route'ları React'a yönlendir
 app.get('*', (req, res, next) => {
@@ -64,16 +61,7 @@ app.get('*', (req, res, next) => {
     return next();
   }
 
-  // React build varsa onu kullan
-  const indexPath = path.join(frontendDistPath, 'index.html');
-  const fs = require('fs');
-
-  if (fs.existsSync(indexPath)) {
-    res.sendFile(indexPath);
-  } else {
-    // Fallback to legacy public/index.html
-    res.sendFile(path.join(publicPath, 'index.html'));
-  }
+  res.sendFile(path.join(frontendDistPath, 'index.html'));
 });
 
 // HTTP Server
