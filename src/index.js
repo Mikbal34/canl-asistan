@@ -3,6 +3,21 @@
  * Multi-tenant destekli Express sunucusu
  */
 
+// Uncaught exception handler - must be first
+process.on('uncaughtException', (err) => {
+  console.error('[FATAL] Uncaught Exception:', err);
+  process.exit(1);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('[FATAL] Unhandled Rejection at:', promise, 'reason:', reason);
+  process.exit(1);
+});
+
+console.log('[Server] Starting...');
+console.log('[Server] Node version:', process.version);
+console.log('[Server] PORT:', process.env.PORT);
+
 const express = require('express');
 const { WebSocketServer } = require('ws');
 const http = require('http');
