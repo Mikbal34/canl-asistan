@@ -142,8 +142,9 @@ wss.on('connection', (ws, req) => {
 
 // Sunucuyu başlat
 const PORT = config.server.port;
+const HOST = '0.0.0.0';
 
-server.listen(PORT, () => {
+server.listen(PORT, HOST, () => {
   console.log('');
   console.log('╔════════════════════════════════════════════════════════════╗');
   console.log('║                                                            ║');
