@@ -26,3 +26,4 @@ build/
 # Misc
 .claude/
 call-logs-*.json
+logs.*.csv
