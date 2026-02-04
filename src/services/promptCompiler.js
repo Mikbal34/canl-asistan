@@ -300,7 +300,13 @@ async function buildFinalPrompt(tenantId, language = 'tr') {
   const systemPrompt = applyVariables(basePrompt, tenant, useCaseSections, language);
 
   // 7. Add VAPI-specific rules
-  const finalPrompt = addVapiRules(systemPrompt, language);
+  let finalPrompt = addVapiRules(systemPrompt, language);
+
+  // 8. Add custom rules from voice_config_override (if any)
+  if (tenant.voice_config_override?.system_prompt_suffix) {
+    finalPrompt += tenant.voice_config_override.system_prompt_suffix;
+    console.log(`[PromptCompiler] Added custom rules suffix for tenant ${tenantId}`);
+  }
 
   return {
     systemPrompt: finalPrompt,

@@ -284,9 +284,10 @@ async function getEffectiveUseCases(tenantId) {
 /**
  * Efektif use case'leri tenant_use_cases tablosuna senkronize et
  * @param {string} tenantId - Tenant UUID
+ * @param {Array} providedUseCases - Opsiyonel: Direkt kullanılacak use case listesi
  */
-async function syncEffectiveUseCases(tenantId) {
-  const effectiveUseCases = await getEffectiveUseCases(tenantId);
+async function syncEffectiveUseCases(tenantId, providedUseCases = null) {
+  const effectiveUseCases = providedUseCases || await getEffectiveUseCases(tenantId);
 
   // Get current tenant use cases
   const { data: currentUseCases, error: fetchError } = await supabase

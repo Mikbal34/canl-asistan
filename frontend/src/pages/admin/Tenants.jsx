@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
-  Plus,
   Search,
   Filter,
   Building2,
@@ -10,15 +9,16 @@ import {
   RefreshCw,
   Eye,
   Loader2,
-  MessageSquare
+  MessageSquare,
+  Sparkles,
+  Plus,
 } from 'lucide-react';
 import { Card, CardContent } from '../../components/common/Card';
 import { Table } from '../../components/common/Table';
 import { Badge } from '../../components/common/Badge';
-import { Button } from '../../components/common/Button';
 import { adminAPI } from '../../services/api';
-import { TenantCreateModal } from './TenantCreateModal';
 import { OnboardingChat } from '../../components/admin/OnboardingChat';
+import { TenantCreateModal } from './TenantCreateModal';
 
 // Industry icons mapping
 const industryIcons = {
@@ -64,8 +64,8 @@ export const Tenants = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [industryFilter, setIndustryFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isOnboardingChatOpen, setIsOnboardingChatOpen] = useState(false);
+  const [isManualCreateOpen, setIsManualCreateOpen] = useState(false);
   const [syncingTenant, setSyncingTenant] = useState(null);
   const [sendingLink, setSendingLink] = useState(null);
 
@@ -90,13 +90,13 @@ export const Tenants = () => {
     }
   };
 
-  const handleTenantCreated = () => {
-    setIsCreateModalOpen(false);
+  const handleOnboardingSuccess = () => {
+    setIsOnboardingChatOpen(false);
     fetchTenants();
   };
 
-  const handleOnboardingSuccess = () => {
-    setIsOnboardingChatOpen(false);
+  const handleManualCreateSuccess = () => {
+    setIsManualCreateOpen(false);
     fetchTenants();
   };
 
@@ -285,18 +285,18 @@ export const Tenants = () => {
         </div>
         <div className="flex items-center gap-3">
           <button
-            onClick={() => setIsOnboardingChatOpen(true)}
-            className="inline-flex items-center px-4 py-2 rounded-lg bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-semibold transition-all shadow-lg shadow-indigo-200"
-          >
-            <MessageSquare className="w-5 h-5 mr-2" />
-            AI ile Kurulum
-          </button>
-          <button
-            onClick={() => setIsCreateModalOpen(true)}
-            className="inline-flex items-center px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-semibold transition-colors"
+            onClick={() => setIsManualCreateOpen(true)}
+            className="inline-flex items-center px-4 py-2.5 rounded-xl bg-white border-2 border-slate-200 hover:border-slate-300 text-slate-700 font-medium transition-all hover:shadow-md"
           >
             <Plus className="w-5 h-5 mr-2" />
-            Yeni Müşteri Ekle
+            Manuel Ekle
+          </button>
+          <button
+            onClick={() => setIsOnboardingChatOpen(true)}
+            className="inline-flex items-center px-5 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 via-indigo-600 to-blue-600 hover:from-purple-700 hover:via-indigo-700 hover:to-blue-700 text-white font-semibold transition-all shadow-lg shadow-indigo-300 hover:shadow-xl hover:shadow-indigo-400 hover:scale-105"
+          >
+            <Sparkles className="w-5 h-5 mr-2" />
+            AI ile Ekle
           </button>
         </div>
       </div>
@@ -398,14 +398,22 @@ export const Tenants = () => {
                   : 'Henüz tenant bulunmuyor'}
               </p>
               {!searchTerm && !industryFilter && !statusFilter && (
-                <Button
-                  variant="primary"
-                  className="mt-4"
-                  onClick={() => setIsCreateModalOpen(true)}
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  İlk Tenant'ı Oluştur
-                </Button>
+                <div className="mt-4 flex items-center justify-center gap-3">
+                  <button
+                    onClick={() => setIsManualCreateOpen(true)}
+                    className="inline-flex items-center px-4 py-2.5 rounded-xl bg-white border-2 border-slate-200 hover:border-slate-300 text-slate-700 font-medium transition-all hover:shadow-md"
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Manuel Ekle
+                  </button>
+                  <button
+                    onClick={() => setIsOnboardingChatOpen(true)}
+                    className="inline-flex items-center px-5 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 via-indigo-600 to-blue-600 hover:from-purple-700 hover:via-indigo-700 hover:to-blue-700 text-white font-semibold transition-all shadow-lg shadow-indigo-300"
+                  >
+                    <Sparkles className="w-4 h-4 mr-2" />
+                    AI ile Ekle
+                  </button>
+                </div>
               )}
             </div>
           ) : (
@@ -418,18 +426,18 @@ export const Tenants = () => {
         </CardContent>
       </Card>
 
-      {/* Create Tenant Modal */}
-      <TenantCreateModal
-        isOpen={isCreateModalOpen}
-        onClose={() => setIsCreateModalOpen(false)}
-        onSuccess={handleTenantCreated}
-      />
-
       {/* AI Onboarding Chat Modal */}
       <OnboardingChat
         isOpen={isOnboardingChatOpen}
         onClose={() => setIsOnboardingChatOpen(false)}
         onSuccess={handleOnboardingSuccess}
+      />
+
+      {/* Manuel Tenant Ekleme Modal */}
+      <TenantCreateModal
+        isOpen={isManualCreateOpen}
+        onClose={() => setIsManualCreateOpen(false)}
+        onSuccess={handleManualCreateSuccess}
       />
     </div>
   );
