@@ -23,7 +23,7 @@ async function getOrCreateCustomer(tenantId, phone, name = null) {
   }
 
   // Önce mevcut müşteriyi kontrol et
-  const { data: existing } = await supabase
+  const { data: existing } = await supabaseAdmin
     .from('customers')
     .select('*')
     .eq('tenant_id', tenantId)
@@ -35,7 +35,7 @@ async function getOrCreateCustomer(tenantId, phone, name = null) {
   }
 
   // Yeni müşteri oluştur
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
     .from('customers')
     .insert({ tenant_id: tenantId, phone, name })
     .select()
@@ -49,7 +49,7 @@ async function getOrCreateCustomer(tenantId, phone, name = null) {
  * Müşteri güncelle
  */
 async function updateCustomer(tenantId, customerId, updates) {
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
     .from('customers')
     .update({ ...updates, updated_at: new Date().toISOString() })
     .eq('id', customerId)
@@ -66,7 +66,7 @@ async function updateCustomer(tenantId, customerId, updates) {
  * Soft delete filtresi uygulanır
  */
 async function getAllCustomers(tenantId) {
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdminAdmin
     .from('customers')
     .select('*')
     .eq('tenant_id', tenantId)
@@ -87,7 +87,7 @@ async function getAllCustomers(tenantId) {
 async function getAvailableVehicles(tenantId, filters = {}) {
   console.log('[Supabase] getAvailableVehicles called with tenantId:', tenantId, 'filters:', filters);
 
-  let query = supabase
+  let query = supabaseAdmin
     .from('vehicles')
     .select('*')
     .eq('tenant_id', tenantId)
@@ -119,7 +119,7 @@ async function getAvailableVehicles(tenantId, filters = {}) {
  * Araç detayı getir
  */
 async function getVehicleById(tenantId, vehicleId) {
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
     .from('vehicles')
     .select('*')
     .eq('id', vehicleId)
@@ -134,7 +134,7 @@ async function getVehicleById(tenantId, vehicleId) {
  * Tüm araçları getir (tenant-scoped)
  */
 async function getAllVehicles(tenantId) {
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
     .from('vehicles')
     .select('*')
     .eq('tenant_id', tenantId)
@@ -152,7 +152,7 @@ async function getAllVehicles(tenantId) {
  * Güzellik hizmetlerini getir (tenant-scoped)
  */
 async function getBeautyServices(tenantId, filters = {}) {
-  let query = supabase
+  let query = supabaseAdmin
     .from('beauty_services')
     .select('*')
     .eq('tenant_id', tenantId)
@@ -174,7 +174,7 @@ async function getBeautyServices(tenantId, filters = {}) {
  * Not: Silinmiş hizmetler de döndürülür (randevu geçmişi için)
  */
 async function getBeautyServiceById(tenantId, serviceId) {
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
     .from('beauty_services')
     .select('*')
     .eq('id', serviceId)
@@ -194,7 +194,7 @@ async function getBeautyServiceById(tenantId, serviceId) {
  * appointment_slots tablosunu kullanır
  */
 async function getAvailableSlots(tenantId, date, slotType) {
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await supabaseAdminAdmin
     .from('appointment_slots')
     .select('*')
     .eq('tenant_id', tenantId)
@@ -223,7 +223,7 @@ async function getAvailableDates(tenantId, days = 7) {
   const todayStr = today.toISOString().split('T')[0];
   const endDateStr = endDate.toISOString().split('T')[0];
 
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await supabaseAdminAdmin
     .from('appointment_slots')
     .select('slot_date, is_available')
     .eq('tenant_id', tenantId)
@@ -265,7 +265,7 @@ async function checkAndBookSlot(tenantId, date, time, slotType) {
   const timeWithoutSeconds = time.substring(0, 5);
 
   // appointment_slots'ta slot ara
-  const { data: slot, error: findError } = await supabase
+  const { data: slot, error: findError } = await supabaseAdmin
     .from('appointment_slots')
     .select('*')
     .eq('tenant_id', tenantId)
@@ -285,7 +285,7 @@ async function checkAndBookSlot(tenantId, date, time, slotType) {
   }
 
   // Slot müsait - rezerve et
-  const { error: updateError } = await supabase
+  const { error: updateError } = await supabaseAdmin
     .from('appointment_slots')
     .update({ is_available: false, updated_at: new Date().toISOString() })
     .eq('id', slot.id);
@@ -308,7 +308,7 @@ async function checkExistingAppointment(tenantId, date, time, type) {
   const table = tables[type];
   if (!table) return false;
 
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
     .from(table)
     .select('id')
     .eq('tenant_id', tenantId)
@@ -328,7 +328,7 @@ async function checkExistingAppointment(tenantId, date, time, type) {
  * Test sürüşü randevusu oluştur (tenant-scoped)
  */
 async function createTestDriveAppointment(tenantId, customerId, vehicleId, date, time, notes = null) {
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
     .from('test_drive_appointments')
     .insert({
       tenant_id: tenantId,
@@ -350,7 +350,7 @@ async function createTestDriveAppointment(tenantId, customerId, vehicleId, date,
  * Test sürüşü randevularını getir (tenant-scoped)
  */
 async function getTestDriveAppointments(tenantId, customerId = null) {
-  let query = supabase
+  let query = supabaseAdminAdmin
     .from('test_drive_appointments')
     .select(`
       *,
@@ -373,7 +373,7 @@ async function getTestDriveAppointments(tenantId, customerId = null) {
  * Test sürüşü durumu güncelle
  */
 async function updateTestDriveStatus(tenantId, appointmentId, status) {
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
     .from('test_drive_appointments')
     .update({ status, updated_at: new Date().toISOString() })
     .eq('id', appointmentId)
@@ -393,7 +393,7 @@ async function updateTestDriveStatus(tenantId, appointmentId, status) {
  * Servis randevusu oluştur (tenant-scoped)
  */
 async function createServiceAppointment(tenantId, customerId, vehiclePlate, vehicleBrand, vehicleModel, serviceType, date, time, notes = null) {
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
     .from('service_appointments')
     .insert({
       tenant_id: tenantId,
@@ -418,7 +418,7 @@ async function createServiceAppointment(tenantId, customerId, vehiclePlate, vehi
  * Servis randevularını getir (tenant-scoped)
  */
 async function getServiceAppointments(tenantId, customerId = null) {
-  let query = supabase
+  let query = supabaseAdminAdmin
     .from('service_appointments')
     .select(`
       *,
@@ -440,7 +440,7 @@ async function getServiceAppointments(tenantId, customerId = null) {
  * Servis durumu güncelle
  */
 async function updateServiceStatus(tenantId, appointmentId, status) {
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
     .from('service_appointments')
     .update({ status, updated_at: new Date().toISOString() })
     .eq('id', appointmentId)
@@ -463,7 +463,7 @@ async function createBeautyAppointment(tenantId, customerId, serviceId, date, ti
   // Hizmet bilgisini al
   const service = await getBeautyServiceById(tenantId, serviceId);
 
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
     .from('beauty_appointments')
     .insert({
       tenant_id: tenantId,
@@ -488,7 +488,7 @@ async function createBeautyAppointment(tenantId, customerId, serviceId, date, ti
  * Güzellik randevularını getir (tenant-scoped)
  */
 async function getBeautyAppointments(tenantId, customerId = null) {
-  let query = supabase
+  let query = supabaseAdmin
     .from('beauty_appointments')
     .select(`
       *,
@@ -511,7 +511,7 @@ async function getBeautyAppointments(tenantId, customerId = null) {
  * Güzellik randevusu durumu güncelle
  */
 async function updateBeautyStatus(tenantId, appointmentId, status) {
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
     .from('beauty_appointments')
     .update({ status, updated_at: new Date().toISOString() })
     .eq('id', appointmentId)
@@ -540,7 +540,7 @@ async function cancelAppointment(tenantId, appointmentId, type) {
   const table = tables[type];
   if (!table) throw new Error('Invalid appointment type');
 
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
     .from(table)
     .update({ status: 'cancelled' })
     .eq('id', appointmentId)
@@ -571,7 +571,7 @@ async function rescheduleAppointment(tenantId, appointmentId, type, newDate, new
     return { success: false, error: 'slot_unavailable' };
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
     .from(table)
     .update({
       appointment_date: newDate,
@@ -592,7 +592,7 @@ async function rescheduleAppointment(tenantId, appointmentId, type, newDate, new
  */
 async function getCustomerActiveAppointments(tenantId, customerPhone) {
   // Önce müşteriyi bul
-  const { data: customer } = await supabase
+  const { data: customer } = await supabaseAdmin
     .from('customers')
     .select('id')
     .eq('tenant_id', tenantId)
@@ -653,7 +653,7 @@ async function getCustomerActiveAppointments(tenantId, customerPhone) {
  * Arama kaydı oluştur (tenant-scoped)
  */
 async function createCallLog(tenantId, customerId, callData) {
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
     .from('call_logs')
     .insert({
       tenant_id: tenantId,
@@ -675,7 +675,7 @@ async function createCallLog(tenantId, customerId, callData) {
  * Arama kaydı güncelle
  */
 async function updateCallLog(tenantId, callLogId, updates) {
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
     .from('call_logs')
     .update(updates)
     .eq('id', callLogId)
@@ -691,7 +691,7 @@ async function updateCallLog(tenantId, callLogId, updates) {
  * Arama kayıtlarını getir (tenant-scoped)
  */
 async function getCallLogs(tenantId, limit = 50) {
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
     .from('call_logs')
     .select(`
       *,
@@ -716,7 +716,7 @@ async function saveCallLog(tenantId, callReport) {
   // Müşteriyi bul (varsa)
   let customerId = null;
   if (callerPhone !== 'unknown') {
-    const { data: customer } = await supabase
+    const { data: customer } = await supabaseAdmin
       .from('customers')
       .select('id')
       .eq('tenant_id', tenantId)
@@ -736,7 +736,7 @@ async function saveCallLog(tenantId, callReport) {
     durationSeconds = Math.round((ended - started) / 1000);
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
     .from('call_logs')
     .insert({
       tenant_id: tenantId,
@@ -769,7 +769,7 @@ async function saveCallLog(tenantId, callReport) {
  * Tenant/işletme bilgilerini getir
  */
 async function getTenantInfo(tenantId) {
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
     .from('tenants')
     .select('id, name, address, phone, email, website, assistant_name, welcome_message')
     .eq('id', tenantId)
@@ -787,7 +787,7 @@ async function getTenantInfo(tenantId) {
  * Çalışma saatlerini getir (tenant-scoped)
  */
 async function getWorkingHours(tenantId, dayOfWeek = null) {
-  let query = supabase
+  let query = supabaseAdmin
     .from('working_hours')
     .select('*')
     .eq('tenant_id', tenantId)
@@ -806,7 +806,7 @@ async function getWorkingHours(tenantId, dayOfWeek = null) {
  * Özel günleri getir (tenant-scoped)
  */
 async function getSpecialDays(tenantId, fromDate = null) {
-  let query = supabase
+  let query = supabaseAdmin
     .from('special_days')
     .select('*')
     .eq('tenant_id', tenantId)
@@ -830,7 +830,7 @@ async function getSpecialDays(tenantId, fromDate = null) {
  */
 async function getCustomerHistory(tenantId, customerPhone, limit = 5) {
   // Önce müşteriyi bul
-  const { data: customer } = await supabase
+  const { data: customer } = await supabaseAdmin
     .from('customers')
     .select('id')
     .eq('tenant_id', tenantId)
@@ -912,7 +912,7 @@ async function getCustomerHistory(tenantId, customerPhone, limit = 5) {
 async function getActiveCampaigns(tenantId) {
   const today = new Date().toISOString().split('T')[0];
 
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
     .from('campaigns')
     .select('*')
     .eq('tenant_id', tenantId)
@@ -935,7 +935,7 @@ async function getActiveCampaigns(tenantId) {
 async function getPromotionCode(tenantId, code) {
   const today = new Date().toISOString().split('T')[0];
 
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
     .from('promotion_codes')
     .select(`
       *,
@@ -984,7 +984,7 @@ async function getPromotionCode(tenantId, code) {
  */
 async function usePromotionCode(tenantId, code, customerId, appointmentId, appointmentType, discountAmount) {
   // Önce kodu bul
-  const { data: promoCode } = await supabase
+  const { data: promoCode } = await supabaseAdmin
     .from('promotion_codes')
     .select('id')
     .eq('tenant_id', tenantId)
@@ -994,7 +994,7 @@ async function usePromotionCode(tenantId, code, customerId, appointmentId, appoi
   if (!promoCode) return null;
 
   // Kullanımı kaydet
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
     .from('promotion_code_usage')
     .insert({
       promotion_code_id: promoCode.id,
@@ -1019,7 +1019,7 @@ async function usePromotionCode(tenantId, code, customerId, appointmentId, appoi
  */
 async function getLoyaltyPoints(tenantId, customerPhone) {
   // Önce müşteriyi bul
-  const { data: customer } = await supabase
+  const { data: customer } = await supabaseAdmin
     .from('customers')
     .select('id')
     .eq('tenant_id', tenantId)
@@ -1031,7 +1031,7 @@ async function getLoyaltyPoints(tenantId, customerPhone) {
   }
 
   // Sadakat puanlarını getir
-  const { data: loyalty } = await supabase
+  const { data: loyalty } = await supabaseAdmin
     .from('loyalty_points')
     .select('*')
     .eq('tenant_id', tenantId)
@@ -1081,7 +1081,7 @@ async function getLoyaltyPoints(tenantId, customerPhone) {
  * Sadakat ayarlarını getir
  */
 async function getLoyaltySettings(tenantId) {
-  const { data } = await supabase
+  const { data } = await supabaseAdmin
     .from('loyalty_settings')
     .select('*')
     .eq('tenant_id', tenantId)
@@ -1095,7 +1095,7 @@ async function getLoyaltySettings(tenantId) {
  */
 async function addLoyaltyPoints(tenantId, customerId, points, reason, appointmentId = null, appointmentType = null) {
   // Önce loyalty kaydını bul veya oluştur
-  let { data: loyalty } = await supabase
+  let { data: loyalty } = await supabaseAdmin
     .from('loyalty_points')
     .select('*')
     .eq('tenant_id', tenantId)
@@ -1103,7 +1103,7 @@ async function addLoyaltyPoints(tenantId, customerId, points, reason, appointmen
     .single();
 
   if (!loyalty) {
-    const { data: newLoyalty, error: createError } = await supabase
+    const { data: newLoyalty, error: createError } = await supabaseAdmin
       .from('loyalty_points')
       .insert({
         tenant_id: tenantId,
@@ -1125,7 +1125,7 @@ async function addLoyaltyPoints(tenantId, customerId, points, reason, appointmen
   const newTotalEarned = points > 0 ? loyalty.total_earned + points : loyalty.total_earned;
   const newTotalRedeemed = points < 0 ? loyalty.total_redeemed + Math.abs(points) : loyalty.total_redeemed;
 
-  const { data: updated, error: updateError } = await supabase
+  const { data: updated, error: updateError } = await supabaseAdmin
     .from('loyalty_points')
     .update({
       points: newPoints,
@@ -1139,7 +1139,7 @@ async function addLoyaltyPoints(tenantId, customerId, points, reason, appointmen
   if (updateError) throw updateError;
 
   // Transaction kaydı oluştur
-  await supabase
+  await supabaseAdmin
     .from('loyalty_transactions')
     .insert({
       loyalty_id: loyalty.id,
@@ -1161,7 +1161,7 @@ async function addLoyaltyPoints(tenantId, customerId, points, reason, appointmen
  * Geri bildirim kaydet (tenant-scoped)
  */
 async function submitFeedback(tenantId, feedbackData) {
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
     .from('feedback')
     .insert({
       tenant_id: tenantId,
@@ -1186,7 +1186,7 @@ async function submitFeedback(tenantId, feedbackData) {
  * Geri bildirimleri getir (tenant-scoped)
  */
 async function getFeedback(tenantId, filters = {}) {
-  let query = supabase
+  let query = supabaseAdmin
     .from('feedback')
     .select(`
       *,
@@ -1218,7 +1218,7 @@ async function getFeedback(tenantId, filters = {}) {
  * Müsait personeli getir (tenant-scoped)
  */
 async function getAvailableStaff(tenantId, date, serviceCategory = null) {
-  let query = supabase
+  let query = supabaseAdmin
     .from('staff_members')
     .select('*')
     .eq('tenant_id', tenantId)
@@ -1259,7 +1259,7 @@ async function getAvailableStaff(tenantId, date, serviceCategory = null) {
  * Personel bilgisini getir
  */
 async function getStaffById(tenantId, staffId) {
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
     .from('staff_members')
     .select('*')
     .eq('id', staffId)
@@ -1274,7 +1274,7 @@ async function getStaffById(tenantId, staffId) {
  * Personeli isimle bul
  */
 async function getStaffByName(tenantId, staffName) {
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
     .from('staff_members')
     .select('*')
     .eq('tenant_id', tenantId)
@@ -1295,7 +1295,7 @@ async function getStaffByName(tenantId, staffName) {
 async function legacyGetOrCreateCustomer(phone, name = null) {
   console.warn('[Supabase] Using legacy getOrCreateCustomer without tenantId');
 
-  const { data: existing } = await supabase
+  const { data: existing } = await supabaseAdmin
     .from('customers')
     .select('*')
     .eq('phone', phone)
@@ -1303,7 +1303,7 @@ async function legacyGetOrCreateCustomer(phone, name = null) {
 
   if (existing) return existing;
 
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
     .from('customers')
     .insert({ phone, name })
     .select()
