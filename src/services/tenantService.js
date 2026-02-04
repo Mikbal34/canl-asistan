@@ -6,8 +6,11 @@
 const { createClient } = require('@supabase/supabase-js');
 const config = require('../config/env');
 
-// Admin işlemleri için serviceRoleKey kullan (auth.admin.createUser vb.)
-const supabase = createClient(config.supabase.url, config.supabase.serviceRoleKey);
+// Normal DB işlemleri için anonKey
+const supabase = createClient(config.supabase.url, config.supabase.anonKey);
+
+// Admin işlemleri için serviceRoleKey (auth.admin.createUser vb.)
+const supabaseAdmin = createClient(config.supabase.url, config.supabase.serviceRoleKey);
 
 // VAPI Service - lazy load to avoid circular dependency
 let vapiService = null;
@@ -202,8 +205,8 @@ async function createTenant(tenantData) {
   // Admin panelden kullanıcı oluşturma isteği varsa (Supabase Auth + DB)
   if (createUser && finalUserEmail && finalPassword) {
     try {
-      // 1. Supabase Auth'da kullanıcı oluştur
-      const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+      // 1. Supabase Auth'da kullanıcı oluştur (Admin API gerektirir)
+      const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
         email: finalUserEmail,
         password: finalPassword,
         email_confirm: true, // Email doğrulamasını atla
@@ -231,7 +234,7 @@ async function createTenant(tenantData) {
       if (userError) {
         console.error('[TenantService] DB user creation error:', userError);
         // Rollback: Auth user'ı sil
-        await supabase.auth.admin.deleteUser(authData.user.id);
+        await supabaseAdmin.auth.admin.deleteUser(authData.user.id);
         throw userError;
       }
 
