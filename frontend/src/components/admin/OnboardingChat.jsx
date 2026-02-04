@@ -14,6 +14,8 @@ import {
   AlertCircle,
   RotateCcw,
   Package,
+  Settings,
+  FileText,
 } from 'lucide-react';
 import { Modal } from '../common/Modal';
 import { Button } from '../common/Button';
@@ -23,7 +25,10 @@ import { onboardingAgentAPI } from '../../services/api';
 const STEPS = {
   industry: { label: 'Sektör', icon: Building2 },
   company_info: { label: 'Firma Bilgileri', icon: Building2 },
-  template: { label: 'Şablon', icon: Package },
+  onboarding_mode: { label: 'Mod', icon: Settings },
+  template_or_analysis: { label: 'Şablon/Analiz', icon: Package },
+  use_cases: { label: 'Özellikler', icon: Settings },
+  custom_rules: { label: 'Kurallar', icon: FileText },
   services: { label: 'Hizmetler', icon: Scissors },
   working_hours: { label: 'Çalışma Saatleri', icon: Clock },
   staff: { label: 'Personel', icon: User },
@@ -38,10 +43,21 @@ const QUICK_ACTIONS = {
     { label: 'Güzellik Salonu', value: 'güzellik salonu' },
     { label: 'Kuaför', value: 'kuaför' },
   ],
-  template: [
+  onboarding_mode: [
+    { label: '📦 Hazır paket seç', value: 'Hazır paket kullanmak istiyorum' },
+    { label: '🎯 Kendim belirleyeyim', value: 'İhtiyaçlarıma göre özel ayarlayalım' },
+  ],
+  template_or_analysis: [
     { label: '⭐ Önerilen Paket', value: 'Önerilen paketi seç' },
     { label: 'Temel Paket', value: 'Temel paketi istiyorum' },
     { label: 'Premium Paket', value: 'Premium paketi seç' },
+  ],
+  use_cases: [
+    { label: 'Mevcut özellikleri kullan', value: 'Mevcut özellikleri kullan, devam et' },
+    { label: 'Tüm özellikleri ekle', value: 'Tüm özellikleri aktifle' },
+  ],
+  custom_rules: [
+    { label: 'Kural yok, devam', value: 'Özel kural yok, devam et' },
   ],
   services: [
     { label: 'Hizmetleri geç', value: 'Hizmet eklemek istemiyorum, geç' },

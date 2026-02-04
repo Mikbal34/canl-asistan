@@ -16,7 +16,9 @@ const openai = new OpenAI({
 const supabase = createClient(config.supabase.url, config.supabase.serviceRoleKey);
 
 // Steps for onboarding flow
-const STEPS = ['industry', 'company_info', 'template', 'services', 'working_hours', 'staff', 'password', 'summary'];
+// onboarding_mode: template (şablon seç) veya dynamic (ihtiyaç analizi)
+// template_or_analysis: şablon modunda template seçimi, dinamik modda use case sorgusu
+const STEPS = ['industry', 'company_info', 'onboarding_mode', 'template_or_analysis', 'use_cases', 'custom_rules', 'services', 'working_hours', 'staff', 'password', 'summary'];
 
 // Industry options
 const INDUSTRIES = {
@@ -37,21 +39,60 @@ Görevin:
 Adımlar:
 1. Sektör seçimi (automotive, beauty_salon, hairdresser)
 2. Firma bilgileri (ad, telefon, email)
-3. Asistan şablonu seçimi (basic, standard, premium)
-4. Hizmetler (isim, süre, fiyat)
-5. Çalışma saatleri
-6. Personel (isim, uzmanlık)
-7. Giriş şifresi
-8. Özet ve onay
+3. Onboarding modu seçimi: "Hazır paket" veya "Kendim belirleyeyim"
+4. Template seçimi VEYA İhtiyaç analizi (moda bağlı)
+5. Use case özelleştirme (şablon modunda) veya devam (dinamik modda)
+6. Özel iş kuralları (yaş sınırı, ödeme koşulları, iptal politikası vb.)
+7. Hizmetler (isim, süre, fiyat)
+8. Çalışma saatleri
+9. Personel (isim, uzmanlık)
+10. Giriş şifresi
+11. Özet ve onay
 
-Şablon Seçimi Kuralları:
-- Sektör seçildikten ve firma bilgileri alındıktan sonra, o sektöre ait şablonları sun
+## Onboarding Modu Seçimi:
+Firma bilgileri alındıktan sonra kullanıcıya sor:
+"Nasıl ilerlemek istersiniz?"
+- "Hazır paket seç" → select_onboarding_mode('template') çağır, sonra şablon listesi sun
+- "Kendim belirleyeyim" → select_onboarding_mode('dynamic') çağır, sonra ihtiyaç analizi başlat
+
+## Şablon Modu (onboardingMode = 'template'):
+- Sektöre ait şablonları sun
 - Her şablonun özelliklerini ve use case'lerini açıkla
 - Önerilen (featured) şablonu vurgula ve tavsiye et
 - Şablon tier'ları: basic (temel), standard (profesyonel), premium (VIP)
-- Şablon seçimi zorunlu, kullanıcı mutlaka bir paket seçmeli
+- Şablon seçildikten sonra, kullanıcıya ek özellik eklemek isteyip istemediğini sor
+- toggle_use_case ile özellik ekle/çıkar
+- Tamamlandığında finish_use_cases çağır
 
-Genel Kurallar:
+## Dinamik Mod (onboardingMode = 'dynamic'):
+- Şablon KULLANMA, direkt use case'leri belirle
+- Her use case için sektöre uygun bir soru sor
+- Cevaba göre set_use_case_from_analysis çağır
+- Tüm sorular bitince finish_use_case_analysis çağır
+
+İhtiyaç Analizi Örnek Sorular:
+- Otomotiv: "Müşterileriniz telefonda randevu alıyor mu?", "Test sürüşü hizmeti veriyor musunuz?", "Fiyat bilgisi veriyor musunuz telefonda?", "Kampanya duyurusu yapar mısınız?"
+- Güzellik Salonu: "Randevu sistemi kullanıyor musunuz?", "Hizmet fiyatlarını telefonda söylüyor musunuz?", "Kampanya ve indirim duyuruları yapıyor musunuz?", "VIP müşteri programınız var mı?"
+- Kuaför: "Randevu alıyor musunuz?", "Fiyat listesi paylaşıyor musunuz?", "Ürün satışı yapıyor musunuz?"
+
+Use Case Listesi:
+- business_info: Firma bilgileri sağlama
+- appointments_core: Randevu alma
+- pricing: Fiyat bilgisi
+- promotions: Kampanya/promosyon duyuruları
+- test_drive: Test sürüşü (otomotiv)
+- service_appointment: Servis randevusu (otomotiv)
+- vehicle_inquiry: Araç sorgulama (otomotiv)
+- product_catalog: Ürün kataloğu
+- vip_services: VIP hizmetler
+
+## Özel Kurallar Toplama:
+- Use case belirlendikten sonra, firmanın özel kurallarını sor
+- Örnek: "Firmanızın özel kuralları var mı? Yaş sınırı, ödeme koşulları, iptal politikası gibi..."
+- Her kuralı add_custom_rule ile kaydet
+- Kural yoksa veya tamamlandığında finish_custom_rules çağır
+
+## Genel Kurallar:
 - Türkçe konuş, samimi ve profesyonel ol
 - Eksik bilgi varsa tekrar sor
 - Bilgileri doğrulatmak için özet göster
@@ -101,14 +142,131 @@ const FUNCTION_DEFINITIONS = [
   {
     type: 'function',
     function: {
+      name: 'select_onboarding_mode',
+      description: 'Onboarding modunu seç: şablon (hazır paket) veya dinamik (ihtiyaç analizi)',
+      parameters: {
+        type: 'object',
+        properties: {
+          mode: {
+            type: 'string',
+            enum: ['template', 'dynamic'],
+            description: 'template: hazır şablon seç, dynamic: ihtiyaç analizi yap',
+          },
+        },
+        required: ['mode'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
       name: 'select_template',
-      description: 'Asistan şablonu seç (basic, standard, premium paketler)',
+      description: 'Asistan şablonu seç (basic, standard, premium paketler) - sadece template modunda kullan',
       parameters: {
         type: 'object',
         properties: {
           templateId: { type: 'string', description: 'Şablon ID (örn: beauty_standard, automotive_basic)' },
         },
         required: ['templateId'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'set_use_case_from_analysis',
+      description: 'İhtiyaç analizine göre use case aktifle/pasifle - sadece dynamic modunda kullan',
+      parameters: {
+        type: 'object',
+        properties: {
+          useCase: {
+            type: 'string',
+            description: 'Use case ID (örn: appointments_core, pricing, test_drive)',
+          },
+          enabled: {
+            type: 'boolean',
+            description: 'Aktifleştir (true) veya pasifleştir (false)',
+          },
+          reason: {
+            type: 'string',
+            description: 'Neden aktif/pasif (AI analiz notu)',
+          },
+        },
+        required: ['useCase', 'enabled'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'finish_use_case_analysis',
+      description: 'Dinamik ihtiyaç analizini tamamla ve bir sonraki adıma geç',
+      parameters: {
+        type: 'object',
+        properties: {},
+        required: [],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'toggle_use_case',
+      description: 'Use case aktifle veya deaktifle (şablondaki özelliklere ek olarak)',
+      parameters: {
+        type: 'object',
+        properties: {
+          useCase: {
+            type: 'string',
+            description: 'Use case ID (örn: test_drive, service_appointment, promotions, appointment_booking)',
+          },
+          enabled: {
+            type: 'boolean',
+            description: 'Aktifleştir (true) veya deaktifle (false)',
+          },
+        },
+        required: ['useCase', 'enabled'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'add_custom_rule',
+      description: 'Özel iş kuralı ekle (yaş sınırı, ödeme koşulları, iptal politikası vb.)',
+      parameters: {
+        type: 'object',
+        properties: {
+          rule: {
+            type: 'string',
+            description: 'Kural açıklaması (örn: "18 yaş altına test sürüşü verilmez")',
+          },
+        },
+        required: ['rule'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'finish_use_cases',
+      description: 'Use case seçimini tamamla ve bir sonraki adıma geç',
+      parameters: {
+        type: 'object',
+        properties: {},
+        required: [],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'finish_custom_rules',
+      description: 'Özel kuralları tamamla ve bir sonraki adıma geç',
+      parameters: {
+        type: 'object',
+        properties: {},
+        required: [],
       },
     },
   },
@@ -344,12 +502,42 @@ function generateStateDescription(session) {
   if (collected_data.email) {
     state += `- Email: ${collected_data.email}\n`;
   }
-  if (collected_data.templateId) {
-    state += `- Şablon: ${collected_data.templateId}`;
-    if (collected_data.templateName) {
-      state += ` (${collected_data.templateName})`;
+  if (collected_data.onboardingMode) {
+    state += `- Onboarding modu: ${collected_data.onboardingMode === 'template' ? 'Şablon (Hazır Paket)' : 'Dinamik (İhtiyaç Analizi)'}\n`;
+  }
+  if (collected_data.onboardingMode === 'template') {
+    if (collected_data.templateId) {
+      state += `- Şablon: ${collected_data.templateId}`;
+      if (collected_data.templateName) {
+        state += ` (${collected_data.templateName})`;
+      }
+      state += '\n';
+      if (collected_data.templateUseCases && collected_data.templateUseCases.length > 0) {
+        state += `- Şablondaki özellikler: ${collected_data.templateUseCases.join(', ')}\n`;
+      }
     }
-    state += '\n';
+    if (collected_data.addedUseCases && collected_data.addedUseCases.length > 0) {
+      state += `- Eklenen özellikler: ${collected_data.addedUseCases.join(', ')}\n`;
+    }
+    if (collected_data.removedUseCases && collected_data.removedUseCases.length > 0) {
+      state += `- Çıkarılan özellikler: ${collected_data.removedUseCases.join(', ')}\n`;
+    }
+  } else if (collected_data.onboardingMode === 'dynamic') {
+    if (collected_data.dynamicUseCases && collected_data.dynamicUseCases.length > 0) {
+      state += `- Belirlenen özellikler (dinamik): ${collected_data.dynamicUseCases.join(', ')}\n`;
+    }
+    if (collected_data.analysisNotes && Object.keys(collected_data.analysisNotes).length > 0) {
+      state += `- Analiz notları:\n`;
+      for (const [uc, note] of Object.entries(collected_data.analysisNotes)) {
+        state += `  - ${uc}: ${note}\n`;
+      }
+    }
+  }
+  if (collected_data.customRules && collected_data.customRules.length > 0) {
+    state += `- Özel kurallar:\n`;
+    collected_data.customRules.forEach((rule, i) => {
+      state += `  ${i + 1}. ${rule}\n`;
+    });
   }
   if (collected_data.assistantName) {
     state += `- Asistan adı: ${collected_data.assistantName}\n`;
@@ -411,9 +599,22 @@ async function processFunctionCall(session, functionName, args) {
           .replace(/[^a-z0-9\s]/g, '')
           .replace(/\s+/g, '-')
           .substring(0, 30);
-        newStep = 'template';
+        newStep = 'onboarding_mode';
       }
       result.message = 'Firma bilgileri kaydedildi.';
+      break;
+
+    case 'select_onboarding_mode':
+      collected_data.onboardingMode = args.mode;
+      newStep = 'template_or_analysis';
+      if (args.mode === 'dynamic') {
+        // Initialize dynamic use case tracking
+        collected_data.dynamicUseCases = [];
+        collected_data.analysisNotes = {};
+        result.message = 'Dinamik mod seçildi. İhtiyaç analizi başlıyor...';
+      } else {
+        result.message = 'Şablon modu seçildi. Şablon listesi sunulacak...';
+      }
       break;
 
     case 'select_template':
@@ -424,14 +625,18 @@ async function processFunctionCall(session, functionName, args) {
             collected_data.templateId = args.templateId;
             collected_data.templateName = template.name;
             collected_data.templateTier = template.tier;
+            collected_data.templateUseCases = template.included_use_cases || [];
+            // Initialize use case tracking arrays
+            collected_data.addedUseCases = [];
+            collected_data.removedUseCases = [];
             // Set assistant name from template if defined
             if (template.default_assistant_name) {
               collected_data.assistantName = template.default_assistant_name;
             }
             // Set language
             collected_data.language = template.default_language || 'tr';
-            newStep = 'services';
-            result.message = `${template.name} şablonu seçildi.`;
+            newStep = 'use_cases';
+            result.message = `${template.name} şablonu seçildi. Şablonda dahil özellikler: ${(template.included_use_cases || []).join(', ') || 'Yok'}`;
             result.template = template;
           } else {
             result.success = false;
@@ -443,6 +648,101 @@ async function processFunctionCall(session, functionName, args) {
           result.message = 'Şablon seçilirken hata oluştu.';
         }
       }
+      break;
+
+    case 'set_use_case_from_analysis':
+      // Dynamic mode: Set use case from needs analysis
+      if (collected_data.onboardingMode !== 'dynamic') {
+        result.success = false;
+        result.message = 'Bu fonksiyon sadece dinamik modda kullanılabilir.';
+        break;
+      }
+      if (args.useCase) {
+        if (!collected_data.dynamicUseCases) collected_data.dynamicUseCases = [];
+        if (!collected_data.analysisNotes) collected_data.analysisNotes = {};
+
+        if (args.enabled) {
+          // Add use case if not already in list
+          if (!collected_data.dynamicUseCases.includes(args.useCase)) {
+            collected_data.dynamicUseCases.push(args.useCase);
+          }
+          result.message = `"${args.useCase}" özelliği aktifleştirildi.`;
+        } else {
+          // Remove use case if in list
+          collected_data.dynamicUseCases = collected_data.dynamicUseCases.filter(uc => uc !== args.useCase);
+          result.message = `"${args.useCase}" özelliği pasifleştirildi.`;
+        }
+
+        // Store analysis note if provided
+        if (args.reason) {
+          collected_data.analysisNotes[args.useCase] = args.reason;
+        }
+      }
+      break;
+
+    case 'finish_use_case_analysis':
+      // Dynamic mode: Finish needs analysis and move to custom_rules
+      if (collected_data.onboardingMode !== 'dynamic') {
+        result.success = false;
+        result.message = 'Bu fonksiyon sadece dinamik modda kullanılabilir.';
+        break;
+      }
+      // Always add business_info as a base use case
+      if (!collected_data.dynamicUseCases) collected_data.dynamicUseCases = [];
+      if (!collected_data.dynamicUseCases.includes('business_info')) {
+        collected_data.dynamicUseCases.unshift('business_info');
+      }
+      newStep = 'custom_rules';
+      result.message = `İhtiyaç analizi tamamlandı. Belirlenen özellikler: ${collected_data.dynamicUseCases.join(', ')}`;
+      break;
+
+    case 'toggle_use_case':
+      if (args.useCase) {
+        if (!collected_data.addedUseCases) collected_data.addedUseCases = [];
+        if (!collected_data.removedUseCases) collected_data.removedUseCases = [];
+        const templateUseCases = collected_data.templateUseCases || [];
+
+        if (args.enabled) {
+          // Add use case
+          // If it was in removedUseCases, remove from there
+          collected_data.removedUseCases = collected_data.removedUseCases.filter(uc => uc !== args.useCase);
+          // If it's not in template, add to addedUseCases
+          if (!templateUseCases.includes(args.useCase) && !collected_data.addedUseCases.includes(args.useCase)) {
+            collected_data.addedUseCases.push(args.useCase);
+          }
+          result.message = `"${args.useCase}" özelliği aktifleştirildi.`;
+        } else {
+          // Remove use case
+          // If it was in addedUseCases, remove from there
+          collected_data.addedUseCases = collected_data.addedUseCases.filter(uc => uc !== args.useCase);
+          // If it's in template, add to removedUseCases
+          if (templateUseCases.includes(args.useCase) && !collected_data.removedUseCases.includes(args.useCase)) {
+            collected_data.removedUseCases.push(args.useCase);
+          }
+          result.message = `"${args.useCase}" özelliği deaktifleştirildi.`;
+        }
+      }
+      break;
+
+    case 'finish_use_cases':
+      newStep = 'custom_rules';
+      result.message = 'Use case seçimi tamamlandı.';
+      break;
+
+    case 'add_custom_rule':
+      if (args.rule && args.rule.trim()) {
+        if (!collected_data.customRules) collected_data.customRules = [];
+        collected_data.customRules.push(args.rule.trim());
+        result.message = `Kural eklendi: "${args.rule.trim()}" (${collected_data.customRules.length} kural)`;
+      } else {
+        result.success = false;
+        result.message = 'Kural boş olamaz.';
+      }
+      break;
+
+    case 'finish_custom_rules':
+      newStep = 'services';
+      result.message = 'Özel kurallar tamamlandı.';
       break;
 
     case 'add_service':
@@ -727,14 +1027,114 @@ async function createTenantFromSession(sessionId) {
     userPassword: data.password,
   });
 
-  // Apply template if selected
-  if (data.templateId) {
+  // Handle use cases based on onboarding mode
+  if (data.onboardingMode === 'dynamic') {
+    // Dynamic mode: No template, directly insert use cases
+    console.log(`[OnboardingAgent] Dynamic mode: inserting ${(data.dynamicUseCases || []).length} use cases directly`);
+
+    const dynamicUseCases = data.dynamicUseCases || ['business_info'];
+
+    if (dynamicUseCases.length > 0) {
+      const useCasesToInsert = dynamicUseCases.map(uc => ({
+        tenant_id: tenant.id,
+        use_case_id: uc,
+        enabled: true,
+      }));
+
+      try {
+        // Clear existing use cases first
+        await supabase
+          .from('tenant_use_cases')
+          .delete()
+          .eq('tenant_id', tenant.id);
+
+        // Insert new use cases
+        await supabase.from('tenant_use_cases').insert(useCasesToInsert);
+        console.log(`[OnboardingAgent] Inserted ${dynamicUseCases.length} dynamic use cases for tenant ${tenant.id}`);
+      } catch (err) {
+        console.error('[OnboardingAgent] Error inserting dynamic use cases:', err);
+      }
+    }
+
+    // Store analysis notes in tenant metadata if available
+    if (data.analysisNotes && Object.keys(data.analysisNotes).length > 0) {
+      try {
+        const { data: tenantData } = await supabase
+          .from('tenants')
+          .select('metadata')
+          .eq('id', tenant.id)
+          .single();
+
+        const existingMetadata = tenantData?.metadata || {};
+        await supabase
+          .from('tenants')
+          .update({
+            metadata: {
+              ...existingMetadata,
+              onboarding_mode: 'dynamic',
+              use_case_analysis_notes: data.analysisNotes,
+            },
+          })
+          .eq('id', tenant.id);
+      } catch (err) {
+        console.error('[OnboardingAgent] Error storing analysis notes:', err);
+      }
+    }
+
+  } else if (data.templateId) {
+    // Template mode: Apply template and customize
     try {
       await templateService.selectTemplate(tenant.id, data.templateId);
       console.log(`[OnboardingAgent] Template ${data.templateId} applied to tenant ${tenant.id}`);
+
+      // Sync effective use cases: (template + added) - removed
+      const templateUseCases = data.templateUseCases || [];
+      const addedUseCases = data.addedUseCases || [];
+      const removedUseCases = data.removedUseCases || [];
+
+      const effectiveUseCases = [...new Set([...templateUseCases, ...addedUseCases])]
+        .filter(uc => !removedUseCases.includes(uc));
+
+      if (effectiveUseCases.length > 0) {
+        // Update tenant_assistant_template with added/removed use cases
+        await supabase
+          .from('tenant_assistant_template')
+          .update({
+            added_use_cases: addedUseCases,
+            removed_use_cases: removedUseCases,
+          })
+          .eq('tenant_id', tenant.id);
+
+        // Sync to tenant_use_cases
+        try {
+          await templateService.syncEffectiveUseCases(tenant.id, effectiveUseCases);
+          console.log(`[OnboardingAgent] Synced ${effectiveUseCases.length} use cases to tenant ${tenant.id}`);
+        } catch (err) {
+          console.error('[OnboardingAgent] Error syncing use cases:', err);
+        }
+      }
     } catch (err) {
       console.error('[OnboardingAgent] Error applying template:', err);
       // Don't fail tenant creation if template fails
+    }
+  }
+
+  // Save custom rules to voice_config_override
+  if (data.customRules && data.customRules.length > 0) {
+    const rulesSection = `\n\n## Özel Kurallar\n${data.customRules.map(r => `- ${r}`).join('\n')}`;
+
+    try {
+      await supabase
+        .from('tenants')
+        .update({
+          voice_config_override: {
+            system_prompt_suffix: rulesSection,
+          },
+        })
+        .eq('id', tenant.id);
+      console.log(`[OnboardingAgent] Saved ${data.customRules.length} custom rules to tenant ${tenant.id}`);
+    } catch (err) {
+      console.error('[OnboardingAgent] Error saving custom rules:', err);
     }
   }
 

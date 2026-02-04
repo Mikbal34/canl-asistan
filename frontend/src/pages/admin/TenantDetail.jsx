@@ -607,12 +607,27 @@ export const TenantDetail = () => {
     }
   }, [tenantTemplate]);
 
+  // Seçili asistan detaylarını göster/gizle
+  const [showCurrentDetails, setShowCurrentDetails] = useState(false);
+
   const renderAssistantTab = () => {
     const industryUseCases = availableUseCases.length > 0
       ? availableUseCases
       : (INDUSTRY_USE_CASES[tenant?.industry] || INDUSTRY_USE_CASES.automotive);
 
     const industryTemplates = templates.filter(t => t.industry === tenant?.industry);
+
+    // Mevcut aktif şablon
+    const currentTemplate = tenantTemplate?.template_id
+      ? industryTemplates.find(t => t.id === tenantTemplate.template_id)
+      : null;
+
+    const tierColors = {
+      basic: { bg: 'from-slate-50 to-slate-100', border: 'border-slate-200', badge: 'bg-slate-500', text: 'text-slate-700' },
+      standard: { bg: 'from-blue-50 to-indigo-50', border: 'border-blue-200', badge: 'bg-blue-600', text: 'text-blue-700' },
+      premium: { bg: 'from-amber-50 to-orange-50', border: 'border-amber-200', badge: 'bg-amber-600', text: 'text-amber-700' },
+    };
+    const tierLabels = { basic: 'Temel', standard: 'Standart', premium: 'Premium' };
 
     const handleUseCaseToggle = (useCaseId) => {
       const isCurrentlyEnabled = tenantUseCases.includes(useCaseId);
@@ -673,6 +688,127 @@ export const TenantDetail = () => {
 
     return (
       <div className="space-y-6">
+        {/* SEÇİLİ ASISTAN KARTI - En üstte */}
+        {(currentTemplate || tenantUseCases.length > 0) && (
+          <div
+            className={`p-5 rounded-2xl border-2 cursor-pointer transition-all ${
+              currentTemplate
+                ? `bg-gradient-to-r ${tierColors[currentTemplate.tier]?.bg || tierColors.standard.bg} ${tierColors[currentTemplate.tier]?.border || 'border-slate-200'}`
+                : 'bg-gradient-to-r from-purple-50 to-pink-50 border-purple-200'
+            }`}
+            onClick={() => setShowCurrentDetails(!showCurrentDetails)}
+          >
+            <div className="flex items-start justify-between">
+              <div className="flex items-start gap-4">
+                {/* Icon */}
+                <div className={`w-16 h-16 rounded-2xl flex items-center justify-center ${
+                  currentTemplate ? 'bg-white shadow-sm' : 'bg-purple-100'
+                }`}>
+                  {currentTemplate ? (
+                    currentTemplate.tier === 'premium' ? (
+                      <span className="text-3xl">👑</span>
+                    ) : currentTemplate.tier === 'standard' ? (
+                      <span className="text-3xl">⭐</span>
+                    ) : (
+                      <span className="text-3xl">📦</span>
+                    )
+                  ) : (
+                    <Settings className="w-8 h-8 text-purple-600" />
+                  )}
+                </div>
+
+                {/* Info */}
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-sm text-slate-500">Seçili Asistan:</span>
+                    <span className={`px-2 py-0.5 rounded-full text-white text-xs font-bold ${
+                      currentTemplate
+                        ? (tierColors[currentTemplate.tier]?.badge || 'bg-blue-600')
+                        : 'bg-purple-600'
+                    }`}>
+                      {currentTemplate ? tierLabels[currentTemplate.tier] : 'Özel'}
+                    </span>
+                  </div>
+                  <h3 className="text-xl font-bold text-slate-900">
+                    {currentTemplate ? currentTemplate.name_tr : 'Özel Asistan'}
+                  </h3>
+                  <p className="text-sm text-slate-600 mt-1">
+                    {currentTemplate
+                      ? currentTemplate.description_tr
+                      : `${tenantUseCases.length} özellik ile özelleştirilmiş asistan`
+                    }
+                  </p>
+
+                  {/* Quick Stats */}
+                  <div className="flex items-center gap-4 mt-3">
+                    <span className="flex items-center gap-1.5 text-sm text-slate-600">
+                      <Wrench className="w-4 h-4" />
+                      {currentTemplate
+                        ? (currentTemplate.included_use_cases?.length || 0)
+                        : tenantUseCases.length
+                      } özellik
+                    </span>
+                    {tenantTemplate?.added_use_cases?.length > 0 && (
+                      <span className="flex items-center gap-1 text-sm text-emerald-600">
+                        <CheckCircle className="w-4 h-4" />
+                        +{tenantTemplate.added_use_cases.length} eklendi
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Expand/Collapse */}
+              <div className="flex flex-col items-end gap-2">
+                <span className="px-3 py-1 bg-emerald-500 text-white text-xs font-bold rounded-full">
+                  AKTİF
+                </span>
+                <button className="p-2 hover:bg-white/50 rounded-lg transition-colors text-slate-400">
+                  {showCurrentDetails ? '▲ Gizle' : '▼ Detaylar'}
+                </button>
+              </div>
+            </div>
+
+            {/* Expandable Details */}
+            {showCurrentDetails && (
+              <div className="mt-4 pt-4 border-t border-slate-200/50 space-y-3">
+                <h4 className="text-sm font-semibold text-slate-700">Aktif Özellikler:</h4>
+                <div className="flex flex-wrap gap-2">
+                  {(currentTemplate ? currentTemplate.included_use_cases : tenantUseCases)?.map((ucId) => {
+                    const uc = industryUseCases.find(u => u.id === ucId);
+                    return (
+                      <span
+                        key={ucId}
+                        className="px-3 py-1.5 bg-white/80 text-slate-700 text-sm rounded-lg border border-slate-200 flex items-center gap-1.5"
+                      >
+                        <CheckCircle className="w-3.5 h-3.5 text-emerald-500" />
+                        {uc?.name_tr || ucId}
+                      </span>
+                    );
+                  })}
+                  {tenantTemplate?.added_use_cases?.map((ucId) => {
+                    const uc = industryUseCases.find(u => u.id === ucId);
+                    return (
+                      <span
+                        key={`added-${ucId}`}
+                        className="px-3 py-1.5 bg-emerald-100 text-emerald-700 text-sm rounded-lg border border-emerald-200 flex items-center gap-1.5"
+                      >
+                        <span className="text-xs">+</span>
+                        {uc?.name_tr || ucId}
+                      </span>
+                    );
+                  })}
+                </div>
+                {tenantTemplate?.selected_at && (
+                  <p className="text-xs text-slate-400 mt-2">
+                    Seçilme tarihi: {new Date(tenantTemplate.selected_at).toLocaleDateString('tr-TR')}
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Asistan Bilgileri */}
         <div>
           <h3 className="text-lg font-semibold text-slate-900 mb-4">Asistan Bilgileri</h3>
@@ -750,10 +886,24 @@ export const TenantDetail = () => {
 
         {/* Asistan Seçimi Başlık */}
         <div className="pt-6 border-t border-slate-200">
-          <h3 className="text-lg font-semibold text-slate-900">Asistan Seçimi</h3>
-          <p className="text-sm text-slate-500 mt-1">
-            Hazır bir şablon seçin veya özel asistan oluşturun
-          </p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-lg font-semibold text-slate-900">Asistan Değiştir</h3>
+              <p className="text-sm text-slate-500 mt-1">
+                {currentTemplate
+                  ? `Mevcut: ${currentTemplate.name_tr} • Değiştirmek için yeni bir şablon seçin`
+                  : tenantUseCases.length > 0
+                  ? `Mevcut: Özel Asistan (${tenantUseCases.length} özellik) • Değiştirmek için seçin`
+                  : 'Hazır bir şablon seçin veya özel asistan oluşturun'
+                }
+              </p>
+            </div>
+            {(currentTemplate || tenantUseCases.length > 0) && (
+              <span className="text-xs text-slate-400 bg-slate-100 px-2 py-1 rounded">
+                Yeşil kenarlı = Mevcut aktif
+              </span>
+            )}
+          </div>
         </div>
 
         {/* Şablon Kartları */}
@@ -762,32 +912,35 @@ export const TenantDetail = () => {
           {industryTemplates.map((template) => {
             const isSelected = assistantMode === 'template' && selectedTemplateId === template.id;
             const isCurrent = tenantTemplate?.template_id === template.id;
-            const tierColors = {
+            const cardTierColors = {
               basic: 'from-slate-400 to-slate-500',
               standard: 'from-blue-500 to-indigo-600',
               premium: 'from-amber-500 to-orange-600',
             };
-            const tierLabels = { basic: 'Basic', standard: 'Standard', premium: 'Premium' };
+            const cardTierLabels = { basic: 'Basic', standard: 'Standard', premium: 'Premium' };
 
             return (
               <div
                 key={template.id}
                 onClick={() => handleTemplateSelect(template.id)}
                 className={`relative p-5 rounded-2xl border-2 cursor-pointer transition-all ${
-                  isSelected
+                  isCurrent
+                    ? 'border-emerald-500 bg-emerald-50 shadow-lg ring-2 ring-emerald-200'
+                    : isSelected
                     ? 'border-indigo-500 bg-indigo-50 shadow-lg scale-[1.02]'
                     : 'border-slate-200 bg-white hover:border-slate-300 hover:shadow-md'
                 }`}
               >
                 {/* Tier Badge */}
-                <div className={`absolute -top-3 left-4 px-3 py-1 rounded-full text-white text-xs font-bold bg-gradient-to-r ${tierColors[template.tier] || tierColors.standard}`}>
-                  {tierLabels[template.tier] || 'Standard'}
+                <div className={`absolute -top-3 left-4 px-3 py-1 rounded-full text-white text-xs font-bold bg-gradient-to-r ${cardTierColors[template.tier] || cardTierColors.standard}`}>
+                  {cardTierLabels[template.tier] || 'Standard'}
                 </div>
 
-                {/* Mevcut Badge */}
+                {/* Mevcut Badge - daha belirgin */}
                 {isCurrent && (
-                  <div className="absolute -top-3 right-4 px-2 py-1 rounded-full bg-emerald-500 text-white text-xs font-bold">
-                    Aktif
+                  <div className="absolute -top-3 right-4 px-3 py-1 rounded-full bg-emerald-500 text-white text-xs font-bold flex items-center gap-1 shadow-sm">
+                    <CheckCircle className="w-3 h-3" />
+                    AKTİF
                   </div>
                 )}
 
@@ -830,36 +983,59 @@ export const TenantDetail = () => {
           })}
 
           {/* Özel Asistan Kartı */}
-          <div
-            onClick={handleCustomSelect}
-            className={`relative p-5 rounded-2xl border-2 cursor-pointer transition-all ${
-              assistantMode === 'custom'
-                ? 'border-purple-500 bg-purple-50 shadow-lg scale-[1.02]'
-                : 'border-dashed border-slate-300 bg-white hover:border-slate-400 hover:shadow-md'
-            }`}
-          >
-            {/* Badge */}
-            <div className="absolute -top-3 left-4 px-3 py-1 rounded-full text-white text-xs font-bold bg-gradient-to-r from-purple-500 to-pink-600">
-              Özel
-            </div>
+          {(() => {
+            const isCustomCurrent = !tenantTemplate?.template_id && tenantUseCases.length > 0;
+            return (
+              <div
+                onClick={handleCustomSelect}
+                className={`relative p-5 rounded-2xl border-2 cursor-pointer transition-all ${
+                  isCustomCurrent
+                    ? 'border-emerald-500 bg-emerald-50 shadow-lg ring-2 ring-emerald-200'
+                    : assistantMode === 'custom'
+                    ? 'border-purple-500 bg-purple-50 shadow-lg scale-[1.02]'
+                    : 'border-dashed border-slate-300 bg-white hover:border-slate-400 hover:shadow-md'
+                }`}
+              >
+                {/* Badge */}
+                <div className="absolute -top-3 left-4 px-3 py-1 rounded-full text-white text-xs font-bold bg-gradient-to-r from-purple-500 to-pink-600">
+                  Özel
+                </div>
 
-            {/* Seçim İndikatörü */}
-            <div className={`absolute top-4 right-4 w-6 h-6 rounded-full border-2 flex items-center justify-center ${
-              assistantMode === 'custom' ? 'border-purple-500 bg-purple-500' : 'border-slate-300'
-            }`}>
-              {assistantMode === 'custom' && <CheckCircle className="w-4 h-4 text-white" />}
-            </div>
+                {/* Aktif Badge */}
+                {isCustomCurrent && (
+                  <div className="absolute -top-3 right-4 px-3 py-1 rounded-full bg-emerald-500 text-white text-xs font-bold flex items-center gap-1 shadow-sm">
+                    <CheckCircle className="w-3 h-3" />
+                    AKTİF
+                  </div>
+                )}
 
-            <div className="pt-4">
-              <h4 className="font-bold text-slate-900 text-lg mb-2">Özel Asistan</h4>
-              <p className="text-sm text-slate-500 mb-4">İstediğiniz özellikleri tek tek seçin</p>
+                {/* Seçim İndikatörü */}
+                {!isCustomCurrent && (
+                  <div className={`absolute top-4 right-4 w-6 h-6 rounded-full border-2 flex items-center justify-center ${
+                    assistantMode === 'custom' ? 'border-purple-500 bg-purple-500' : 'border-slate-300'
+                  }`}>
+                    {assistantMode === 'custom' && <CheckCircle className="w-4 h-4 text-white" />}
+                  </div>
+                )}
 
-              <div className="flex items-center gap-2 text-sm text-purple-600">
-                <Settings className="w-4 h-4" />
-                <span>Tam kontrol</span>
+                <div className="pt-4">
+                  <h4 className="font-bold text-slate-900 text-lg mb-2">Özel Asistan</h4>
+                  <p className="text-sm text-slate-500 mb-4">İstediğiniz özellikleri tek tek seçin</p>
+
+                  <div className="flex items-center gap-2 text-sm text-purple-600">
+                    <Settings className="w-4 h-4" />
+                    <span>Tam kontrol</span>
+                  </div>
+
+                  {isCustomCurrent && (
+                    <div className="mt-2 text-xs text-emerald-600">
+                      {tenantUseCases.length} özellik aktif
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-          </div>
+            );
+          })()}
         </div>
 
         {/* Seçili Şablonun Detayları veya Özel Seçim */}
