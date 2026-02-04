@@ -14,6 +14,7 @@ const useCaseService = require('./useCaseService');
 const { buildUseCasePromptSections } = require('../prompts/useCasePrompts');
 
 const supabase = createClient(config.supabase.url, config.supabase.anonKey);
+const supabaseAdmin = createClient(config.supabase.url, config.supabase.serviceRoleKey);
 
 // Lazy load PromptCompiler to avoid circular dependencies
 let _promptCompiler = null;
@@ -276,7 +277,7 @@ function buildAssistantConfig(mergedConfig, tenantInfo, language, tools = []) {
  */
 async function createAssistant(tenantId, language, customConfig = null) {
   // Tenant bilgisini al
-  const { data: tenant, error: tenantError } = await supabase
+  const { data: tenant, error: tenantError } = await supabaseAdmin
     .from('tenants')
     .select('*')
     .eq('id', tenantId)
@@ -287,7 +288,7 @@ async function createAssistant(tenantId, language, customConfig = null) {
   }
 
   // Industry preset'i al
-  const { data: preset, error: presetError } = await supabase
+  const { data: preset, error: presetError } = await supabaseAdmin
     .from('industry_presets')
     .select('*')
     .eq('industry', tenant.industry)
@@ -374,7 +375,7 @@ async function createAssistant(tenantId, language, customConfig = null) {
 
   // Tenant'a assistant ID'yi kaydet
   const assistantIdColumn = `vapi_assistant_id_${language}`;
-  await supabase
+  await supabaseAdmin
     .from('tenants')
     .update({ [assistantIdColumn]: assistant.id })
     .eq('id', tenantId);
@@ -521,7 +522,7 @@ async function getAssistant(assistantId) {
  */
 async function syncTenantToVapi(tenantId, language = null) {
   // Tenant bilgisini al
-  const { data: tenant, error: tenantError } = await supabase
+  const { data: tenant, error: tenantError } = await supabaseAdmin
     .from('tenants')
     .select('*')
     .eq('id', tenantId)
@@ -543,7 +544,7 @@ async function syncTenantToVapi(tenantId, language = null) {
     try {
       if (existingAssistantId) {
         // Mevcut assistant'i guncelle
-        const { data: preset } = await supabase
+        const { data: preset } = await supabaseAdmin
           .from('industry_presets')
           .select('*')
           .eq('industry', tenant.industry)
@@ -622,7 +623,7 @@ async function syncTenantToVapi(tenantId, language = null) {
         // Yeni dili tenant'in supported_languages'ina ekle
         const currentLanguages = tenant.supported_languages || [];
         if (!currentLanguages.includes(lang)) {
-          await supabase
+          await supabaseAdmin
             .from('tenants')
             .update({ supported_languages: [...currentLanguages, lang] })
             .eq('id', tenantId);
@@ -657,7 +658,7 @@ async function syncPresetToAllTenants(industry, language) {
   }
 
   // Industry preset'i al
-  const { data: preset, error: presetError } = await supabase
+  const { data: preset, error: presetError } = await supabaseAdmin
     .from('industry_presets')
     .select('*')
     .eq('industry', industry)
@@ -668,7 +669,7 @@ async function syncPresetToAllTenants(industry, language) {
   }
 
   // Bu industry'deki tum aktif tenant'lari al
-  const { data: tenants, error: tenantsError } = await supabase
+  const { data: tenants, error: tenantsError } = await supabaseAdmin
     .from('tenants')
     .select('id, name, supported_languages, vapi_assistant_id_tr, vapi_assistant_id_en, vapi_assistant_id_de')
     .eq('industry', industry)
@@ -750,7 +751,7 @@ async function createPhoneNumber(tenantId, options = {}) {
   const { provider = 'twilio', areaCode } = options;
 
   // Tenant bilgisini al
-  const { data: tenant, error } = await supabase
+  const { data: tenant, error } = await supabaseAdmin
     .from('tenants')
     .select('*')
     .eq('id', tenantId)
@@ -781,7 +782,7 @@ async function createPhoneNumber(tenantId, options = {}) {
   });
 
   // Tenant'a telefon numarasini kaydet
-  await supabase
+  await supabaseAdmin
     .from('tenants')
     .update({ vapi_phone_number_id: phoneNumber.id })
     .eq('id', tenantId);
@@ -797,7 +798,7 @@ async function createPhoneNumber(tenantId, options = {}) {
 async function getTenantByVapiAssistant(assistantId) {
   console.log('[VapiService] getTenantByVapiAssistant - searching for assistantId:', assistantId);
 
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
     .from('tenants')
     .select('*')
     .or(`vapi_assistant_id_tr.eq.${assistantId},vapi_assistant_id_en.eq.${assistantId},vapi_assistant_id_de.eq.${assistantId}`)
@@ -822,7 +823,7 @@ async function getTenantByVapiAssistant(assistantId) {
  */
 async function getTenantVapiConfig(tenantId, language = 'tr') {
   // Tenant bilgisini al
-  const { data: tenant, error: tenantError } = await supabase
+  const { data: tenant, error: tenantError } = await supabaseAdmin
     .from('tenants')
     .select('*')
     .eq('id', tenantId)
@@ -833,7 +834,7 @@ async function getTenantVapiConfig(tenantId, language = 'tr') {
   }
 
   // Industry preset'i al
-  const { data: preset, error: presetError } = await supabase
+  const { data: preset, error: presetError } = await supabaseAdmin
     .from('industry_presets')
     .select('*')
     .eq('industry', tenant.industry)
@@ -876,7 +877,7 @@ async function getTenantVapiConfig(tenantId, language = 'tr') {
  */
 async function updateTenantVoiceConfig(tenantId, overrideConfig) {
   // Mevcut override'i al
-  const { data: tenant, error: tenantError } = await supabase
+  const { data: tenant, error: tenantError } = await supabaseAdmin
     .from('tenants')
     .select('voice_config_override')
     .eq('id', tenantId)
@@ -891,7 +892,7 @@ async function updateTenantVoiceConfig(tenantId, overrideConfig) {
   };
 
   // Kaydet
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
     .from('tenants')
     .update({ voice_config_override: newOverride })
     .eq('id', tenantId)
@@ -919,7 +920,7 @@ async function logSync(logData) {
     errorMessage,
   } = logData;
 
-  const { error } = await supabase
+  const { error } = await supabaseAdmin
     .from('vapi_sync_log')
     .insert({
       tenant_id: tenantId,
@@ -976,7 +977,7 @@ async function getSyncLogs(filters = {}) {
  */
 async function createMasterAssistant(industry, language) {
   // Industry preset'i al
-  const { data: preset, error: presetError } = await supabase
+  const { data: preset, error: presetError } = await supabaseAdmin
     .from('industry_presets')
     .select('*')
     .eq('industry', industry)
@@ -1050,7 +1051,7 @@ async function createMasterAssistant(industry, language) {
 
   // Preset'e master assistant ID'yi kaydet
   const assistantIdColumn = `vapi_master_assistant_id_${language}`;
-  await supabase
+  await supabaseAdmin
     .from('industry_presets')
     .update({ [assistantIdColumn]: assistant.id })
     .eq('industry', industry);
@@ -1075,7 +1076,7 @@ async function createMasterAssistant(industry, language) {
  * @param {string} language - Dil kodu
  */
 async function deleteMasterAssistant(industry, language) {
-  const { data: preset, error } = await supabase
+  const { data: preset, error } = await supabaseAdmin
     .from('industry_presets')
     .select(`vapi_master_assistant_id_${language}`)
     .eq('industry', industry)
@@ -1094,7 +1095,7 @@ async function deleteMasterAssistant(industry, language) {
   await deleteAssistant(assistantId);
 
   // DB'den ID'yi temizle
-  await supabase
+  await supabaseAdmin
     .from('industry_presets')
     .update({ [`vapi_master_assistant_id_${language}`]: null })
     .eq('industry', industry);
@@ -1108,7 +1109,7 @@ async function deleteMasterAssistant(industry, language) {
  * @param {string} industry - Industry kodu
  */
 async function getMasterAssistants(industry) {
-  const { data: preset, error } = await supabase
+  const { data: preset, error } = await supabaseAdmin
     .from('industry_presets')
     .select('vapi_master_assistant_id_tr, vapi_master_assistant_id_en, vapi_master_assistant_id_de')
     .eq('industry', industry)
@@ -1132,7 +1133,7 @@ async function getMasterAssistants(industry) {
  */
 async function duplicateMasterForTenant(industry, language, tenantId) {
   // Master asistan ID'sini al
-  const { data: preset, error: presetError } = await supabase
+  const { data: preset, error: presetError } = await supabaseAdmin
     .from('industry_presets')
     .select('*')
     .eq('industry', industry)
@@ -1148,7 +1149,7 @@ async function duplicateMasterForTenant(industry, language, tenantId) {
   }
 
   // Tenant bilgisini al
-  const { data: tenant, error: tenantError } = await supabase
+  const { data: tenant, error: tenantError } = await supabaseAdmin
     .from('tenants')
     .select('*')
     .eq('id', tenantId)
@@ -1242,7 +1243,7 @@ async function duplicateMasterForTenant(industry, language, tenantId) {
 
   // Tenant'a assistant ID'yi kaydet
   const assistantIdColumn = `vapi_assistant_id_${language}`;
-  await supabase
+  await supabaseAdmin
     .from('tenants')
     .update({ [assistantIdColumn]: assistant.id })
     .eq('id', tenantId);
