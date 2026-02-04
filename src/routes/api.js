@@ -24,6 +24,8 @@ const onboardingAgentRouter = require('./onboardingAgent');
 
 // Supabase client
 const supabase = createClient(config.supabase.url, config.supabase.anonKey);
+// Admin client for operations that bypass RLS (slot management, etc.)
+const supabaseAdmin = createClient(config.supabase.url, config.supabase.serviceRoleKey);
 
 // ==========================================
 // PUBLIC ROUTES (No Auth Required)
@@ -1097,7 +1099,7 @@ router.get('/admin/tenants/:id/slots', authenticate(), requireSuperAdmin, async 
     // Try to get existing slots for the date (table might not exist yet)
     let existingSlots = [];
     try {
-      const { data, error } = await supabase
+      const { data, error } = await supabaseAdmin
         .from('appointment_slots')
         .select('*')
         .eq('tenant_id', tenantId)
@@ -1180,7 +1182,7 @@ router.put('/admin/tenants/:id/slots/:slotId', authenticate(), requireSuperAdmin
       });
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from('appointment_slots')
       .update({ is_available, updated_at: new Date().toISOString() })
       .eq('id', slotId)
@@ -1226,7 +1228,7 @@ router.post('/admin/tenants/:id/slots/bulk', authenticate(), requireSuperAdmin, 
     const slotDate = slots[0].slot_date;
 
     // Delete existing slots for this date
-    await supabase
+    await supabaseAdmin
       .from('appointment_slots')
       .delete()
       .eq('tenant_id', tenantId)
@@ -1238,12 +1240,10 @@ router.post('/admin/tenants/:id/slots/bulk', authenticate(), requireSuperAdmin, 
       slot_date: slot.slot_date,
       slot_time: slot.slot_time,
       is_available: slot.is_available,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
     }));
 
     // Insert new slots
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from('appointment_slots')
       .insert(slotsToInsert)
       .select();
@@ -1336,7 +1336,7 @@ router.post('/admin/tenants/:id/slots/generate', authenticate(), requireSuperAdm
 
     // Delete existing slots for these dates
     for (const dateStr of dates) {
-      await supabase
+      await supabaseAdmin
         .from('appointment_slots')
         .delete()
         .eq('tenant_id', tenantId)
@@ -1349,7 +1349,7 @@ router.post('/admin/tenants/:id/slots/generate', authenticate(), requireSuperAdm
 
     for (let i = 0; i < allSlots.length; i += batchSize) {
       const batch = allSlots.slice(i, i + batchSize);
-      const { data, error } = await supabase
+      const { data, error } = await supabaseAdmin
         .from('appointment_slots')
         .insert(batch)
         .select();
