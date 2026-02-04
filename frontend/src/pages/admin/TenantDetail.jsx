@@ -6,7 +6,6 @@ import {
   Building2,
   Phone,
   Clock,
-  Mic,
   Settings,
   Save,
   Trash2,
@@ -15,7 +14,6 @@ import {
   CheckCircle,
   XCircle,
   Loader2,
-  Calendar,
   Users,
   Edit3,
   Palette,
@@ -40,6 +38,7 @@ import { SlotManagerEditor } from '../../components/admin/SlotManagerEditor';
 import { AppointmentsViewer } from '../../components/admin/AppointmentsViewer';
 import { CustomersViewer } from '../../components/admin/CustomersViewer';
 import { FeedbackViewer } from '../../components/admin/FeedbackViewer';
+import { TemplateSelector } from '../../components/admin/TemplateSelector';
 
 // Industry config
 const industryConfig = {
@@ -65,9 +64,7 @@ const industryConfig = {
 const tabs = [
   { id: 'general', label: 'Genel', icon: Building2 },
   { id: 'branding', label: 'Branding', icon: Palette },
-  { id: 'voice', label: 'Ses Ayarları', icon: Mic },
-  { id: 'usecases', label: 'Use Cases', icon: Settings },
-  { id: 'features', label: 'Özellikler', icon: Settings },
+  { id: 'assistant', label: 'Asistan', icon: Settings },
 ];
 
 // Default use cases per industry
@@ -142,6 +139,11 @@ export const TenantDetail = () => {
   const [useCasesLoading, setUseCasesLoading] = useState(false);
   const [useCasesSaving, setUseCasesSaving] = useState(false);
 
+  // Templates state
+  const [templates, setTemplates] = useState([]);
+  const [tenantTemplate, setTenantTemplate] = useState(null);
+  const [templatesLoading, setTemplatesLoading] = useState(false);
+
   useEffect(() => {
     fetchTenant();
   }, [id]);
@@ -154,9 +156,11 @@ export const TenantDetail = () => {
       setTenant(tenantData);
       setEditData(tenantData);
 
-      // Tenant yüklendikten sonra use case'leri çek
+      // Tenant yüklendikten sonra use case'leri ve şablonları çek
       if (tenantData?.industry) {
         fetchUseCases(tenantData.industry);
+        fetchTemplates(tenantData.industry);
+        fetchTenantTemplate();
       }
     } catch (error) {
       console.error('Failed to fetch tenant:', error);
@@ -187,6 +191,42 @@ export const TenantDetail = () => {
       setTenantUseCases([]);
     } finally {
       setUseCasesLoading(false);
+    }
+  };
+
+  const fetchTemplates = async (industry) => {
+    try {
+      setTemplatesLoading(true);
+      const response = await adminAPI.getTemplates({ industry });
+      setTemplates(response.data || []);
+    } catch (error) {
+      console.error('Failed to fetch templates:', error);
+      setTemplates([]);
+    } finally {
+      setTemplatesLoading(false);
+    }
+  };
+
+  const fetchTenantTemplate = async () => {
+    try {
+      const response = await adminAPI.getTenantTemplate(id);
+      setTenantTemplate(response.data);
+    } catch (error) {
+      console.error('Failed to fetch tenant template:', error);
+      setTenantTemplate(null);
+    }
+  };
+
+  const handleTemplateAssigned = async (templateId) => {
+    try {
+      await adminAPI.assignTenantTemplate(id, templateId, true);
+      alert('Şablon atandı ve VAPI\'ye sync edildi!');
+      // Refresh data
+      await fetchTenantTemplate();
+      await fetchUseCases(tenant.industry);
+    } catch (error) {
+      console.error('Failed to assign template:', error);
+      throw error;
     }
   };
 
@@ -345,25 +385,6 @@ export const TenantDetail = () => {
             label="Slug"
             value={editData.slug || ''}
             onChange={(e) => handleInputChange('slug', e.target.value)}
-            disabled={!isEditing}
-          />
-          <div>
-            <label className="block text-sm font-medium text-slate-600 mb-2">Varsayılan Dil</label>
-            <select
-              value={editData.default_language || 'tr'}
-              onChange={(e) => handleInputChange('default_language', e.target.value)}
-              disabled={!isEditing}
-              className="input w-full"
-            >
-              <option value="tr">Türkçe</option>
-              <option value="en">English</option>
-              <option value="de">Deutsch</option>
-            </select>
-          </div>
-          <Input
-            label="Asistan Adı"
-            value={editData.assistant_name || ''}
-            onChange={(e) => handleInputChange('assistant_name', e.target.value)}
             disabled={!isEditing}
           />
           <div>
@@ -572,113 +593,77 @@ export const TenantDetail = () => {
     );
   };
 
-  const renderVoiceTab = () => (
-    <div className="space-y-6">
-      <h3 className="text-lg font-semibold text-slate-900">Ses Ayarları</h3>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div>
-          <label className="block text-sm font-medium text-slate-600 mb-2">TTS Sağlayıcı</label>
-          <select
-            value={editData.tts_provider || 'deepgram'}
-            onChange={(e) => handleInputChange('tts_provider', e.target.value)}
-            disabled={!isEditing}
-            className="input w-full"
-          >
-            <option value="deepgram">Deepgram</option>
-            <option value="elevenlabs">ElevenLabs</option>
-            <option value="playht">PlayHT</option>
-          </select>
-        </div>
-
-        <Input
-          label="Voice ID"
-          value={editData.elevenlabs_voice_id || ''}
-          onChange={(e) => handleInputChange('elevenlabs_voice_id', e.target.value)}
-          disabled={!isEditing}
-          placeholder="Örn: EXAVITQu4vr4xnSDxMaL"
-        />
-      </div>
-
-      {/* Voice Config Override */}
-      {tenant?.voice_config_override && (
-        <div className="pt-6 border-t border-slate-200">
-          <h4 className="text-md font-semibold text-slate-900 mb-4">Özel Ayarlar</h4>
-          <div className="p-4 rounded-lg bg-slate-50">
-            <pre className="text-sm text-slate-700 overflow-auto">
-              {JSON.stringify(tenant.voice_config_override, null, 2)}
-            </pre>
-          </div>
-        </div>
-      )}
-
-      {/* VAPI Assistant IDs */}
-      <div className="pt-6 border-t border-slate-200">
-        <h4 className="text-md font-semibold text-slate-900 mb-4">VAPI Asistanları</h4>
-        <div className="space-y-2">
-          {['tr', 'en', 'de'].map((lang) => {
-            const assistantId = tenant?.[`vapi_assistant_id_${lang}`];
-            return (
-              <div key={lang} className="flex items-center justify-between p-3 rounded-lg bg-slate-50">
-                <span className="text-slate-600 uppercase">{lang}</span>
-                {assistantId ? (
-                  <code className="text-sm text-indigo-600 bg-indigo-50 px-2 py-1 rounded">
-                    {assistantId}
-                  </code>
-                ) : (
-                  <span className="text-slate-400">-</span>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    </div>
+  // Asistan modu: 'template' veya 'custom'
+  const [assistantMode, setAssistantMode] = useState(
+    tenantTemplate?.template_id ? 'template' : 'custom'
   );
+  const [selectedTemplateId, setSelectedTemplateId] = useState(tenantTemplate?.template_id || null);
 
-  const renderUseCasesTab = () => {
-    // API'den çekilen use case'leri kullan, yoksa statik listeye düş
+  // Update mode when template data loads
+  useEffect(() => {
+    if (tenantTemplate?.template_id) {
+      setAssistantMode('template');
+      setSelectedTemplateId(tenantTemplate.template_id);
+    }
+  }, [tenantTemplate]);
+
+  const renderAssistantTab = () => {
     const industryUseCases = availableUseCases.length > 0
       ? availableUseCases
       : (INDUSTRY_USE_CASES[tenant?.industry] || INDUSTRY_USE_CASES.automotive);
 
-    const handleUseCaseToggle = async (useCaseId) => {
+    const industryTemplates = templates.filter(t => t.industry === tenant?.industry);
+
+    const handleUseCaseToggle = (useCaseId) => {
       const isCurrentlyEnabled = tenantUseCases.includes(useCaseId);
       const newTenantUseCases = isCurrentlyEnabled
         ? tenantUseCases.filter(id => id !== useCaseId)
         : [...tenantUseCases, useCaseId];
-
       setTenantUseCases(newTenantUseCases);
       setHasChanges(true);
     };
 
-    const handleSelectAll = () => {
-      const allIds = industryUseCases.map(uc => uc.id);
-      setTenantUseCases(allIds);
+    const handleTemplateSelect = async (templateId) => {
+      setSelectedTemplateId(templateId);
+      setAssistantMode('template');
       setHasChanges(true);
     };
 
-    const handleDeselectAll = () => {
-      setTenantUseCases([]);
+    const handleCustomSelect = () => {
+      setAssistantMode('custom');
+      setSelectedTemplateId(null);
       setHasChanges(true);
     };
 
-    const handleSaveUseCases = async () => {
+    const handleSaveAndSync = async () => {
       try {
         setUseCasesSaving(true);
-        // Admin olarak tenant'ın use case'lerini kaydet ve sync et
-        await adminAPI.setTenantUseCases(id, tenantUseCases, true);
-        alert('Use case\'ler kaydedildi ve VAPI\'ye sync edildi!');
+
+        if (assistantMode === 'template' && selectedTemplateId) {
+          // Şablon modunda - şablonu ata
+          await adminAPI.assignTenantTemplate(id, selectedTemplateId, true);
+          await fetchTenantTemplate();
+          await fetchUseCases(tenant.industry);
+          alert('Şablon atandı ve VAPI\'ye sync edildi!');
+        } else {
+          // Özel modda - use case'leri kaydet
+          await adminAPI.setTenantUseCases(id, tenantUseCases, true);
+          alert('Özellikler kaydedildi ve VAPI\'ye sync edildi!');
+        }
+
         setHasChanges(false);
       } catch (error) {
-        console.error('Failed to save use cases:', error);
-        alert('Use case kaydetme hatası: ' + error.message);
+        console.error('Failed to save:', error);
+        alert('Kaydetme hatası: ' + error.message);
       } finally {
         setUseCasesSaving(false);
       }
     };
 
-    if (useCasesLoading) {
+    // Seçili şablonun özellikleri
+    const selectedTemplate = industryTemplates.find(t => t.id === selectedTemplateId);
+
+    if (useCasesLoading || templatesLoading) {
       return (
         <div className="flex items-center justify-center py-12">
           <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
@@ -688,211 +673,322 @@ export const TenantDetail = () => {
 
     return (
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="text-lg font-semibold text-slate-900">Use Cases (Özellikler)</h3>
-            <p className="text-sm text-slate-500 mt-1">
-              Asistanın kullanacağı özellikleri seçin. Seçilen özellikler VAPI asistanına sync edilir.
-            </p>
-          </div>
-          <div className="flex gap-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleSelectAll}
-            >
-              Tümünü Seç
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleDeselectAll}
-            >
-              Tümünü Kaldır
-            </Button>
+        {/* Asistan Bilgileri */}
+        <div>
+          <h3 className="text-lg font-semibold text-slate-900 mb-4">Asistan Bilgileri</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <Input
+              label="Asistan Adı"
+              value={editData.assistant_name || ''}
+              onChange={(e) => handleInputChange('assistant_name', e.target.value)}
+              disabled={!isEditing}
+            />
+            <div>
+              <label className="block text-sm font-medium text-slate-600 mb-2">Varsayılan Dil</label>
+              <select
+                value={editData.default_language || 'tr'}
+                onChange={(e) => handleInputChange('default_language', e.target.value)}
+                disabled={!isEditing}
+                className="input w-full"
+              >
+                <option value="tr">Türkçe</option>
+                <option value="en">English</option>
+                <option value="de">Deutsch</option>
+              </select>
+            </div>
           </div>
         </div>
 
-        {industryUseCases.length === 0 ? (
-          <div className="p-8 rounded-xl border-2 border-dashed border-slate-300 text-center">
-            <Wrench className="w-12 h-12 mx-auto text-slate-400 mb-4" />
-            <p className="text-slate-600">Bu sektör için henüz use case tanımlanmamış.</p>
-            <p className="text-sm text-slate-500 mt-2">
-              Admin panelden use case ekleyebilirsiniz.
-            </p>
+        {/* Ses Ayarları */}
+        <div className="pt-6 border-t border-slate-200">
+          <h3 className="text-lg font-semibold text-slate-900 mb-4">Ses Ayarları</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label className="block text-sm font-medium text-slate-600 mb-2">TTS Sağlayıcı</label>
+              <select
+                value={editData.tts_provider || 'deepgram'}
+                onChange={(e) => handleInputChange('tts_provider', e.target.value)}
+                disabled={!isEditing}
+                className="input w-full"
+              >
+                <option value="deepgram">Deepgram</option>
+                <option value="elevenlabs">ElevenLabs</option>
+                <option value="playht">PlayHT</option>
+              </select>
+            </div>
+            <Input
+              label="Voice ID"
+              value={editData.elevenlabs_voice_id || ''}
+              onChange={(e) => handleInputChange('elevenlabs_voice_id', e.target.value)}
+              disabled={!isEditing}
+              placeholder="Örn: EXAVITQu4vr4xnSDxMaL"
+            />
           </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {industryUseCases.map((useCase) => {
-              const isEnabled = tenantUseCases.includes(useCase.id);
-              return (
-                <div
-                  key={useCase.id}
-                  className={`p-4 rounded-lg border transition-all cursor-pointer ${
-                    isEnabled
-                      ? 'bg-indigo-50 border-indigo-300 hover:bg-indigo-100'
-                      : 'bg-slate-50 border-slate-200 hover:bg-slate-100'
-                  }`}
-                  onClick={() => handleUseCaseToggle(useCase.id)}
-                >
-                  <div className="flex items-start gap-3">
-                    <div className={`w-5 h-5 rounded flex items-center justify-center flex-shrink-0 mt-0.5 ${
-                      isEnabled ? 'bg-indigo-600 text-white' : 'bg-white border border-slate-300'
-                    }`}>
-                      {isEnabled && <CheckCircle className="w-3 h-3" />}
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex items-center justify-between">
-                        <p className={`font-medium ${isEnabled ? 'text-slate-900' : 'text-slate-600'}`}>
-                          {useCase.name}
-                        </p>
-                        {useCase.category && (
-                          <Badge variant="info" className="text-xs">
-                            {useCase.category}
-                          </Badge>
-                        )}
-                      </div>
-                      <p className="text-sm text-slate-500 mt-1">
-                        {useCase.description}
-                      </p>
-                      {useCase.tools && useCase.tools.length > 0 && (
-                        <div className="flex flex-wrap gap-1 mt-2">
-                          {useCase.tools.slice(0, 3).map((tool, idx) => (
-                            <span key={idx} className="text-xs bg-slate-200 text-slate-600 px-2 py-0.5 rounded">
-                              {typeof tool === 'string' ? tool : tool.name}
-                            </span>
-                          ))}
-                          {useCase.tools.length > 3 && (
-                            <span className="text-xs text-slate-400">+{useCase.tools.length - 3}</span>
-                          )}
-                        </div>
+
+          {/* VAPI Assistant IDs */}
+          <div className="mt-6">
+            <h4 className="text-md font-semibold text-slate-900 mb-4">VAPI Asistanları</h4>
+            <div className="space-y-2">
+              {['tr', 'en', 'de'].map((lang) => {
+                const assistantId = tenant?.[`vapi_assistant_id_${lang}`];
+                return (
+                  <div key={lang} className="flex items-center justify-between p-3 rounded-lg bg-slate-50">
+                    <span className="text-slate-600 uppercase">{lang}</span>
+                    {assistantId ? (
+                      <code className="text-sm text-indigo-600 bg-indigo-50 px-2 py-1 rounded">
+                        {assistantId}
+                      </code>
+                    ) : (
+                      <span className="text-slate-400">-</span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        {/* Asistan Seçimi Başlık */}
+        <div className="pt-6 border-t border-slate-200">
+          <h3 className="text-lg font-semibold text-slate-900">Asistan Seçimi</h3>
+          <p className="text-sm text-slate-500 mt-1">
+            Hazır bir şablon seçin veya özel asistan oluşturun
+          </p>
+        </div>
+
+        {/* Şablon Kartları */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* Hazır Şablonlar */}
+          {industryTemplates.map((template) => {
+            const isSelected = assistantMode === 'template' && selectedTemplateId === template.id;
+            const isCurrent = tenantTemplate?.template_id === template.id;
+            const tierColors = {
+              basic: 'from-slate-400 to-slate-500',
+              standard: 'from-blue-500 to-indigo-600',
+              premium: 'from-amber-500 to-orange-600',
+            };
+            const tierLabels = { basic: 'Basic', standard: 'Standard', premium: 'Premium' };
+
+            return (
+              <div
+                key={template.id}
+                onClick={() => handleTemplateSelect(template.id)}
+                className={`relative p-5 rounded-2xl border-2 cursor-pointer transition-all ${
+                  isSelected
+                    ? 'border-indigo-500 bg-indigo-50 shadow-lg scale-[1.02]'
+                    : 'border-slate-200 bg-white hover:border-slate-300 hover:shadow-md'
+                }`}
+              >
+                {/* Tier Badge */}
+                <div className={`absolute -top-3 left-4 px-3 py-1 rounded-full text-white text-xs font-bold bg-gradient-to-r ${tierColors[template.tier] || tierColors.standard}`}>
+                  {tierLabels[template.tier] || 'Standard'}
+                </div>
+
+                {/* Mevcut Badge */}
+                {isCurrent && (
+                  <div className="absolute -top-3 right-4 px-2 py-1 rounded-full bg-emerald-500 text-white text-xs font-bold">
+                    Aktif
+                  </div>
+                )}
+
+                {/* Seçim İndikatörü */}
+                <div className={`absolute top-4 right-4 w-6 h-6 rounded-full border-2 flex items-center justify-center ${
+                  isSelected ? 'border-indigo-500 bg-indigo-500' : 'border-slate-300'
+                }`}>
+                  {isSelected && <CheckCircle className="w-4 h-4 text-white" />}
+                </div>
+
+                <div className="pt-4">
+                  <h4 className="font-bold text-slate-900 text-lg mb-2">{template.name_tr}</h4>
+                  <p className="text-sm text-slate-500 mb-4 line-clamp-2">{template.description_tr}</p>
+
+                  {/* Özellik Sayısı */}
+                  <div className="flex items-center gap-2 text-sm text-slate-600">
+                    <Wrench className="w-4 h-4" />
+                    <span>{template.included_use_cases?.length || 0} özellik</span>
+                  </div>
+
+                  {/* Özellik Listesi */}
+                  {template.included_use_cases && template.included_use_cases.length > 0 && (
+                    <div className="mt-3 flex flex-wrap gap-1">
+                      {template.included_use_cases.slice(0, 3).map((ucId, idx) => {
+                        const uc = industryUseCases.find(u => u.id === ucId);
+                        return (
+                          <span key={idx} className="text-xs px-2 py-0.5 bg-slate-100 text-slate-600 rounded">
+                            {uc?.name_tr || ucId}
+                          </span>
+                        );
+                      })}
+                      {template.included_use_cases.length > 3 && (
+                        <span className="text-xs text-slate-400">+{template.included_use_cases.length - 3}</span>
                       )}
                     </div>
-                  </div>
+                  )}
                 </div>
-              );
-            })}
+              </div>
+            );
+          })}
+
+          {/* Özel Asistan Kartı */}
+          <div
+            onClick={handleCustomSelect}
+            className={`relative p-5 rounded-2xl border-2 cursor-pointer transition-all ${
+              assistantMode === 'custom'
+                ? 'border-purple-500 bg-purple-50 shadow-lg scale-[1.02]'
+                : 'border-dashed border-slate-300 bg-white hover:border-slate-400 hover:shadow-md'
+            }`}
+          >
+            {/* Badge */}
+            <div className="absolute -top-3 left-4 px-3 py-1 rounded-full text-white text-xs font-bold bg-gradient-to-r from-purple-500 to-pink-600">
+              Özel
+            </div>
+
+            {/* Seçim İndikatörü */}
+            <div className={`absolute top-4 right-4 w-6 h-6 rounded-full border-2 flex items-center justify-center ${
+              assistantMode === 'custom' ? 'border-purple-500 bg-purple-500' : 'border-slate-300'
+            }`}>
+              {assistantMode === 'custom' && <CheckCircle className="w-4 h-4 text-white" />}
+            </div>
+
+            <div className="pt-4">
+              <h4 className="font-bold text-slate-900 text-lg mb-2">Özel Asistan</h4>
+              <p className="text-sm text-slate-500 mb-4">İstediğiniz özellikleri tek tek seçin</p>
+
+              <div className="flex items-center gap-2 text-sm text-purple-600">
+                <Settings className="w-4 h-4" />
+                <span>Tam kontrol</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Seçili Şablonun Detayları veya Özel Seçim */}
+        {assistantMode === 'template' && selectedTemplate && (
+          <div className="p-6 bg-indigo-50 border border-indigo-200 rounded-xl">
+            <div className="flex items-start justify-between mb-4">
+              <div>
+                <h4 className="font-semibold text-slate-900 text-lg">{selectedTemplate.name_tr}</h4>
+                <p className="text-sm text-slate-600">{selectedTemplate.description_tr}</p>
+              </div>
+              <Badge variant="info">{selectedTemplate.included_use_cases?.length || 0} özellik</Badge>
+            </div>
+
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+              {selectedTemplate.included_use_cases?.map((ucId) => {
+                const uc = industryUseCases.find(u => u.id === ucId);
+                return (
+                  <div key={ucId} className="flex items-center gap-2 p-3 bg-white rounded-lg">
+                    <CheckCircle className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+                    <span className="text-sm text-slate-700">{uc?.name_tr || ucId}</span>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         )}
 
-        {/* Save & Sync */}
-        <div className="pt-6 border-t border-slate-200">
-          <div className="flex items-center justify-between p-4 rounded-lg bg-blue-50 border border-blue-200">
-            <div className="flex items-center gap-3">
-              <RefreshCw className="w-5 h-5 text-blue-600" />
+        {assistantMode === 'custom' && (
+          <div className="p-6 bg-purple-50 border border-purple-200 rounded-xl">
+            <div className="flex items-center justify-between mb-4">
               <div>
-                <p className="text-blue-800 font-medium">Kaydet & VAPI Sync</p>
-                <p className="text-sm text-blue-600">
-                  Use case değişikliklerini kaydedin ve VAPI asistanına sync edin.
-                </p>
+                <h4 className="font-semibold text-slate-900 text-lg">Özellik Seçimi</h4>
+                <p className="text-sm text-slate-600">Asistanınızın kullanacağı özellikleri seçin</p>
               </div>
+              <Badge variant="info">{tenantUseCases.length} seçili</Badge>
             </div>
-            <div className="flex gap-2">
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={handleSync}
-                disabled={syncing}
-              >
-                {syncing ? (
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                ) : (
-                  <RefreshCw className="w-4 h-4 mr-2" />
-                )}
-                Sadece Sync
-              </Button>
-              <Button
-                variant="primary"
-                size="sm"
-                onClick={handleSaveUseCases}
-                disabled={useCasesSaving}
-              >
-                {useCasesSaving ? (
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                ) : (
-                  <Save className="w-4 h-4 mr-2" />
-                )}
-                Kaydet & Sync
-              </Button>
-            </div>
-          </div>
-        </div>
 
-        {/* Current Status */}
-        <div className="pt-6 border-t border-slate-200">
-          <h4 className="text-md font-semibold text-slate-900 mb-4">
-            Aktif Özellikler ({tenantUseCases.length})
-          </h4>
-          {tenantUseCases.length > 0 ? (
-            <div className="flex flex-wrap gap-2">
-              {tenantUseCases.map((ucId) => {
-                const uc = industryUseCases.find(u => u.id === ucId);
-                return uc ? (
-                  <Badge key={ucId} variant="success">
-                    {uc.name}
-                  </Badge>
-                ) : null;
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {industryUseCases.map((useCase) => {
+                const isEnabled = tenantUseCases.includes(useCase.id);
+                return (
+                  <div
+                    key={useCase.id}
+                    onClick={() => handleUseCaseToggle(useCase.id)}
+                    className={`flex items-start gap-3 p-3 rounded-lg cursor-pointer transition-all ${
+                      isEnabled
+                        ? 'bg-purple-100 border border-purple-300'
+                        : 'bg-white border border-slate-200 hover:bg-slate-50'
+                    }`}
+                  >
+                    <div className={`w-5 h-5 rounded flex items-center justify-center flex-shrink-0 mt-0.5 ${
+                      isEnabled ? 'bg-purple-600 text-white' : 'bg-white border border-slate-300'
+                    }`}>
+                      {isEnabled && <CheckCircle className="w-3 h-3" />}
+                    </div>
+                    <div>
+                      <p className={`font-medium text-sm ${isEnabled ? 'text-slate-900' : 'text-slate-600'}`}>
+                        {useCase.name_tr || useCase.name}
+                      </p>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        {useCase.description_tr || useCase.description}
+                      </p>
+                    </div>
+                  </div>
+                );
               })}
             </div>
-          ) : (
-            <p className="text-slate-500 text-sm">Henüz hiçbir özellik seçilmedi.</p>
-          )}
+          </div>
+        )}
+
+        {/* Kaydet Butonu */}
+        <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-200">
+          <div>
+            <p className="font-medium text-slate-900">
+              {assistantMode === 'template' ? `Seçili: ${selectedTemplate?.name_tr || 'Şablon seçin'}` : `${tenantUseCases.length} özellik seçili`}
+            </p>
+            <p className="text-sm text-slate-500">Değişiklikleri kaydetmek için butona tıklayın</p>
+          </div>
+          <Button
+            variant="primary"
+            onClick={handleSaveAndSync}
+            disabled={useCasesSaving || !hasChanges}
+          >
+            {useCasesSaving ? (
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            ) : (
+              <Save className="w-4 h-4 mr-2" />
+            )}
+            Kaydet & VAPI Sync
+          </Button>
         </div>
 
-        {/* Management Panels - Always show */}
+        {/* Yönetim Panelleri */}
         <div className="pt-6 border-t border-slate-200">
-          <h4 className="text-md font-semibold text-slate-900 mb-4">
-            Yönetim Panelleri
-          </h4>
-          <p className="text-sm text-slate-500 mb-4">
-            Randevuları, müşterileri ve geri bildirimleri buradan yönetebilirsiniz.
-          </p>
+          <h4 className="text-md font-semibold text-slate-900 mb-4">Yönetim Panelleri</h4>
           <div className="space-y-4">
-            {/* Randevu Yönetimi - her zaman göster */}
             <AppointmentsViewer tenantId={id} />
-
-            {/* Müşteri Listesi - her zaman göster */}
             <CustomersViewer tenantId={id} />
-
-            {/* Geri Bildirimler - her zaman göster */}
             <FeedbackViewer tenantId={id} />
           </div>
         </div>
 
-        {/* Required Data Editors based on selected use cases */}
-        {tenantUseCases.length > 0 && (
+        {/* Gerekli Veriler */}
+        {(assistantMode === 'custom' ? tenantUseCases.length > 0 : selectedTemplate?.included_use_cases?.length > 0) && (
           <div className="pt-6 border-t border-slate-200">
-            <h4 className="text-md font-semibold text-slate-900 mb-4">
-              Gerekli Veriler
-            </h4>
-            <p className="text-sm text-slate-500 mb-4">
-              Seçili use case'lerin çalışması için gereken verileri aşağıdan yönetebilirsiniz.
-            </p>
+            <h4 className="text-md font-semibold text-slate-900 mb-4">Gerekli Veriler</h4>
             <div className="space-y-4">
-              {/* Takvim & Slot Yönetimi - her zaman göster (çalışma saatleri dahil) */}
               <SlotManagerEditor
                 tenantId={id}
                 tenant={tenant}
                 onTenantUpdate={(updatedTenant) => setTenant(updatedTenant)}
               />
 
-              {/* test_drive seçiliyse */}
-              {tenantUseCases.includes('test_drive') && (
+              {(assistantMode === 'custom' ? tenantUseCases.includes('test_drive') : selectedTemplate?.included_use_cases?.includes('test_drive')) && (
                 <VehicleCatalogEditor tenantId={id} />
               )}
 
-              {/* beauty_services veya hairdresser_services seçiliyse */}
-              {(tenantUseCases.includes('beauty_services') || tenantUseCases.includes('hairdresser_services')) && (
+              {(assistantMode === 'custom'
+                ? (tenantUseCases.includes('beauty_services') || tenantUseCases.includes('hairdresser_services'))
+                : (selectedTemplate?.included_use_cases?.includes('beauty_services') || selectedTemplate?.included_use_cases?.includes('hairdresser_services'))
+              ) && (
                 <BeautyServicesEditor tenantId={id} />
               )}
 
-              {/* staff_selection seçiliyse */}
-              {tenantUseCases.includes('staff_selection') && (
+              {(assistantMode === 'custom' ? tenantUseCases.includes('staff_selection') : selectedTemplate?.included_use_cases?.includes('staff_selection')) && (
                 <StaffEditor tenantId={id} />
               )}
 
-              {/* promotions seçiliyse */}
-              {tenantUseCases.includes('promotions') && (
+              {(assistantMode === 'custom' ? tenantUseCases.includes('promotions') : selectedTemplate?.included_use_cases?.includes('promotions')) && (
                 <PromotionsEditor tenantId={id} />
               )}
             </div>
@@ -901,77 +997,6 @@ export const TenantDetail = () => {
       </div>
     );
   };
-
-  const renderFeaturesTab = () => (
-    <div className="space-y-6">
-      <h3 className="text-lg font-semibold text-slate-900">Özellikler & İstatistikler</h3>
-
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="p-4 text-center">
-            <Calendar className="w-8 h-8 mx-auto text-indigo-600 mb-2" />
-            <div className="text-2xl font-bold text-slate-900">
-              {tenant?.stats?.totalAppointments || 0}
-            </div>
-            <div className="text-sm text-slate-500">Toplam Randevu</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4 text-center">
-            <Users className="w-8 h-8 mx-auto text-emerald-500 mb-2" />
-            <div className="text-2xl font-bold text-slate-900">
-              {tenant?.stats?.totalCustomers || 0}
-            </div>
-            <div className="text-sm text-slate-500">Müşteri</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4 text-center">
-            <PhoneCall className="w-8 h-8 mx-auto text-blue-500 mb-2" />
-            <div className="text-2xl font-bold text-slate-900">
-              {tenant?.stats?.totalCalls || 0}
-            </div>
-            <div className="text-sm text-slate-500">Arama</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4 text-center">
-            <CheckCircle className="w-8 h-8 mx-auto text-amber-500 mb-2" />
-            <div className="text-2xl font-bold text-slate-900">
-              {tenant?.onboarding_step ? `${tenant.onboarding_step}/4` : 'Tamamlandı'}
-            </div>
-            <div className="text-sm text-slate-500">Onboarding</div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Supported Languages */}
-      <div className="pt-6 border-t border-slate-200">
-        <h4 className="text-md font-semibold text-slate-900 mb-4">Desteklenen Diller</h4>
-        <div className="flex gap-2">
-          {(tenant?.supported_languages || ['tr']).map((lang) => (
-            <Badge key={lang} variant="info">
-              {lang.toUpperCase()}
-            </Badge>
-          ))}
-        </div>
-      </div>
-
-      {/* Functions */}
-      {tenant?.enabled_functions && (
-        <div className="pt-6 border-t border-slate-200">
-          <h4 className="text-md font-semibold text-slate-900 mb-4">Etkin Fonksiyonlar</h4>
-          <div className="flex flex-wrap gap-2">
-            {tenant.enabled_functions.map((func, idx) => (
-              <Badge key={idx} variant="success">
-                {func}
-              </Badge>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  );
 
   if (loading) {
     return (
@@ -1114,9 +1139,7 @@ export const TenantDetail = () => {
         <CardContent>
           {activeTab === 'general' && renderGeneralTab()}
           {activeTab === 'branding' && renderBrandingTab()}
-          {activeTab === 'voice' && renderVoiceTab()}
-          {activeTab === 'usecases' && renderUseCasesTab()}
-          {activeTab === 'features' && renderFeaturesTab()}
+          {activeTab === 'assistant' && renderAssistantTab()}
         </CardContent>
       </Card>
 

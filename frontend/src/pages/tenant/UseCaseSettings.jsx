@@ -8,13 +8,39 @@ import {
   Info,
   Wrench,
   Save,
+  Package,
+  Star,
+  Crown,
+  Zap,
+  Plus,
+  Minus,
 } from 'lucide-react';
 import * as LucideIcons from 'lucide-react';
-import { useCaseAPI, voiceConfigAPI } from '../../services/api';
+import { useCaseAPI, templateAPI } from '../../services/api';
+
+// Tier configuration
+const tierConfig = {
+  basic: {
+    label: 'Basic',
+    color: 'bg-slate-100 text-slate-700 border-slate-200',
+    icon: Package,
+  },
+  standard: {
+    label: 'Standard',
+    color: 'bg-blue-100 text-blue-700 border-blue-200',
+    icon: Zap,
+  },
+  premium: {
+    label: 'Premium',
+    color: 'bg-amber-100 text-amber-700 border-amber-200',
+    icon: Crown,
+  },
+};
 
 /**
  * Tenant Use Case Settings Page
  * Allows tenant admin to manage which use cases are enabled
+ * Now with template support
  */
 export const UseCaseSettings = () => {
   const [useCases, setUseCases] = useState([]);
@@ -24,6 +50,10 @@ export const UseCaseSettings = () => {
   const [error, setError] = useState(null);
   const [successMessage, setSuccessMessage] = useState(null);
   const [hasChanges, setHasChanges] = useState(false);
+
+  // Template state
+  const [tenantTemplate, setTenantTemplate] = useState(null);
+  const [templateLoading, setTemplateLoading] = useState(true);
 
   // Original state for tracking changes
   const [originalState, setOriginalState] = useState({});
@@ -54,9 +84,20 @@ export const UseCaseSettings = () => {
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
+      setTemplateLoading(true);
       setError(null);
 
       try {
+        // Fetch template info
+        try {
+          const templateResponse = await templateAPI.getMyTemplate();
+          setTenantTemplate(templateResponse.data);
+        } catch (err) {
+          console.log('No template assigned or template API not available');
+          setTenantTemplate(null);
+        }
+
+        // Fetch use cases
         const { data } = await useCaseAPI.getAvailableUseCases();
         setUseCases(data || []);
 
@@ -71,6 +112,7 @@ export const UseCaseSettings = () => {
         setError('Veriler yüklenirken bir hata oluştu');
       } finally {
         setLoading(false);
+        setTemplateLoading(false);
       }
     };
 
@@ -100,14 +142,30 @@ export const UseCaseSettings = () => {
     }));
   };
 
-  // Save changes
-  const saveChanges = async () => {
-    setSaving(true);
+  // Save changes (with or without template customization)
+  const saveChanges = async (autoSync = false) => {
+    if (autoSync) {
+      setSyncing(true);
+    } else {
+      setSaving(true);
+    }
     setError(null);
 
     try {
       const enabledIds = useCases.filter(uc => uc.enabled).map(uc => uc.id);
-      await useCaseAPI.setTenantUseCases(enabledIds, false);
+
+      // If we have a template, use template customization API
+      if (tenantTemplate?.template_id) {
+        // Calculate added and removed from template
+        const templateUseCases = tenantTemplate.template?.included_use_cases || [];
+        const addUseCases = enabledIds.filter(id => !templateUseCases.includes(id));
+        const removeUseCases = templateUseCases.filter(id => !enabledIds.includes(id));
+
+        await templateAPI.customizeTemplate(addUseCases, removeUseCases, autoSync);
+      } else {
+        // No template, use direct use case API
+        await useCaseAPI.setTenantUseCases(enabledIds, autoSync);
+      }
 
       // Update original state
       const newOriginal = {};
@@ -116,38 +174,19 @@ export const UseCaseSettings = () => {
       });
       setOriginalState(newOriginal);
 
-      setSuccessMessage('Ayarlar kaydedildi');
+      setSuccessMessage(autoSync
+        ? 'Ayarlar kaydedildi ve asistana uygulandı'
+        : 'Ayarlar kaydedildi'
+      );
       setTimeout(() => setSuccessMessage(null), 3000);
     } catch (err) {
       console.error('Error saving:', err);
-      setError('Kaydedilirken bir hata oluştu');
+      setError(autoSync
+        ? 'Senkronizasyon sırasında bir hata oluştu'
+        : 'Kaydedilirken bir hata oluştu'
+      );
     } finally {
       setSaving(false);
-    }
-  };
-
-  // Save and sync to VAPI
-  const saveAndSync = async () => {
-    setSyncing(true);
-    setError(null);
-
-    try {
-      const enabledIds = useCases.filter(uc => uc.enabled).map(uc => uc.id);
-      await useCaseAPI.setTenantUseCases(enabledIds, true);
-
-      // Update original state
-      const newOriginal = {};
-      useCases.forEach(uc => {
-        newOriginal[uc.id] = uc.enabled;
-      });
-      setOriginalState(newOriginal);
-
-      setSuccessMessage('Ayarlar kaydedildi ve asistana uygulandı');
-      setTimeout(() => setSuccessMessage(null), 3000);
-    } catch (err) {
-      console.error('Error saving and syncing:', err);
-      setError('Senkronizasyon sırasında bir hata oluştu');
-    } finally {
       setSyncing(false);
     }
   };
@@ -173,6 +212,24 @@ export const UseCaseSettings = () => {
     .filter(uc => uc.enabled)
     .reduce((acc, uc) => acc + (uc.tools?.length || 0), 0);
 
+  // Check if use case is from template
+  const isFromTemplate = (useCaseId) => {
+    if (!tenantTemplate?.template?.included_use_cases) return false;
+    return tenantTemplate.template.included_use_cases.includes(useCaseId);
+  };
+
+  // Check if use case was added by tenant
+  const isAddedByTenant = (useCaseId) => {
+    if (!tenantTemplate?.added_use_cases) return false;
+    return tenantTemplate.added_use_cases.includes(useCaseId);
+  };
+
+  // Check if use case was removed by tenant
+  const isRemovedByTenant = (useCaseId) => {
+    if (!tenantTemplate?.removed_use_cases) return false;
+    return tenantTemplate.removed_use_cases.includes(useCaseId);
+  };
+
   if (loading) {
     return (
       <div className="p-8 text-center">
@@ -181,6 +238,11 @@ export const UseCaseSettings = () => {
       </div>
     );
   }
+
+  const hasTemplate = tenantTemplate?.template_id;
+  const template = tenantTemplate?.template;
+  const tier = template ? (tierConfig[template.tier] || tierConfig.standard) : null;
+  const TierIcon = tier?.icon || Package;
 
   return (
     <div className="p-6">
@@ -196,7 +258,7 @@ export const UseCaseSettings = () => {
         {/* Save Buttons */}
         <div className="flex items-center gap-3">
           <button
-            onClick={saveChanges}
+            onClick={() => saveChanges(false)}
             disabled={!hasChanges || saving || syncing}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
               hasChanges && !saving && !syncing
@@ -212,7 +274,7 @@ export const UseCaseSettings = () => {
             Kaydet
           </button>
           <button
-            onClick={saveAndSync}
+            onClick={() => saveChanges(true)}
             disabled={!hasChanges || saving || syncing}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
               hasChanges && !saving && !syncing
@@ -245,6 +307,51 @@ export const UseCaseSettings = () => {
         </div>
       )}
 
+      {/* Template Info Card */}
+      {hasTemplate && template && (
+        <div className="mb-6 p-4 bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-200 rounded-xl">
+          <div className="flex items-start gap-4">
+            <div className="w-12 h-12 rounded-xl bg-indigo-100 flex items-center justify-center">
+              <Package className="w-6 h-6 text-indigo-600" />
+            </div>
+            <div className="flex-1">
+              <div className="flex items-center gap-2 mb-1">
+                <h3 className="font-semibold text-slate-900">{template.name_tr}</h3>
+                <span className={`px-2 py-0.5 rounded-lg border text-xs font-medium flex items-center gap-1 ${tier?.color}`}>
+                  <TierIcon className="w-3 h-3" />
+                  {tier?.label}
+                </span>
+                {template.is_featured && (
+                  <span className="bg-amber-100 text-amber-700 text-xs px-2 py-0.5 rounded-full flex items-center gap-1">
+                    <Star className="w-3 h-3" />
+                    Önerilen
+                  </span>
+                )}
+              </div>
+              <p className="text-sm text-slate-600 mb-2">{template.description_tr}</p>
+              <div className="flex items-center gap-4 text-sm text-slate-500">
+                <span className="flex items-center gap-1">
+                  <Wrench className="w-4 h-4" />
+                  {template.included_use_cases?.length || 0} temel özellik
+                </span>
+                {tenantTemplate.added_use_cases?.length > 0 && (
+                  <span className="flex items-center gap-1 text-emerald-600">
+                    <Plus className="w-4 h-4" />
+                    {tenantTemplate.added_use_cases.length} eklenen
+                  </span>
+                )}
+                {tenantTemplate.removed_use_cases?.length > 0 && (
+                  <span className="flex items-center gap-1 text-red-600">
+                    <Minus className="w-4 h-4" />
+                    {tenantTemplate.removed_use_cases.length} çıkarılan
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Stats */}
       <div className="grid grid-cols-2 gap-4 mb-6">
         <div className="p-4 bg-white border border-slate-200 rounded-xl shadow-sm">
@@ -263,10 +370,14 @@ export const UseCaseSettings = () => {
       <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6 flex items-start gap-3">
         <Info className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
         <div className="text-sm">
-          <p className="text-blue-800 font-medium mb-1">Değişiklikleri Uygulamak</p>
+          <p className="text-blue-800 font-medium mb-1">
+            {hasTemplate ? 'Şablon Özelleştirme' : 'Değişiklikleri Uygulamak'}
+          </p>
           <p className="text-blue-700">
-            Yaptığınız değişikliklerin asistana yansıması için "Kaydet ve Uygula" butonunu kullanın.
-            Sadece "Kaydet" yaparsanız değişiklikler bir sonraki senkronizasyonda uygulanır.
+            {hasTemplate
+              ? 'Şablonunuza ek özellikler ekleyebilir veya mevcut özellikleri çıkarabilirsiniz. Değişiklikler şablonunuzu bozmaz.'
+              : 'Yaptığınız değişikliklerin asistana yansıması için "Kaydet ve Uygula" butonunu kullanın.'
+            }
           </p>
         </div>
       </div>
@@ -301,6 +412,8 @@ export const UseCaseSettings = () => {
                   const isCore = useCase.category === 'core';
                   const Icon = getIcon(useCase.icon);
                   const toolCount = useCase.tools?.length || 0;
+                  const fromTemplate = isFromTemplate(useCase.id);
+                  const addedCustom = isAddedByTenant(useCase.id);
 
                   return (
                     <button
@@ -349,14 +462,25 @@ export const UseCaseSettings = () => {
                         </div>
                       </div>
 
-                      {/* Core badge */}
-                      {isCore && (
-                        <div className="absolute top-2 right-2">
+                      {/* Badges */}
+                      <div className="absolute top-2 right-2 flex gap-1">
+                        {isCore && (
                           <span className="text-xs px-2 py-0.5 bg-slate-100 text-slate-500 rounded">
                             Zorunlu
                           </span>
-                        </div>
-                      )}
+                        )}
+                        {fromTemplate && !isCore && (
+                          <span className="text-xs px-2 py-0.5 bg-indigo-100 text-indigo-600 rounded">
+                            Şablon
+                          </span>
+                        )}
+                        {addedCustom && (
+                          <span className="text-xs px-2 py-0.5 bg-emerald-100 text-emerald-600 rounded flex items-center gap-0.5">
+                            <Plus className="w-3 h-3" />
+                            Eklendi
+                          </span>
+                        )}
+                      </div>
                     </button>
                   );
                 })}

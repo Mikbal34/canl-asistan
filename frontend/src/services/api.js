@@ -130,6 +130,18 @@ export const adminAPI = {
     api.put(`/api/admin/tenants/${tenantId}/use-cases`, { useCaseIds, autoSync }),
   setupTenantDefaultUseCases: (tenantId) => api.post(`/api/admin/tenants/${tenantId}/setup-use-cases`),
 
+  // Templates (Admin)
+  getTemplates: (params) => api.get('/api/admin/templates', { params }),
+  getTemplate: (id) => api.get(`/api/admin/templates/${id}`),
+  createTemplate: (data) => api.post('/api/admin/templates', data),
+  updateTemplate: (id, data) => api.put(`/api/admin/templates/${id}`, data),
+  deleteTemplate: (id) => api.delete(`/api/admin/templates/${id}`),
+
+  // Tenant Template (Admin)
+  getTenantTemplate: (tenantId) => api.get(`/api/admin/tenants/${tenantId}/template`),
+  assignTenantTemplate: (tenantId, templateId, autoSync = true) =>
+    api.post(`/api/admin/tenants/${tenantId}/template`, { templateId, autoSync }),
+
   // Presets
   getPresets: () => api.get('/api/admin/presets'),
   getPreset: (industry) => api.get(`/api/admin/presets/${industry}`),
@@ -182,6 +194,14 @@ export const useCaseAPI = {
   adminSetupDefaults: (tenantId) => api.post(`/api/admin/tenants/${tenantId}/setup-use-cases`),
 };
 
+// Template APIs (Tenant)
+export const templateAPI = {
+  getMyTemplate: () => api.get('/api/tenant/template'),
+  getAvailableTemplates: () => api.get('/api/tenant/templates/available'),
+  customizeTemplate: (addUseCases, removeUseCases, autoSync = false) =>
+    api.patch('/api/tenant/template/customize', { addUseCases, removeUseCases, autoSync }),
+};
+
 // VAPI APIs
 export const vapiAPI = {
   getConfig: (tenantId, language = 'tr') => api.get(`/vapi/config/${tenantId}`, { params: { language } }),
@@ -205,6 +225,16 @@ export const feedbackAPI = {
   getAll: (tenantId, params) => api.get(`/api/admin/tenants/${tenantId}/feedback`, { params }),
   updateStatus: (tenantId, feedbackId, status, adminNotes) =>
     api.put(`/api/admin/tenants/${tenantId}/feedback/${feedbackId}`, { status, admin_notes: adminNotes }),
+};
+
+// Onboarding Agent APIs (AI-powered tenant creation)
+export const onboardingAgentAPI = {
+  start: () => api.post('/api/admin/onboarding-agent/start'),
+  chat: (sessionId, message) => api.post('/api/admin/onboarding-agent/chat', { sessionId, message }),
+  getSession: (sessionId) => api.get(`/api/admin/onboarding-agent/${sessionId}`),
+  confirm: (sessionId) => api.post(`/api/admin/onboarding-agent/${sessionId}/confirm`),
+  cancel: (sessionId) => api.delete(`/api/admin/onboarding-agent/${sessionId}`),
+  getSessions: (status) => api.get('/api/admin/onboarding-agent/sessions/list', { params: { status } }),
 };
 
 // Onboarding APIs

@@ -1,6 +1,10 @@
 /**
  * VAPI Service
  * VAPI API entegrasyonu ve assistant yonetimi
+ *
+ * NOTE: For syncing tenants to VAPI, prefer using VapiSyncService.syncTenant()
+ * which uses PromptCompiler as the single source of truth.
+ * This service provides low-level VAPI API access.
  */
 
 const { createClient } = require('@supabase/supabase-js');
@@ -10,6 +14,15 @@ const useCaseService = require('./useCaseService');
 const { buildUseCasePromptSections } = require('../prompts/useCasePrompts');
 
 const supabase = createClient(config.supabase.url, config.supabase.anonKey);
+
+// Lazy load PromptCompiler to avoid circular dependencies
+let _promptCompiler = null;
+function getPromptCompiler() {
+  if (!_promptCompiler) {
+    _promptCompiler = require('./promptCompiler');
+  }
+  return _promptCompiler;
+}
 
 const VAPI_API_BASE = 'https://api.vapi.ai';
 

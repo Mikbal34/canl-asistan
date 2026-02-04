@@ -1,11 +1,23 @@
 /**
  * Prompt Service
  * Dinamik prompt yükleme ve template değişken değiştirme
+ *
+ * NOTE: This service now delegates to PromptCompiler for most operations.
+ * It's kept for backward compatibility.
  */
 
 const { createClient } = require('@supabase/supabase-js');
 const config = require('../config/env');
 const tenantService = require('./tenantService');
+
+// Lazy load PromptCompiler to avoid circular dependencies
+let _promptCompiler = null;
+function getPromptCompiler() {
+  if (!_promptCompiler) {
+    _promptCompiler = require('./promptCompiler');
+  }
+  return _promptCompiler;
+}
 
 const supabase = createClient(config.supabase.url, config.supabase.anonKey);
 
@@ -164,8 +176,25 @@ function detectLanguage(text) {
 
 /**
  * Vapi için dinamik prompt oluştur (tarih bilgisi ile)
+ * Now uses PromptCompiler as single source of truth
  */
 async function getVapiSystemPrompt(tenantId, language = 'tr') {
+  try {
+    // Use PromptCompiler as the primary source
+    const promptCompiler = getPromptCompiler();
+    const compiled = await promptCompiler.buildFinalPrompt(tenantId, language);
+    return compiled.systemPrompt;
+  } catch (error) {
+    console.warn('[PromptService] PromptCompiler fallback:', error.message);
+    // Fallback to legacy implementation
+    return getLegacyVapiSystemPrompt(tenantId, language);
+  }
+}
+
+/**
+ * Legacy implementation kept for fallback
+ */
+async function getLegacyVapiSystemPrompt(tenantId, language = 'tr') {
   const { systemPrompt, assistantName } = await getSystemPrompt(tenantId, language);
 
   // Türkçe tarih formatı

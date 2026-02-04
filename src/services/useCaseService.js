@@ -9,6 +9,33 @@ const { getToolsFromUseCases, buildUseCasePromptSections } = require('../prompts
 
 const supabase = createClient(config.supabase.url, config.supabase.anonKey);
 
+// Lazy load templateService to avoid circular dependencies
+let _templateService = null;
+function getTemplateService() {
+  if (!_templateService) {
+    _templateService = require('./templateService');
+  }
+  return _templateService;
+}
+
+// Lazy load VapiSyncService to avoid circular dependencies
+let _vapiSyncService = null;
+function getVapiSyncService() {
+  if (!_vapiSyncService) {
+    _vapiSyncService = require('./vapiSyncService');
+  }
+  return _vapiSyncService;
+}
+
+// Lazy load PromptCompiler
+let _promptCompiler = null;
+function getPromptCompiler() {
+  if (!_promptCompiler) {
+    _promptCompiler = require('./promptCompiler');
+  }
+  return _promptCompiler;
+}
+
 // Lazy load tool definitions to avoid circular dependencies
 let _automotiveFunctionDefinitions = null;
 let _beautyFunctionDefinitions = null;
@@ -234,6 +261,20 @@ async function setTenantUseCases(tenantId, useCaseIds) {
 
   console.log(`[UseCaseService] Updated use cases for tenant ${tenantId}: ${useCaseIds.length} active`);
 
+  // Sync to VAPI using centralized sync service
+  try {
+    // Invalidate prompt cache first
+    const promptCompiler = getPromptCompiler();
+    promptCompiler.invalidate(tenantId);
+
+    const vapiSyncService = getVapiSyncService();
+    await vapiSyncService.syncTenant(tenantId, vapiSyncService.SYNC_REASONS.USECASE_CHANGE);
+    console.log(`[UseCaseService] VAPI synced after use case change`);
+  } catch (vapiError) {
+    console.error('[UseCaseService] Failed to sync VAPI after use case change:', vapiError);
+    // Don't throw - use case change was successful
+  }
+
   return {
     inserted: toInsert.length,
     updated: toUpdate.length,
@@ -263,6 +304,20 @@ async function toggleTenantUseCase(tenantId, useCaseId, enabled) {
   if (error) {
     console.error('[UseCaseService] Error toggling use case:', error);
     throw error;
+  }
+
+  // Sync to VAPI using centralized sync service
+  try {
+    // Invalidate prompt cache first
+    const promptCompiler = getPromptCompiler();
+    promptCompiler.invalidate(tenantId);
+
+    const vapiSyncService = getVapiSyncService();
+    await vapiSyncService.syncTenant(tenantId, vapiSyncService.SYNC_REASONS.USECASE_CHANGE);
+    console.log(`[UseCaseService] VAPI synced after use case toggle`);
+  } catch (vapiError) {
+    console.error('[UseCaseService] Failed to sync VAPI after use case toggle:', vapiError);
+    // Don't throw - toggle was successful
   }
 
   return data;
@@ -329,10 +384,33 @@ function getToolDefinitionsForUseCases(useCases) {
 
 /**
  * Tenant için aktif tool tanımlarını getir
+ * Önce template bazlı effective use case'lere bakar, yoksa mevcut tenant_use_cases'e düşer
  * @param {string} tenantId - Tenant UUID
  * @returns {Array} - Tool tanımları
  */
 async function getToolDefinitionsForTenant(tenantId) {
+  // Try to get effective use cases from template system first
+  try {
+    const templateService = getTemplateService();
+    const effectiveUseCaseIds = await templateService.getEffectiveUseCases(tenantId);
+
+    if (effectiveUseCaseIds && effectiveUseCaseIds.length > 0) {
+      // Fetch full use case objects
+      const { data: useCases, error } = await supabase
+        .from('use_cases')
+        .select('*')
+        .in('id', effectiveUseCaseIds);
+
+      if (!error && useCases && useCases.length > 0) {
+        return getToolDefinitionsForUseCases(useCases);
+      }
+    }
+  } catch (err) {
+    // Template system not available or no template assigned, fall back
+    console.log('[UseCaseService] Template system fallback:', err.message);
+  }
+
+  // Fallback to existing tenant_use_cases
   const useCases = await getTenantUseCases(tenantId);
   return getToolDefinitionsForUseCases(useCases);
 }
@@ -364,11 +442,34 @@ function buildPromptSectionsForUseCases(useCases, language = 'tr') {
 
 /**
  * Tenant için dinamik prompt bölümlerini getir
+ * Önce template bazlı effective use case'lere bakar, yoksa mevcut tenant_use_cases'e düşer
  * @param {string} tenantId - Tenant UUID
  * @param {string} language - Dil kodu
  * @returns {string} - Prompt bölümleri
  */
 async function getPromptSectionsForTenant(tenantId, language = 'tr') {
+  // Try to get effective use cases from template system first
+  try {
+    const templateService = getTemplateService();
+    const effectiveUseCaseIds = await templateService.getEffectiveUseCases(tenantId);
+
+    if (effectiveUseCaseIds && effectiveUseCaseIds.length > 0) {
+      // Fetch full use case objects
+      const { data: useCases, error } = await supabase
+        .from('use_cases')
+        .select('*')
+        .in('id', effectiveUseCaseIds);
+
+      if (!error && useCases && useCases.length > 0) {
+        return buildPromptSectionsForUseCases(useCases, language);
+      }
+    }
+  } catch (err) {
+    // Template system not available or no template assigned, fall back
+    console.log('[UseCaseService] Template system fallback for prompts:', err.message);
+  }
+
+  // Fallback to existing tenant_use_cases
   const useCases = await getTenantUseCases(tenantId);
   return buildPromptSectionsForUseCases(useCases, language);
 }

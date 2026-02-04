@@ -9,7 +9,8 @@ import {
   Send,
   RefreshCw,
   Eye,
-  Loader2
+  Loader2,
+  MessageSquare
 } from 'lucide-react';
 import { Card, CardContent } from '../../components/common/Card';
 import { Table } from '../../components/common/Table';
@@ -17,6 +18,7 @@ import { Badge } from '../../components/common/Badge';
 import { Button } from '../../components/common/Button';
 import { adminAPI } from '../../services/api';
 import { TenantCreateModal } from './TenantCreateModal';
+import { OnboardingChat } from '../../components/admin/OnboardingChat';
 
 // Industry icons mapping
 const industryIcons = {
@@ -63,6 +65,7 @@ export const Tenants = () => {
   const [industryFilter, setIndustryFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isOnboardingChatOpen, setIsOnboardingChatOpen] = useState(false);
   const [syncingTenant, setSyncingTenant] = useState(null);
   const [sendingLink, setSendingLink] = useState(null);
 
@@ -89,6 +92,11 @@ export const Tenants = () => {
 
   const handleTenantCreated = () => {
     setIsCreateModalOpen(false);
+    fetchTenants();
+  };
+
+  const handleOnboardingSuccess = () => {
+    setIsOnboardingChatOpen(false);
     fetchTenants();
   };
 
@@ -275,13 +283,22 @@ export const Tenants = () => {
             </p>
           </div>
         </div>
-        <button
-          onClick={() => setIsCreateModalOpen(true)}
-          className="inline-flex items-center px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-semibold transition-colors"
-        >
-          <Plus className="w-5 h-5 mr-2" />
-          Yeni Müşteri Ekle
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setIsOnboardingChatOpen(true)}
+            className="inline-flex items-center px-4 py-2 rounded-lg bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-semibold transition-all shadow-lg shadow-indigo-200"
+          >
+            <MessageSquare className="w-5 h-5 mr-2" />
+            AI ile Kurulum
+          </button>
+          <button
+            onClick={() => setIsCreateModalOpen(true)}
+            className="inline-flex items-center px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-semibold transition-colors"
+          >
+            <Plus className="w-5 h-5 mr-2" />
+            Yeni Müşteri Ekle
+          </button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -406,6 +423,13 @@ export const Tenants = () => {
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
         onSuccess={handleTenantCreated}
+      />
+
+      {/* AI Onboarding Chat Modal */}
+      <OnboardingChat
+        isOpen={isOnboardingChatOpen}
+        onClose={() => setIsOnboardingChatOpen(false)}
+        onSuccess={handleOnboardingSuccess}
       />
     </div>
   );
