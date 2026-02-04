@@ -510,10 +510,6 @@ async function createDefaultBeautyServices(tenantId, industry = 'beauty_salon') 
  * Varsayılan slotları oluştur (JavaScript ile)
  */
 async function generateDefaultSlots(tenantId, industry, daysAhead = 30) {
-  const slotTypes = (industry === 'beauty' || industry === 'beauty_salon' || industry === 'hairdresser')
-    ? ['beauty']
-    : ['test_drive', 'service'];
-
   // Slotları JavaScript ile oluştur
   const slots = [];
   const today = new Date();
@@ -526,15 +522,12 @@ async function generateDefaultSlots(tenantId, industry, daysAhead = 30) {
 
     for (const hour of hours) {
       const timeStr = `${hour.toString().padStart(2, '0')}:00:00`; // HH:00:00
-      for (const slotType of slotTypes) {
-        slots.push({
-          tenant_id: tenantId,
-          slot_date: dateStr,
-          slot_time: timeStr,
-          slot_type: slotType,
-          is_available: true,
-        });
-      }
+      slots.push({
+        tenant_id: tenantId,
+        slot_date: dateStr,
+        slot_time: timeStr,
+        is_available: true,
+      });
     }
   }
 
