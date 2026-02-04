@@ -7,6 +7,8 @@ const { createClient } = require('@supabase/supabase-js');
 const config = require('../config/env');
 
 const supabase = createClient(config.supabase.url, config.supabase.anonKey);
+// Admin client for operations that need to bypass RLS
+const supabaseAdmin = createClient(config.supabase.url, config.supabase.serviceRoleKey);
 
 // ==========================================
 // MÜŞTERI İŞLEMLERİ
@@ -192,7 +194,7 @@ async function getBeautyServiceById(tenantId, serviceId) {
  * appointment_slots tablosunu kullanır
  */
 async function getAvailableSlots(tenantId, date, slotType) {
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
     .from('appointment_slots')
     .select('*')
     .eq('tenant_id', tenantId)
@@ -205,6 +207,53 @@ async function getAvailableSlots(tenantId, date, slotType) {
     return [];
   }
   return data || [];
+}
+
+/**
+ * Müsait tarihleri getir (gelecek N gün için)
+ * Her gün için müsait slot sayısını döner
+ */
+async function getAvailableDates(tenantId, days = 7) {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const endDate = new Date(today);
+  endDate.setDate(endDate.getDate() + days);
+
+  const todayStr = today.toISOString().split('T')[0];
+  const endDateStr = endDate.toISOString().split('T')[0];
+
+  const { data, error } = await supabaseAdmin
+    .from('appointment_slots')
+    .select('slot_date, is_available')
+    .eq('tenant_id', tenantId)
+    .eq('is_available', true)
+    .gte('slot_date', todayStr)
+    .lt('slot_date', endDateStr)
+    .order('slot_date');
+
+  if (error) {
+    console.error('[Supabase] getAvailableDates error:', error.message);
+    return [];
+  }
+
+  // Tarihlere göre grupla ve say
+  const dateMap = {};
+  const dayNames = ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'];
+
+  (data || []).forEach(slot => {
+    if (!dateMap[slot.slot_date]) {
+      const date = new Date(slot.slot_date);
+      dateMap[slot.slot_date] = {
+        date: slot.slot_date,
+        day_name: dayNames[date.getDay()],
+        slot_count: 0,
+      };
+    }
+    dateMap[slot.slot_date].slot_count++;
+  });
+
+  return Object.values(dateMap).sort((a, b) => a.date.localeCompare(b.date));
 }
 
 /**
@@ -1283,6 +1332,7 @@ module.exports = {
 
   // Slots
   getAvailableSlots,
+  getAvailableDates,
   checkAndBookSlot,
   checkExistingAppointment,
 

@@ -40,13 +40,13 @@ const automotiveFunctionDefinitions = [
     type: 'function',
     function: {
       name: 'get_available_time_slots',
-      description: 'Belirli bir tarih için müsait randevu saatlerini getirir',
+      description: 'Müsait randevu saatlerini getirir. Tarih verilmezse gelecek 7 günün müsait tarihlerini listeler.',
       parameters: {
         type: 'object',
         properties: {
           date: {
             type: 'string',
-            description: 'Tarih (YYYY-MM-DD formatında)',
+            description: 'Tarih (YYYY-MM-DD formatında). Boş bırakılırsa müsait günler listelenir.',
           },
           slot_type: {
             type: 'string',
@@ -54,7 +54,7 @@ const automotiveFunctionDefinitions = [
             description: 'Randevu türü: test_drive veya service',
           },
         },
-        required: ['date', 'slot_type'],
+        required: [],
       },
     },
   },
@@ -418,10 +418,28 @@ async function processAutomotiveFunctionCall(tenantId, functionName, args, calle
         const slotType = args.slot_type || 'test_drive';
         console.log(`[Functions] get_available_time_slots - date: ${args.date}, slot_type: ${slotType}`);
 
+        // Tarih verilmemişse, gelecek 7 günün müsait tarihlerini listele
+        if (!args.date) {
+          const availableDates = await supabaseService.getAvailableDates(tenantId, 7);
+
+          return {
+            success: true,
+            mode: 'available_dates',
+            message: 'Müsait tarihler listelendi. Müşteriye bu tarihleri sunun.',
+            available_dates: availableDates.map(d => ({
+              date: d.date,
+              day_name: d.day_name,
+              slot_count: d.slot_count,
+            })),
+            count: availableDates.length,
+          };
+        }
+
         const slots = await supabaseService.getAvailableSlots(tenantId, args.date, slotType);
 
         return {
           success: true,
+          mode: 'time_slots',
           date: args.date,
           slot_type: slotType,
           slots: slots.map(s => ({
