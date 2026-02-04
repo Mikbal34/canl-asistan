@@ -543,7 +543,7 @@ async function generateDefaultSlots(tenantId, industry, daysAhead = 30) {
   for (let i = 0; i < slots.length; i += batchSize) {
     const batch = slots.slice(i, i + batchSize);
     const { error } = await supabase
-      .from('available_slots')
+      .from('appointment_slots')
       .insert(batch);
 
     if (error) {
