@@ -17,6 +17,24 @@ function getVapiService() {
   return vapiService;
 }
 
+// VapiSyncService - lazy load to avoid circular dependency
+let _vapiSyncService = null;
+function getVapiSyncService() {
+  if (!_vapiSyncService) {
+    _vapiSyncService = require('./vapiSyncService');
+  }
+  return _vapiSyncService;
+}
+
+// PromptCompiler - lazy load
+let _promptCompiler = null;
+function getPromptCompiler() {
+  if (!_promptCompiler) {
+    _promptCompiler = require('./promptCompiler');
+  }
+  return _promptCompiler;
+}
+
 /**
  * Tüm tenant'ları listele
  */
@@ -250,14 +268,19 @@ async function updateTenant(tenantId, updates) {
 
   if (error) throw error;
 
-  // VAPI ayarları değiştiyse sync et
+  // VAPI ayarları değiştiyse sync et (using centralized VapiSyncService)
   const vapiRelatedFields = ['name', 'assistant_name', 'supported_languages', 'voice_config_override'];
   const needsVapiSync = vapiRelatedFields.some(field => updates[field] !== undefined);
 
   if (needsVapiSync) {
     try {
-      const vapi = getVapiService();
-      await vapi.syncTenantToVapi(tenantId);
+      // Invalidate prompt cache first
+      const promptCompiler = getPromptCompiler();
+      promptCompiler.invalidate(tenantId);
+
+      // Use centralized sync service
+      const vapiSyncService = getVapiSyncService();
+      await vapiSyncService.syncTenant(tenantId, vapiSyncService.SYNC_REASONS.TENANT_UPDATE);
       console.log(`[TenantService] VAPI assistants synced for tenant: ${tenantId}`);
     } catch (vapiError) {
       console.error('[TenantService] Failed to sync VAPI assistants:', vapiError);
@@ -629,6 +652,27 @@ async function getTenantVoiceConfig(tenantId) {
   return data;
 }
 
+/**
+ * Get tenant's selected template ID from authoritative source
+ * @param {string} tenantId - Tenant UUID
+ * @returns {string|null} - Template ID or null
+ */
+async function getTenantTemplateId(tenantId) {
+  // tenant_assistant_template is the single source of truth
+  const { data, error } = await supabase
+    .from('tenant_assistant_template')
+    .select('template_id')
+    .eq('tenant_id', tenantId)
+    .single();
+
+  if (error && error.code !== 'PGRST116') {
+    console.error('[TenantService] Error fetching template ID:', error);
+    return null;
+  }
+
+  return data?.template_id || null;
+}
+
 module.exports = {
   getAllTenants,
   getTenantById,
@@ -641,6 +685,7 @@ module.exports = {
   getIndustryPresets,
   getTenantPromptTemplate,
   getTenantVoiceConfig,
+  getTenantTemplateId,
   createDefaultPromptTemplates,
   createDefaultBeautyServices,
   generateDefaultSlots,

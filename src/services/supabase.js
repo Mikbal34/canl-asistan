@@ -61,12 +61,14 @@ async function updateCustomer(tenantId, customerId, updates) {
 
 /**
  * Tüm müşterileri getir (tenant-scoped)
+ * Soft delete filtresi uygulanır
  */
 async function getAllCustomers(tenantId) {
   const { data, error } = await supabase
     .from('customers')
     .select('*')
     .eq('tenant_id', tenantId)
+    .is('deleted_at', null) // Soft delete filter
     .order('created_at', { ascending: false });
 
   if (error) throw error;
@@ -153,6 +155,7 @@ async function getBeautyServices(tenantId, filters = {}) {
     .select('*')
     .eq('tenant_id', tenantId)
     .eq('is_active', true)
+    .is('deleted_at', null) // Soft delete filter
     .order('display_order', { ascending: true });
 
   if (filters.category) {
@@ -166,6 +169,7 @@ async function getBeautyServices(tenantId, filters = {}) {
 
 /**
  * Güzellik hizmeti detayı
+ * Not: Silinmiş hizmetler de döndürülür (randevu geçmişi için)
  */
 async function getBeautyServiceById(tenantId, serviceId) {
   const { data, error } = await supabase

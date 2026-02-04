@@ -16,9 +16,11 @@ const supabaseService = require('../services/supabase');
 const tenantService = require('../services/tenantService');
 const vapiService = require('../services/vapiService');
 const useCaseService = require('../services/useCaseService');
+const templateService = require('../services/templateService');
 
 // Admin sub-routers
 const presetsRouter = require('./admin/presets');
+const onboardingAgentRouter = require('./onboardingAgent');
 
 // Supabase client
 const supabase = createClient(config.supabase.url, config.supabase.anonKey);
@@ -577,6 +579,9 @@ router.post('/admin/tenants/:id/test-call', authenticate(), requireSuperAdmin, r
 // Use the presets sub-router for all /admin/presets routes
 router.use('/admin/presets', authenticate(), requireSuperAdmin, presetsRouter);
 
+// Use the onboarding agent sub-router for AI-powered tenant creation
+router.use('/admin/onboarding-agent', authenticate(), requireSuperAdmin, onboardingAgentRouter);
+
 // ==========================================
 // USE CASE ROUTES
 // ==========================================
@@ -819,6 +824,210 @@ router.get('/admin/tools', authenticate(), requireSuperAdmin, async (req, res) =
     res.json(tools);
   } catch (error) {
     console.error('[API] Admin get tools error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ==========================================
+// TEMPLATE ROUTES (Admin)
+// ==========================================
+
+/**
+ * Get all templates
+ * GET /api/admin/templates
+ */
+router.get('/admin/templates', authenticate(), requireSuperAdmin, async (req, res) => {
+  try {
+    const { industry, tier, isActive } = req.query;
+    const templates = await templateService.getTemplates({
+      industry,
+      tier,
+      isActive: isActive !== undefined ? isActive === 'true' : undefined,
+    });
+    res.json(templates);
+  } catch (error) {
+    console.error('[API] Get templates error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * Get single template
+ * GET /api/admin/templates/:id
+ */
+router.get('/admin/templates/:id', authenticate(), requireSuperAdmin, async (req, res) => {
+  try {
+    const template = await templateService.getTemplateById(req.params.id);
+    if (!template) {
+      return res.status(404).json({ error: 'Template not found' });
+    }
+    res.json(template);
+  } catch (error) {
+    console.error('[API] Get template error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * Create template
+ * POST /api/admin/templates
+ */
+router.post('/admin/templates', authenticate(), requireSuperAdmin, async (req, res) => {
+  try {
+    const template = await templateService.createTemplate(req.body);
+    res.status(201).json(template);
+  } catch (error) {
+    console.error('[API] Create template error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * Update template
+ * PUT /api/admin/templates/:id
+ */
+router.put('/admin/templates/:id', authenticate(), requireSuperAdmin, async (req, res) => {
+  try {
+    const template = await templateService.updateTemplate(req.params.id, req.body);
+    res.json(template);
+  } catch (error) {
+    console.error('[API] Update template error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * Delete template
+ * DELETE /api/admin/templates/:id
+ */
+router.delete('/admin/templates/:id', authenticate(), requireSuperAdmin, async (req, res) => {
+  try {
+    const result = await templateService.deleteTemplate(req.params.id);
+    res.json(result);
+  } catch (error) {
+    console.error('[API] Delete template error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * Get tenant's template (Admin)
+ * GET /api/admin/tenants/:id/template
+ */
+router.get('/admin/tenants/:id/template', authenticate(), requireSuperAdmin, async (req, res) => {
+  try {
+    const tenantTemplate = await templateService.getTenantTemplate(req.params.id);
+    res.json(tenantTemplate || { template: null, effectiveUseCases: [] });
+  } catch (error) {
+    console.error('[API] Get tenant template error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * Assign template to tenant (Admin)
+ * POST /api/admin/tenants/:id/template
+ */
+router.post('/admin/tenants/:id/template', authenticate(), requireSuperAdmin, async (req, res) => {
+  try {
+    const { templateId, autoSync = false } = req.body;
+
+    if (!templateId) {
+      return res.status(400).json({
+        error: 'Bad Request',
+        message: 'templateId is required',
+      });
+    }
+
+    const tenant = await tenantService.getTenantById(req.params.id);
+    if (!tenant) {
+      return res.status(404).json({ error: 'Tenant not found' });
+    }
+
+    const result = await templateService.selectTemplate(req.params.id, templateId);
+
+    // Optionally sync to VAPI
+    if (autoSync) {
+      await vapiService.syncTenantToVapi(req.params.id);
+    }
+
+    res.json({
+      success: true,
+      ...result,
+      synced: autoSync,
+    });
+  } catch (error) {
+    console.error('[API] Assign template error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ==========================================
+// TEMPLATE ROUTES (Tenant)
+// ==========================================
+
+/**
+ * Get own template
+ * GET /api/tenant/template
+ */
+router.get('/tenant/template', authenticate(), resolveTenant(), requireTenantAccess, async (req, res) => {
+  try {
+    const tenantTemplate = await templateService.getTenantTemplate(req.tenantId);
+    res.json(tenantTemplate || { template: null, effectiveUseCases: [] });
+  } catch (error) {
+    console.error('[API] Get tenant template error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * Customize template (add/remove use cases)
+ * PATCH /api/tenant/template/customize
+ */
+router.patch('/tenant/template/customize', authenticate(), resolveTenant(), requireTenantAccess, requireTenantAdmin, async (req, res) => {
+  try {
+    const { addUseCases, removeUseCases, autoSync = false } = req.body;
+
+    const result = await templateService.customizeTemplate(req.tenantId, {
+      addUseCases: addUseCases || [],
+      removeUseCases: removeUseCases || [],
+    });
+
+    // Optionally sync to VAPI
+    if (autoSync) {
+      await vapiService.syncTenantToVapi(req.tenantId);
+    }
+
+    res.json({
+      success: true,
+      ...result,
+      synced: autoSync,
+    });
+  } catch (error) {
+    console.error('[API] Customize template error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * Get available templates for tenant's industry
+ * GET /api/tenant/templates/available
+ */
+router.get('/tenant/templates/available', authenticate(), resolveTenant(), requireTenantAccess, async (req, res) => {
+  try {
+    const tenant = await tenantService.getTenantById(req.tenantId);
+    if (!tenant) {
+      return res.status(404).json({ error: 'Tenant not found' });
+    }
+
+    const templates = await templateService.getTemplates({
+      industry: tenant.industry,
+      isActive: true,
+    });
+
+    res.json(templates);
+  } catch (error) {
+    console.error('[API] Get available templates error:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -1500,19 +1709,33 @@ router.put('/beauty/services/:id', authenticate(), resolveTenant(), requireTenan
 });
 
 /**
- * Güzellik Hizmeti Sil
+ * Güzellik Hizmeti Sil (Soft Delete)
  * DELETE /api/beauty/services/:id
+ * Not: Randevular korunması için soft delete kullanılır
  */
 router.delete('/beauty/services/:id', authenticate(), resolveTenant(), requireTenantAdmin, async (req, res) => {
   try {
-    const { error } = await supabase
+    // Soft delete: deleted_at set edilir, is_active false yapılır
+    const { data, error } = await supabase
       .from('beauty_services')
-      .delete()
+      .update({
+        deleted_at: new Date().toISOString(),
+        is_active: false,
+        updated_at: new Date().toISOString(),
+      })
       .eq('id', req.params.id)
-      .eq('tenant_id', req.tenantId);
+      .eq('tenant_id', req.tenantId)
+      .is('deleted_at', null) // Zaten silinmemişse
+      .select()
+      .single();
 
     if (error) throw error;
-    res.json({ success: true });
+
+    if (!data) {
+      return res.status(404).json({ error: 'Service not found or already deleted' });
+    }
+
+    res.json({ success: true, softDeleted: true });
   } catch (error) {
     console.error('[API] Delete beauty service error:', error);
     res.status(500).json({ error: error.message });
