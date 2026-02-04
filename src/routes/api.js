@@ -1950,7 +1950,7 @@ router.get('/admin/tenants/:id/appointments', authenticate(), requireSuperAdmin,
 
     // Fetch beauty appointments
     try {
-      let beautyQuery = supabase
+      let beautyQuery = supabaseAdmin
         .from('beauty_appointments')
         .select(`*, customer:customers(*), service:beauty_services(*)`)
         .eq('tenant_id', tenantId)
@@ -1970,7 +1970,7 @@ router.get('/admin/tenants/:id/appointments', authenticate(), requireSuperAdmin,
 
     // Fetch test drive appointments
     try {
-      let testDriveQuery = supabase
+      let testDriveQuery = supabaseAdmin
         .from('test_drive_appointments')
         .select(`*, customer:customers(*), vehicle:vehicles(*)`)
         .eq('tenant_id', tenantId)
@@ -1990,7 +1990,7 @@ router.get('/admin/tenants/:id/appointments', authenticate(), requireSuperAdmin,
 
     // Fetch service appointments
     try {
-      let serviceQuery = supabase
+      let serviceQuery = supabaseAdmin
         .from('service_appointments')
         .select(`*, customer:customers(*)`)
         .eq('tenant_id', tenantId)
@@ -2043,7 +2043,7 @@ router.put('/admin/tenants/:id/appointments/:aid', authenticate(), requireSuperA
       tableName = 'service_appointments';
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from(tableName)
       .update({ status, updated_at: new Date().toISOString() })
       .eq('id', appointmentId)
@@ -2073,7 +2073,7 @@ router.get('/admin/tenants/:id/customers', authenticate(), requireSuperAdmin, as
     const tenantId = req.params.id;
     const { search } = req.query;
 
-    let query = supabase
+    let query = supabaseAdmin
       .from('customers')
       .select('*')
       .eq('tenant_id', tenantId)
@@ -2093,7 +2093,7 @@ router.get('/admin/tenants/:id/customers', authenticate(), requireSuperAdmin, as
 
       // Count beauty appointments
       try {
-        const { count: beautyCount, data: beautyData } = await supabase
+        const { count: beautyCount, data: beautyData } = await supabaseAdmin
           .from('beauty_appointments')
           .select('id, appointment_date', { count: 'exact' })
           .eq('customer_id', customer.id)
@@ -2107,7 +2107,7 @@ router.get('/admin/tenants/:id/customers', authenticate(), requireSuperAdmin, as
 
       // Count test drive appointments
       try {
-        const { count: testDriveCount, data: testDriveData } = await supabase
+        const { count: testDriveCount, data: testDriveData } = await supabaseAdmin
           .from('test_drive_appointments')
           .select('id, appointment_date', { count: 'exact' })
           .eq('customer_id', customer.id)
@@ -2123,7 +2123,7 @@ router.get('/admin/tenants/:id/customers', authenticate(), requireSuperAdmin, as
 
       // Count service appointments
       try {
-        const { count: serviceCount, data: serviceData } = await supabase
+        const { count: serviceCount, data: serviceData } = await supabaseAdmin
           .from('service_appointments')
           .select('id, appointment_date', { count: 'exact' })
           .eq('customer_id', customer.id)
