@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Calendar, ChevronLeft, ChevronRight, Save, Loader2, ChevronDown, ChevronUp, Check, X, Clock, Settings } from 'lucide-react';
+import { Calendar, ChevronLeft, ChevronRight, Save, Loader2, ChevronDown, ChevronUp, Check, X, Clock, Settings, Plus } from 'lucide-react';
 import { Button } from '../common/Button';
 import { Badge } from '../common/Badge';
 import { slotAPI, adminAPI } from '../../services/api';
@@ -46,11 +46,17 @@ export const SlotManagerEditor = ({ tenantId, tenant, onTenantUpdate }) => {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
+  const [slotsAreDefault, setSlotsAreDefault] = useState(false);
+  const [generating, setGenerating] = useState(false);
 
   // Working hours state
   const [workingHours, setWorkingHours] = useState(tenant?.working_hours || defaultWorkingHours);
   const [savingHours, setSavingHours] = useState(false);
   const [hoursChanged, setHoursChanged] = useState(false);
+
+  // Bulk generation state
+  const [bulkDays, setBulkDays] = useState(7);
+  const [bulkGenerating, setBulkGenerating] = useState(false);
 
   // Get current month/year
   const currentMonth = currentDate.getMonth();
@@ -139,12 +145,44 @@ export const SlotManagerEditor = ({ tenantId, tenant, onTenantUpdate }) => {
     try {
       setLoading(true);
       const response = await slotAPI.getSlots(tenantId, formatDateISO(date));
-      setSlots(response.data || []);
+      const fetchedSlots = response.data || [];
+      setSlots(fetchedSlots);
+      // Check if slots are default (not yet saved to DB)
+      const areDefault = fetchedSlots.length > 0 && fetchedSlots[0]?.is_default === true;
+      setSlotsAreDefault(areDefault);
     } catch (error) {
       console.error('Failed to fetch slots:', error);
       setSlots([]);
+      setSlotsAreDefault(false);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Generate and save slots to database
+  const handleGenerateSlots = async () => {
+    if (!selectedDate || slots.length === 0) return;
+
+    try {
+      setGenerating(true);
+      const slotsToSave = slots.map(slot => ({
+        slot_date: formatDateISO(selectedDate),
+        slot_time: slot.slot_time,
+        is_available: slot.is_available,
+      }));
+
+      await slotAPI.bulkUpdate(tenantId, slotsToSave);
+
+      // Refresh slots from database
+      const response = await slotAPI.getSlots(tenantId, formatDateISO(selectedDate));
+      setSlots(response.data || []);
+      setSlotsAreDefault(false);
+      setHasChanges(false);
+    } catch (error) {
+      console.error('Failed to generate slots:', error);
+      alert('Slot oluşturma hatası: ' + error.message);
+    } finally {
+      setGenerating(false);
     }
   };
 
@@ -212,15 +250,42 @@ export const SlotManagerEditor = ({ tenantId, tenant, onTenantUpdate }) => {
       // Refresh selected date slots if any
       if (selectedDate && !isDayClosed(selectedDate)) {
         const response = await slotAPI.getSlots(tenantId, formatDateISO(selectedDate));
-        setSlots(response.data || []);
+        const fetchedSlots = response.data || [];
+        setSlots(fetchedSlots);
+        const areDefault = fetchedSlots.length > 0 && fetchedSlots[0]?.is_default === true;
+        setSlotsAreDefault(areDefault);
       } else if (selectedDate) {
         setSlots([]);
+        setSlotsAreDefault(false);
       }
     } catch (error) {
       console.error('Failed to save working hours:', error);
       alert('Kaydetme hatası: ' + error.message);
     } finally {
       setSavingHours(false);
+    }
+  };
+
+  // Bulk generate slots for multiple days
+  const handleBulkGenerate = async () => {
+    try {
+      setBulkGenerating(true);
+      const response = await slotAPI.generateSlots(tenantId, bulkDays);
+      alert(`${response.data.count} slot oluşturuldu (${response.data.days} gün için)`);
+
+      // Refresh selected date if any
+      if (selectedDate && !isDayClosed(selectedDate)) {
+        const slotsResponse = await slotAPI.getSlots(tenantId, formatDateISO(selectedDate));
+        const fetchedSlots = slotsResponse.data || [];
+        setSlots(fetchedSlots);
+        const areDefault = fetchedSlots.length > 0 && fetchedSlots[0]?.is_default === true;
+        setSlotsAreDefault(areDefault);
+      }
+    } catch (error) {
+      console.error('Failed to bulk generate slots:', error);
+      alert('Toplu slot oluşturma hatası: ' + error.message);
+    } finally {
+      setBulkGenerating(false);
     }
   };
 
@@ -419,7 +484,102 @@ export const SlotManagerEditor = ({ tenantId, tenant, onTenantUpdate }) => {
                       <Clock className="w-12 h-12 mx-auto mb-2 text-slate-300" />
                       <p>Bu gün için slot oluşturulmamış.</p>
                       <p className="text-sm mt-1">Haftalık ayarlardan çalışma saatlerini kontrol edin.</p>
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        className="mt-3"
+                        onClick={() => setActiveView('settings')}
+                      >
+                        <Settings className="w-4 h-4 mr-1" />
+                        Ayarlara Git
+                      </Button>
                     </div>
+                  ) : slotsAreDefault ? (
+                    /* Default Slots (Preview Mode) */
+                    <>
+                      {/* Info Banner */}
+                      <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                        <p className="text-sm text-amber-800">
+                          <strong>Önizleme:</strong> Bu slotlar henüz veritabanına kaydedilmedi.
+                          İstediğiniz saatleri ayarlayıp "Slotları Oluştur" butonuna tıklayın.
+                        </p>
+                      </div>
+
+                      {/* Quick Actions */}
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => {
+                              setSlots(prev => prev.map(slot => ({ ...slot, is_available: true })));
+                            }}
+                          >
+                            <Check className="w-4 h-4 mr-1" />
+                            Tümünü Aç
+                          </Button>
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => {
+                              setSlots(prev => prev.map(slot => ({ ...slot, is_available: false })));
+                            }}
+                          >
+                            <X className="w-4 h-4 mr-1" />
+                            Tümünü Kapat
+                          </Button>
+                        </div>
+                        <span className="text-sm text-slate-500">
+                          {slots.filter(s => s.is_available).length}/{slots.length} açık
+                        </span>
+                      </div>
+
+                      {/* Slot Grid */}
+                      <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 gap-2 mb-4">
+                        {slots.map((slot) => (
+                          <button
+                            key={slot.slot_time}
+                            onClick={() => {
+                              setSlots(prev => prev.map(s =>
+                                s.slot_time === slot.slot_time
+                                  ? { ...s, is_available: !s.is_available }
+                                  : s
+                              ));
+                            }}
+                            className={`
+                              flex items-center justify-center gap-1 px-3 py-2 rounded-lg text-sm font-medium transition-all
+                              ${slot.is_available
+                                ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200 border border-emerald-200'
+                                : 'bg-red-100 text-red-700 hover:bg-red-200 border border-red-200'
+                              }
+                            `}
+                          >
+                            <span>{slot.slot_time}</span>
+                            {slot.is_available ? (
+                              <Check className="w-4 h-4" />
+                            ) : (
+                              <X className="w-4 h-4" />
+                            )}
+                          </button>
+                        ))}
+                      </div>
+
+                      {/* Generate Button */}
+                      <div className="flex justify-end pt-2">
+                        <Button
+                          variant="primary"
+                          onClick={handleGenerateSlots}
+                          disabled={generating}
+                        >
+                          {generating ? (
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          ) : (
+                            <Plus className="w-4 h-4 mr-2" />
+                          )}
+                          Slotları Oluştur
+                        </Button>
+                      </div>
+                    </>
                   ) : (
                     <>
                       {/* Quick Actions */}
@@ -576,6 +736,38 @@ export const SlotManagerEditor = ({ tenantId, tenant, onTenantUpdate }) => {
                   </Button>
                 </div>
               )}
+
+              {/* Bulk Slot Generation */}
+              <div className="mt-6 pt-4 border-t border-slate-200">
+                <h5 className="font-medium text-slate-900 mb-2">Toplu Slot Oluşturma</h5>
+                <p className="text-sm text-slate-500 mb-3">
+                  Seçtiğiniz süre için çalışma saatlerine göre otomatik slot oluşturun.
+                </p>
+                <div className="flex items-center gap-3">
+                  <select
+                    value={bulkDays}
+                    onChange={(e) => setBulkDays(parseInt(e.target.value))}
+                    className="input py-2 px-3 w-40"
+                  >
+                    <option value={7}>7 gün (1 hafta)</option>
+                    <option value={14}>14 gün (2 hafta)</option>
+                    <option value={30}>30 gün (1 ay)</option>
+                    <option value={60}>60 gün (2 ay)</option>
+                  </select>
+                  <Button
+                    variant="primary"
+                    onClick={handleBulkGenerate}
+                    disabled={bulkGenerating}
+                  >
+                    {bulkGenerating ? (
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    ) : (
+                      <Plus className="w-4 h-4 mr-2" />
+                    )}
+                    Slotları Oluştur
+                  </Button>
+                </div>
+              </div>
             </div>
           )}
         </div>

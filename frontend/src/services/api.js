@@ -169,6 +169,7 @@ export const slotAPI = {
   getSlots: (tenantId, date) => api.get(`/api/admin/tenants/${tenantId}/slots`, { params: { date } }),
   updateSlot: (tenantId, slotId, data) => api.put(`/api/admin/tenants/${tenantId}/slots/${slotId}`, data),
   bulkUpdate: (tenantId, slots) => api.post(`/api/admin/tenants/${tenantId}/slots/bulk`, { slots }),
+  generateSlots: (tenantId, days) => api.post(`/api/admin/tenants/${tenantId}/slots/generate`, { days }),
 };
 
 // Use Case APIs

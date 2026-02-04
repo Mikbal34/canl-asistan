@@ -1262,6 +1262,115 @@ router.post('/admin/tenants/:id/slots/bulk', authenticate(), requireSuperAdmin, 
 });
 
 /**
+ * Generate slots for a date range
+ * POST /api/admin/tenants/:id/slots/generate
+ */
+router.post('/admin/tenants/:id/slots/generate', authenticate(), requireSuperAdmin, async (req, res) => {
+  try {
+    const tenantId = req.params.id;
+    const { days = 7 } = req.body; // Default: 7 days
+
+    // Validate days (max 60 days)
+    const numDays = Math.min(Math.max(1, parseInt(days) || 7), 60);
+
+    // Get tenant for working hours
+    const tenant = await tenantService.getTenantById(tenantId);
+    if (!tenant) {
+      return res.status(404).json({ error: 'Tenant not found' });
+    }
+
+    const workingHours = tenant.working_hours || {};
+    const defaultWorkingHours = {
+      monday: { open: '09:00', close: '18:00', closed: false },
+      tuesday: { open: '09:00', close: '18:00', closed: false },
+      wednesday: { open: '09:00', close: '18:00', closed: false },
+      thursday: { open: '09:00', close: '18:00', closed: false },
+      friday: { open: '09:00', close: '18:00', closed: false },
+      saturday: { open: '10:00', close: '16:00', closed: false },
+      sunday: { open: '00:00', close: '00:00', closed: true },
+    };
+
+    const allSlots = [];
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    for (let i = 0; i < numDays; i++) {
+      const date = new Date(today);
+      date.setDate(date.getDate() + i);
+
+      const dateStr = date.toISOString().split('T')[0];
+      const dayOfWeek = date.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
+
+      const dayHours = workingHours[dayOfWeek] || defaultWorkingHours[dayOfWeek];
+
+      // Skip closed days
+      if (dayHours?.closed) continue;
+
+      const openTime = dayHours?.open || '09:00';
+      const closeTime = dayHours?.close || '18:00';
+
+      const [openHour] = openTime.split(':').map(Number);
+      const [closeHour] = closeTime.split(':').map(Number);
+
+      for (let hour = openHour; hour < closeHour; hour++) {
+        const slotTime = `${hour.toString().padStart(2, '0')}:00`;
+        allSlots.push({
+          tenant_id: tenantId,
+          slot_date: dateStr,
+          slot_time: slotTime,
+          is_available: true,
+        });
+      }
+    }
+
+    if (allSlots.length === 0) {
+      return res.json({
+        success: true,
+        message: 'No slots to generate (all days closed)',
+        count: 0,
+      });
+    }
+
+    // Get unique dates
+    const dates = [...new Set(allSlots.map(s => s.slot_date))];
+
+    // Delete existing slots for these dates
+    for (const dateStr of dates) {
+      await supabase
+        .from('appointment_slots')
+        .delete()
+        .eq('tenant_id', tenantId)
+        .eq('slot_date', dateStr);
+    }
+
+    // Insert all slots in batches
+    const batchSize = 100;
+    let inserted = 0;
+
+    for (let i = 0; i < allSlots.length; i += batchSize) {
+      const batch = allSlots.slice(i, i + batchSize);
+      const { data, error } = await supabase
+        .from('appointment_slots')
+        .insert(batch)
+        .select();
+
+      if (error) throw error;
+      inserted += data.length;
+    }
+
+    res.json({
+      success: true,
+      message: `${inserted} slots generated for ${dates.length} days`,
+      count: inserted,
+      days: dates.length,
+    });
+  } catch (error) {
+    console.error('[API] Generate slots error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
  * Get tenant's use cases (admin)
  * GET /api/admin/tenants/:id/use-cases
  */
