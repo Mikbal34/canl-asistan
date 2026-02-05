@@ -337,21 +337,60 @@ function addVapiRules(prompt, language = 'tr') {
 ## Önemli Kurallar:
 - "Bir dakika", "Bekleyin" gibi bekleme ifadeleri kullanma
 - Hemen cevap ver
-- Sessizlik olmadan konuş`,
+- Sessizlik olmadan konuş
+
+## Tool Sonuçları Kullanımı:
+- Tool'dan dönen \`message\` alanını temel al
+- LİSTELERİ BAŞTAN SONA OKUMA:
+  - Araç listesi: "X araç buldum" de, hangisini anlatayım diye sor
+  - Saat listesi: 3-4 örnek ver, "başka saat de var" de
+  - Hizmet listesi: kategori ve sayı söyle
+- TEKNİK BİLGİLERİ SÖYLEME:
+  - appointment_id, feedback_id, staff_id
+  - Müşteri telefon numarası
+  - Internal kodlar
+- RANDEVU SONRASI: sadece tarih + saat + ana bilgi (araç/hizmet/personel)
+- ÇALIŞMA SAATLERİ: sadece sorulan gün veya bugün/yarın`,
 
     en: `
 
 ## Important Rules:
 - Don't use waiting phrases like "One moment", "Please wait"
 - Respond immediately
-- Speak without silence`,
+- Speak without silence
+
+## Tool Response Usage:
+- Use the \`message\` field from tool response as base
+- DON'T READ LISTS FROM START TO END:
+  - Vehicle list: say "I found X vehicles", ask which one to describe
+  - Time slots: give 3-4 examples, say "other times available"
+  - Service list: mention category and count
+- DON'T SAY TECHNICAL INFO:
+  - appointment_id, feedback_id, staff_id
+  - Customer phone number
+  - Internal codes
+- AFTER APPOINTMENT: only date + time + main info (vehicle/service/staff)
+- WORKING HOURS: only the asked day or today/tomorrow`,
 
     de: `
 
 ## Wichtige Regeln:
 - Verwenden Sie keine Wartephrasen wie "Einen Moment", "Bitte warten"
 - Antworten Sie sofort
-- Sprechen Sie ohne Pausen`,
+- Sprechen Sie ohne Pausen
+
+## Tool-Ergebnis Verwendung:
+- Verwenden Sie das \`message\` Feld als Basis
+- LISTEN NICHT KOMPLETT VORLESEN:
+  - Fahrzeugliste: sagen Sie "Ich habe X Fahrzeuge gefunden", fragen Sie welches
+  - Zeitfenster: 3-4 Beispiele geben, "weitere Zeiten verfügbar" sagen
+  - Serviceliste: Kategorie und Anzahl nennen
+- KEINE TECHNISCHEN INFOS NENNEN:
+  - appointment_id, feedback_id, staff_id
+  - Telefonnummer des Kunden
+  - Interne Codes
+- NACH TERMIN: nur Datum + Uhrzeit + Hauptinfo (Fahrzeug/Service/Personal)
+- ARBEITSZEITEN: nur der gefragte Tag oder heute/morgen`,
   };
 
   return prompt + (rules[language] || rules.tr);

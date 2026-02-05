@@ -75,6 +75,7 @@ function getTranscriberLanguage(langCode) {
 function getToolStartMessage(toolName, language) {
   const messages = {
     tr: {
+      // Automotive tools
       get_available_time_slots: 'Müsait saatlere bakıyorum',
       get_available_vehicles: 'Araçlara bakıyorum',
       create_test_drive_appointment: 'Randevunuzu oluşturuyorum',
@@ -84,9 +85,22 @@ function getToolStartMessage(toolName, language) {
       reschedule_appointment: 'Randevunuzu güncelliyorum',
       get_business_info: 'Bilgilere bakıyorum',
       get_working_hours: 'Çalışma saatlerine bakıyorum',
+      get_service_price: 'Fiyata bakıyorum',
+      get_customer_history: 'Geçmişinize bakıyorum',
+      get_active_promotions: 'Kampanyalara bakıyorum',
+      get_loyalty_points: 'Puanınıza bakıyorum',
+      apply_promo_code: 'Kodu kontrol ediyorum',
+      submit_complaint: 'Kaydediyorum',
+      // Beauty/Hairdresser tools
+      get_beauty_services: 'Hizmetlere bakıyorum',
+      get_hairdresser_services: 'Hizmetlere bakıyorum',
+      create_beauty_appointment: 'Randevunuzu oluşturuyorum',
+      get_available_staff: 'Personellere bakıyorum',
+      book_with_staff: 'Randevunuzu oluşturuyorum',
       default: 'Kontrol ediyorum',
     },
     en: {
+      // Automotive tools
       get_available_time_slots: 'Checking available times',
       get_available_vehicles: 'Looking at vehicles',
       create_test_drive_appointment: 'Creating your appointment',
@@ -96,9 +110,22 @@ function getToolStartMessage(toolName, language) {
       reschedule_appointment: 'Updating your appointment',
       get_business_info: 'Looking up information',
       get_working_hours: 'Checking working hours',
+      get_service_price: 'Checking the price',
+      get_customer_history: 'Looking at your history',
+      get_active_promotions: 'Checking promotions',
+      get_loyalty_points: 'Checking your points',
+      apply_promo_code: 'Checking the code',
+      submit_complaint: 'Recording',
+      // Beauty/Hairdresser tools
+      get_beauty_services: 'Looking at services',
+      get_hairdresser_services: 'Looking at services',
+      create_beauty_appointment: 'Creating your appointment',
+      get_available_staff: 'Looking at available staff',
+      book_with_staff: 'Creating your appointment',
       default: 'Checking',
     },
     de: {
+      // Automotive tools
       get_available_time_slots: 'Ich schaue nach verfügbaren Zeiten',
       get_available_vehicles: 'Ich schaue nach Fahrzeugen',
       create_test_drive_appointment: 'Ich erstelle Ihren Termin',
@@ -108,6 +135,18 @@ function getToolStartMessage(toolName, language) {
       reschedule_appointment: 'Ich aktualisiere Ihren Termin',
       get_business_info: 'Ich schaue nach Informationen',
       get_working_hours: 'Ich prüfe die Arbeitszeiten',
+      get_service_price: 'Ich prüfe den Preis',
+      get_customer_history: 'Ich schaue in Ihre Historie',
+      get_active_promotions: 'Ich schaue nach Aktionen',
+      get_loyalty_points: 'Ich prüfe Ihre Punkte',
+      apply_promo_code: 'Ich prüfe den Code',
+      submit_complaint: 'Ich speichere',
+      // Beauty/Hairdresser tools
+      get_beauty_services: 'Ich schaue nach Dienstleistungen',
+      get_hairdresser_services: 'Ich schaue nach Dienstleistungen',
+      create_beauty_appointment: 'Ich erstelle Ihren Termin',
+      get_available_staff: 'Ich schaue nach verfügbarem Personal',
+      book_with_staff: 'Ich erstelle Ihren Termin',
       default: 'Einen Moment bitte',
     },
   };
@@ -259,6 +298,7 @@ function buildAssistantConfig(mergedConfig, tenantInfo, language, tools = []) {
     provider: mergedConfig.voice_provider || '11labs',
     voiceId: mergedConfig.voice_id,
     speed: mergedConfig.voice_speed || 1.0,
+    language: language, // Force TTS language to prevent code-switching on alphanumeric strings
   };
 
   // Add ElevenLabs-specific voice settings if provider is 11labs/elevenlabs
