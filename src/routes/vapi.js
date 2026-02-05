@@ -41,9 +41,10 @@ router.post('/webhook', async (req, res) => {
       console.log(`  - body.call?.assistant?.metadata:`, body.call?.assistant?.metadata);
     }
 
-    // Tenant'i coz - call.assistantOverrides.metadata'yi da gonder
-    const assistantInfo = body.assistant || body.call?.assistantOverrides || {};
-    const tenant = await resolveTenantFromCall(body.call || {}, assistantInfo);
+    // Tenant'i coz - end-of-call-report için body.message.call kullan
+    const callData = body.message?.call || body.call || {};
+    const assistantInfo = body.assistant || body.call?.assistantOverrides || callData.assistantOverrides || {};
+    const tenant = await resolveTenantFromCall(callData, assistantInfo);
     console.log(`[Vapi] Resolved tenant:`, tenant?.id, tenant?.name);
     const tenantId = tenant?.id;
     const industry = tenant?.industry || 'automotive';

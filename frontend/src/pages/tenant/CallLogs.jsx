@@ -47,6 +47,13 @@ export const CallLogs = () => {
 
   const getOutcomeVariant = (outcome) => {
     const variants = {
+      // Yeni status değerleri
+      completed: 'success',
+      'no-answer': 'warning',
+      busy: 'warning',
+      failed: 'error',
+      'in-progress': 'info',
+      // Eski outcome değerleri (backward compat)
       appointment_booked: 'success',
       information_provided: 'info',
       call_back_later: 'warning',

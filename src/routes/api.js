@@ -1721,7 +1721,23 @@ router.get('/call-logs', async (req, res) => {
     }
 
     const data = await supabaseService.getCallLogs(req.tenantId, 50, req.token);
-    res.json(data);
+
+    // Frontend formatına dönüştür
+    const mappedData = data.map(log => ({
+      id: log.id,
+      callerPhone: log.from_number || 'Bilinmiyor',
+      callerName: log.customer?.name || null,
+      timestamp: log.created_at,
+      duration: log.duration || 0,
+      outcome: log.status || 'completed',
+      // Ek bilgiler
+      direction: log.direction,
+      transcript: log.transcript,
+      summary: log.summary,
+      callSid: log.call_sid,
+    }));
+
+    res.json(mappedData);
   } catch (error) {
     console.error('[API] Call logs fetch error:', error);
     res.status(500).json({ error: error.message });
