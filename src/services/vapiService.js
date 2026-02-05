@@ -67,6 +67,70 @@ function getTranscriberLanguage(langCode) {
 }
 
 /**
+ * Tool çağrılırken kullanılacak doğal geçiş mesajı
+ * @param {string} toolName - Tool adı
+ * @param {string} language - Dil kodu (tr, en, de)
+ * @returns {string} - Doğal geçiş mesajı
+ */
+function getToolStartMessage(toolName, language) {
+  const messages = {
+    tr: {
+      get_available_time_slots: 'Müsait saatlere bakıyorum',
+      get_available_vehicles: 'Araçlara bakıyorum',
+      create_test_drive_appointment: 'Randevunuzu oluşturuyorum',
+      create_service_appointment: 'Servis randevunuzu oluşturuyorum',
+      get_my_appointments: 'Randevularınıza bakıyorum',
+      cancel_appointment: 'Randevunuzu iptal ediyorum',
+      reschedule_appointment: 'Randevunuzu güncelliyorum',
+      get_business_info: 'Bilgilere bakıyorum',
+      get_working_hours: 'Çalışma saatlerine bakıyorum',
+      default: 'Kontrol ediyorum',
+    },
+    en: {
+      get_available_time_slots: 'Checking available times',
+      get_available_vehicles: 'Looking at vehicles',
+      create_test_drive_appointment: 'Creating your appointment',
+      create_service_appointment: 'Creating your service appointment',
+      get_my_appointments: 'Looking at your appointments',
+      cancel_appointment: 'Cancelling your appointment',
+      reschedule_appointment: 'Updating your appointment',
+      get_business_info: 'Looking up information',
+      get_working_hours: 'Checking working hours',
+      default: 'Checking',
+    },
+    de: {
+      get_available_time_slots: 'Ich schaue nach verfügbaren Zeiten',
+      get_available_vehicles: 'Ich schaue nach Fahrzeugen',
+      create_test_drive_appointment: 'Ich erstelle Ihren Termin',
+      create_service_appointment: 'Ich erstelle Ihren Servicetermin',
+      get_my_appointments: 'Ich schaue nach Ihren Terminen',
+      cancel_appointment: 'Ich storniere Ihren Termin',
+      reschedule_appointment: 'Ich aktualisiere Ihren Termin',
+      get_business_info: 'Ich schaue nach Informationen',
+      get_working_hours: 'Ich prüfe die Arbeitszeiten',
+      default: 'Einen Moment bitte',
+    },
+  };
+
+  const langMessages = messages[language] || messages.tr;
+  return langMessages[toolName] || langMessages.default;
+}
+
+/**
+ * Tool çağrısı başarısız olduğunda kullanılacak mesaj
+ * @param {string} language - Dil kodu (tr, en, de)
+ * @returns {string} - Hata mesajı
+ */
+function getToolFailMessage(language) {
+  const messages = {
+    tr: 'Şu an buna ulaşamadım, başka bir konuda yardımcı olabilir miyim?',
+    en: "I couldn't get that information right now, is there anything else I can help with?",
+    de: 'Das konnte ich gerade nicht abrufen, kann ich Ihnen anders helfen?',
+  };
+  return messages[language] || messages.tr;
+}
+
+/**
  * VAPI API istegi gonder
  */
 async function vapiRequest(endpoint, options = {}) {
@@ -173,6 +237,21 @@ function buildAssistantConfig(mergedConfig, tenantInfo, language, tools = []) {
         'x-tenant-id': tenantInfo.id,
       },
     },
+    // Doğal geçiş mesajları - "bir dakika" yerine context-aware mesajlar
+    messages: [
+      {
+        type: 'request-start',
+        content: getToolStartMessage(tool.name, language),
+      },
+      {
+        type: 'request-complete',
+        content: '', // Sessiz - sonuç zaten konuşulacak
+      },
+      {
+        type: 'request-failed',
+        content: getToolFailMessage(language),
+      },
+    ],
   }));
 
   // Build voice config with advanced ElevenLabs settings
