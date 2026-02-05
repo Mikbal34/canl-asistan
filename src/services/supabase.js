@@ -7,8 +7,39 @@ const { createClient } = require('@supabase/supabase-js');
 const config = require('../config/env');
 
 const supabase = createClient(config.supabase.url, config.supabase.anonKey);
-// Admin client for operations that need to bypass RLS
+// Admin client for operations that need to bypass RLS (webhooks, system operations)
 const supabaseAdmin = createClient(config.supabase.url, config.supabase.serviceRoleKey);
+
+/**
+ * JWT token ile authenticated Supabase client oluşturur
+ * RLS politikaları bu client üzerinden çalışır
+ * @param {string} token - JWT access token
+ * @returns {SupabaseClient} Authenticated Supabase client
+ */
+function createAuthClient(token) {
+  if (!token) {
+    return supabase;
+  }
+  return createClient(config.supabase.url, config.supabase.anonKey, {
+    global: {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    },
+  });
+}
+
+/**
+ * Token varsa auth client, yoksa anon client döner (RLS aktif)
+ * Webhook fonksiyonları doğrudan supabaseAdmin kullanır
+ * @param {string|null} token - JWT access token (opsiyonel)
+ * @returns {SupabaseClient} Uygun Supabase client
+ */
+function getClient(token) {
+  // Token varsa authenticated client, yoksa anon (RLS ile)
+  // NOT: Webhook'lar bu fonksiyonu kullanmaz, doğrudan supabaseAdmin kullanır
+  return token ? createAuthClient(token) : supabase;
+}
 
 // ==========================================
 // MÜŞTERI İŞLEMLERİ
@@ -64,9 +95,12 @@ async function updateCustomer(tenantId, customerId, updates) {
 /**
  * Tüm müşterileri getir (tenant-scoped)
  * Soft delete filtresi uygulanır
+ * @param {string} tenantId - Tenant ID
+ * @param {string|null} token - JWT token (RLS için)
  */
-async function getAllCustomers(tenantId) {
-  const { data, error } = await supabaseAdminAdmin
+async function getAllCustomers(tenantId, token = null) {
+  const client = getClient(token);
+  const { data, error } = await client
     .from('customers')
     .select('*')
     .eq('tenant_id', tenantId)
@@ -83,11 +117,15 @@ async function getAllCustomers(tenantId) {
 
 /**
  * Müsait araçları getir (tenant-scoped)
+ * @param {string} tenantId - Tenant ID
+ * @param {Object} filters - Filtreler
+ * @param {string|null} token - JWT token (RLS için)
  */
-async function getAvailableVehicles(tenantId, filters = {}) {
+async function getAvailableVehicles(tenantId, filters = {}, token = null) {
   console.log('[Supabase] getAvailableVehicles called with tenantId:', tenantId, 'filters:', filters);
 
-  let query = supabaseAdmin
+  const client = getClient(token);
+  let query = client
     .from('vehicles')
     .select('*')
     .eq('tenant_id', tenantId)
@@ -132,9 +170,12 @@ async function getVehicleById(tenantId, vehicleId) {
 
 /**
  * Tüm araçları getir (tenant-scoped)
+ * @param {string} tenantId - Tenant ID
+ * @param {string|null} token - JWT token (RLS için)
  */
-async function getAllVehicles(tenantId) {
-  const { data, error } = await supabaseAdmin
+async function getAllVehicles(tenantId, token = null) {
+  const client = getClient(token);
+  const { data, error } = await client
     .from('vehicles')
     .select('*')
     .eq('tenant_id', tenantId)
@@ -150,9 +191,13 @@ async function getAllVehicles(tenantId) {
 
 /**
  * Güzellik hizmetlerini getir (tenant-scoped)
+ * @param {string} tenantId - Tenant ID
+ * @param {Object} filters - Filtreler
+ * @param {string|null} token - JWT token (RLS için)
  */
-async function getBeautyServices(tenantId, filters = {}) {
-  let query = supabaseAdmin
+async function getBeautyServices(tenantId, filters = {}, token = null) {
+  const client = getClient(token);
+  let query = client
     .from('beauty_services')
     .select('*')
     .eq('tenant_id', tenantId)
@@ -194,7 +239,7 @@ async function getBeautyServiceById(tenantId, serviceId) {
  * appointment_slots tablosunu kullanır
  */
 async function getAvailableSlots(tenantId, date, slotType) {
-  const { data, error } = await supabaseAdminAdmin
+  const { data, error } = await supabaseAdmin
     .from('appointment_slots')
     .select('*')
     .eq('tenant_id', tenantId)
@@ -223,7 +268,7 @@ async function getAvailableDates(tenantId, days = 7) {
   const todayStr = today.toISOString().split('T')[0];
   const endDateStr = endDate.toISOString().split('T')[0];
 
-  const { data, error } = await supabaseAdminAdmin
+  const { data, error } = await supabaseAdmin
     .from('appointment_slots')
     .select('slot_date, is_available')
     .eq('tenant_id', tenantId)
@@ -348,9 +393,13 @@ async function createTestDriveAppointment(tenantId, customerId, vehicleId, date,
 
 /**
  * Test sürüşü randevularını getir (tenant-scoped)
+ * @param {string} tenantId - Tenant ID
+ * @param {string|null} customerId - Müşteri ID (opsiyonel filtre)
+ * @param {string|null} token - JWT token (RLS için)
  */
-async function getTestDriveAppointments(tenantId, customerId = null) {
-  let query = supabaseAdminAdmin
+async function getTestDriveAppointments(tenantId, customerId = null, token = null) {
+  const client = getClient(token);
+  let query = client
     .from('test_drive_appointments')
     .select(`
       *,
@@ -416,9 +465,13 @@ async function createServiceAppointment(tenantId, customerId, vehiclePlate, vehi
 
 /**
  * Servis randevularını getir (tenant-scoped)
+ * @param {string} tenantId - Tenant ID
+ * @param {string|null} customerId - Müşteri ID (opsiyonel filtre)
+ * @param {string|null} token - JWT token (RLS için)
  */
-async function getServiceAppointments(tenantId, customerId = null) {
-  let query = supabaseAdminAdmin
+async function getServiceAppointments(tenantId, customerId = null, token = null) {
+  const client = getClient(token);
+  let query = client
     .from('service_appointments')
     .select(`
       *,
@@ -486,9 +539,13 @@ async function createBeautyAppointment(tenantId, customerId, serviceId, date, ti
 
 /**
  * Güzellik randevularını getir (tenant-scoped)
+ * @param {string} tenantId - Tenant ID
+ * @param {string|null} customerId - Müşteri ID (opsiyonel filtre)
+ * @param {string|null} token - JWT token (RLS için)
  */
-async function getBeautyAppointments(tenantId, customerId = null) {
-  let query = supabaseAdmin
+async function getBeautyAppointments(tenantId, customerId = null, token = null) {
+  const client = getClient(token);
+  let query = client
     .from('beauty_appointments')
     .select(`
       *,
@@ -689,9 +746,13 @@ async function updateCallLog(tenantId, callLogId, updates) {
 
 /**
  * Arama kayıtlarını getir (tenant-scoped)
+ * @param {string} tenantId - Tenant ID
+ * @param {number} limit - Kayıt limiti
+ * @param {string|null} token - JWT token (RLS için)
  */
-async function getCallLogs(tenantId, limit = 50) {
-  const { data, error } = await supabaseAdmin
+async function getCallLogs(tenantId, limit = 50, token = null) {
+  const client = getClient(token);
+  const { data, error } = await client
     .from('call_logs')
     .select(`
       *,
@@ -1184,9 +1245,13 @@ async function submitFeedback(tenantId, feedbackData) {
 
 /**
  * Geri bildirimleri getir (tenant-scoped)
+ * @param {string} tenantId - Tenant ID
+ * @param {Object} filters - Filtreler
+ * @param {string|null} token - JWT token (RLS için)
  */
-async function getFeedback(tenantId, filters = {}) {
-  let query = supabaseAdmin
+async function getFeedback(tenantId, filters = {}, token = null) {
+  const client = getClient(token);
+  let query = client
     .from('feedback')
     .select(`
       *,
@@ -1315,6 +1380,9 @@ async function legacyGetOrCreateCustomer(phone, name = null) {
 
 module.exports = {
   supabase,
+  supabaseAdmin,
+  createAuthClient,
+  getClient,
 
   // Customer
   getOrCreateCustomer,

@@ -649,7 +649,8 @@ router.get('/check-slug/:slug', async (req, res) => {
     const { slug } = req.params;
     const { createClient } = require('@supabase/supabase-js');
     const config = require('../config/env');
-    const supabase = createClient(config.supabase.url, config.supabase.anonKey);
+    // Public route needs serviceRoleKey to query tenants table (RLS enabled)
+    const supabase = createClient(config.supabase.url, config.supabase.serviceRoleKey);
 
     const { data: existing } = await supabase
       .from('tenants')

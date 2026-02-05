@@ -6,8 +6,9 @@
 const { createClient } = require('@supabase/supabase-js');
 const config = require('../config/env');
 
-// Supabase client (admin için service role key kullanılabilir)
-const supabase = createClient(config.supabase.url, config.supabase.anonKey);
+// Auth middleware needs serviceRoleKey for user lookups before JWT context is established
+// supabase.auth.getUser() still validates JWT properly with serviceRoleKey
+const supabase = createClient(config.supabase.url, config.supabase.serviceRoleKey);
 
 /**
  * JWT token'ı doğrular ve kullanıcı bilgisini req.user'a ekler
@@ -85,6 +86,8 @@ function authenticate(options = { required: true }) {
 
           req.user = updatedUser;
           req.authUser = user;
+          req.token = token; // JWT token'ı Supabase RLS için sakla
+          req.tenantId = updatedUser?.tenant_id;
           return next();
         }
 
@@ -109,6 +112,7 @@ function authenticate(options = { required: true }) {
       req.user = dbUser;
       req.authUser = user;
       req.tenantId = dbUser.tenant_id;
+      req.token = token; // JWT token'ı Supabase RLS için sakla
 
       next();
     } catch (error) {

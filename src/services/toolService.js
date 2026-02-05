@@ -7,7 +7,8 @@
 const { createClient } = require('@supabase/supabase-js');
 const config = require('../config/env');
 
-const supabase = createClient(config.supabase.url, config.supabase.anonKey);
+// Tool service is called from webhooks and admin routes, needs serviceRoleKey
+const supabase = createClient(config.supabase.url, config.supabase.serviceRoleKey);
 
 // In-memory cache for tool definitions
 let _toolDefinitionsCache = null;

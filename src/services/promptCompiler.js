@@ -8,7 +8,8 @@ const { createClient } = require('@supabase/supabase-js');
 const config = require('../config/env');
 const { buildUseCasePromptSections, getToolsFromUseCases } = require('../prompts/useCasePrompts');
 
-const supabase = createClient(config.supabase.url, config.supabase.anonKey);
+// Prompt compiler is used by VAPI webhooks (external calls), needs serviceRoleKey
+const supabase = createClient(config.supabase.url, config.supabase.serviceRoleKey);
 
 /**
  * In-memory cache for compiled prompts

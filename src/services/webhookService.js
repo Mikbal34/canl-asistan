@@ -6,7 +6,8 @@
 const { createClient } = require('@supabase/supabase-js');
 const config = require('../config/env');
 
-const supabase = createClient(config.supabase.url, config.supabase.anonKey);
+// Webhook service runs from external calls (VAPI, etc.), needs serviceRoleKey to bypass RLS
+const supabase = createClient(config.supabase.url, config.supabase.serviceRoleKey);
 
 /**
  * Tenant'in aktif webhook'larini getir

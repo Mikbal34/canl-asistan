@@ -5,15 +5,12 @@
 
 const express = require('express');
 const router = express.Router();
-const { createClient } = require('@supabase/supabase-js');
 const config = require('../config/env');
 
 const { processFunctionCall, getFunctionDefinitions } = require('../prompts/functions');
 const { saveCallLog } = require('../services/supabase');
 const vapiService = require('../services/vapiService');
 const { handleToolCall, verifyVapiWebhook, resolveTenantFromCall } = require('../handlers/vapiToolsHandler');
-
-const supabase = createClient(config.supabase.url, config.supabase.anonKey);
 
 /**
  * VAPI Tools Endpoint - Server URL tool calls

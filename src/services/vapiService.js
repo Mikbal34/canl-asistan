@@ -13,8 +13,9 @@ const { getFunctionDefinitions } = require('../prompts/functions');
 const useCaseService = require('./useCaseService');
 const { buildUseCasePromptSections } = require('../prompts/useCasePrompts');
 
-const supabase = createClient(config.supabase.url, config.supabase.anonKey);
-const supabaseAdmin = createClient(config.supabase.url, config.supabase.serviceRoleKey);
+// VAPI service manages tenants and syncs to VAPI API, needs serviceRoleKey
+const supabase = createClient(config.supabase.url, config.supabase.serviceRoleKey);
+const supabaseAdmin = supabase; // Alias for backward compatibility
 
 // Lazy load PromptCompiler to avoid circular dependencies
 let _promptCompiler = null;

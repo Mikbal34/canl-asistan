@@ -6,7 +6,8 @@
 const { createClient } = require('@supabase/supabase-js');
 const config = require('../config/env');
 
-const supabase = createClient(config.supabase.url, config.supabase.anonKey);
+// Template service is called from admin routes, needs serviceRoleKey
+const supabase = createClient(config.supabase.url, config.supabase.serviceRoleKey);
 
 // Lazy load VapiSyncService to avoid circular dependencies
 let _vapiSyncService = null;

@@ -19,7 +19,8 @@ function getPromptCompiler() {
   return _promptCompiler;
 }
 
-const supabase = createClient(config.supabase.url, config.supabase.anonKey);
+// Prompt service is called from webhooks and admin routes, needs serviceRoleKey
+const supabase = createClient(config.supabase.url, config.supabase.serviceRoleKey);
 
 /**
  * Tenant için sistem promptunu getir

@@ -8,9 +8,8 @@ const vapiService = require('../services/vapiService');
 const { createClient } = require('@supabase/supabase-js');
 const config = require('../config/env');
 
-const supabase = createClient(config.supabase.url, config.supabase.anonKey);
-
 // Service role client - RLS'i bypass eder (VAPI tool calls icin gerekli)
+// VAPI tool calls are external webhook calls without user auth
 const supabaseAdmin = createClient(config.supabase.url, config.supabase.serviceRoleKey);
 
 /**
@@ -32,7 +31,7 @@ async function resolveTenantFromCall(callInfo, assistantInfo = null) {
   // 2. Body.assistant.metadata'dan tenant ID al
   if (assistantInfo?.metadata?.tenantId) {
     console.log('[VapiTools] Trying to find tenant by assistant metadata:', assistantInfo.metadata.tenantId);
-    const { data: tenant, error } = await supabase
+    const { data: tenant, error } = await supabaseAdmin
       .from('tenants')
       .select('*')
       .eq('id', assistantInfo.metadata.tenantId)
@@ -48,7 +47,7 @@ async function resolveTenantFromCall(callInfo, assistantInfo = null) {
   const overridesTenantId = callInfo.assistantOverrides?.metadata?.tenantId;
   if (overridesTenantId) {
     console.log('[VapiTools] Trying to find tenant by assistantOverrides:', overridesTenantId);
-    const { data: tenant, error } = await supabase
+    const { data: tenant, error } = await supabaseAdmin
       .from('tenants')
       .select('*')
       .eq('id', overridesTenantId)

@@ -7,7 +7,8 @@
 const { createClient } = require('@supabase/supabase-js');
 const config = require('../config/env');
 
-const supabase = createClient(config.supabase.url, config.supabase.anonKey);
+// Tenant resolver runs before auth, needs serviceRoleKey to lookup tenants
+const supabase = createClient(config.supabase.url, config.supabase.serviceRoleKey);
 
 // Tenant cache (basit in-memory cache)
 const tenantCache = new Map();

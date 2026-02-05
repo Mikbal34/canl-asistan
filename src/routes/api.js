@@ -143,8 +143,8 @@ router.post('/auth/login', async (req, res) => {
       });
     }
 
-    // Kullanıcı bilgilerini veritabanından al
-    const { data: user } = await supabase
+    // Kullanıcı bilgilerini veritabanından al (login sonrası, admin client gerekli)
+    const { data: user } = await supabaseAdmin
       .from('users')
       .select(`*, tenant:tenants(*)`)
       .eq('email', email)
@@ -198,8 +198,8 @@ router.post('/auth/register', authenticate(), requireTenantAdmin, async (req, re
       });
     }
 
-    // DB'de kullanıcı oluştur
-    const { data: user, error: dbError } = await supabase
+    // DB'de kullanıcı oluştur (admin işlemi, RLS bypass gerekli)
+    const { data: user, error: dbError } = await supabaseAdmin
       .from('users')
       .insert({
         auth_user_id: authData.user.id,
@@ -390,7 +390,8 @@ router.post('/tenant/voice-config/sync', authenticate(), resolveTenant(), requir
  */
 router.delete('/tenant/voice-config', authenticate(), resolveTenant(), requireTenantAccess, requireTenantAdmin, async (req, res) => {
   try {
-    const { data, error } = await supabase
+    const client = req.token ? supabaseService.createAuthClient(req.token) : supabaseAdmin;
+    const { data, error } = await client
       .from('tenants')
       .update({ voice_config_override: null })
       .eq('id', req.tenantId)
@@ -1456,17 +1457,14 @@ router.use(resolveTenant({ required: false }));
 router.get('/test-drives', async (req, res) => {
   try {
     if (!req.tenantId) {
-      // Legacy: tenant olmadan tüm verileri getir
-      const { data, error } = await supabase
-        .from('test_drive_appointments')
-        .select(`*, customer:customers(*), vehicle:vehicles(*)`)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      return res.json(data || []);
+      // Tenant ID zorunlu - güvenlik için tüm veri döndürmeyi engelle
+      return res.status(400).json({
+        error: 'Bad Request',
+        message: 'Tenant ID is required',
+      });
     }
 
-    const data = await supabaseService.getTestDriveAppointments(req.tenantId);
+    const data = await supabaseService.getTestDriveAppointments(req.tenantId, null, req.token);
     res.json(data);
   } catch (error) {
     console.error('[API] Test drives fetch error:', error);
@@ -1480,20 +1478,15 @@ router.get('/test-drives', async (req, res) => {
  */
 router.patch('/test-drives/:id', async (req, res) => {
   try {
+    if (!req.tenantId) {
+      return res.status(400).json({
+        error: 'Bad Request',
+        message: 'Tenant ID is required',
+      });
+    }
+
     const { id } = req.params;
     const { status } = req.body;
-
-    if (!req.tenantId) {
-      const { data, error } = await supabase
-        .from('test_drive_appointments')
-        .update({ status })
-        .eq('id', id)
-        .select()
-        .single();
-
-      if (error) throw error;
-      return res.json(data);
-    }
 
     const data = await supabaseService.updateTestDriveStatus(req.tenantId, id, status);
     res.json(data);
@@ -1510,16 +1503,13 @@ router.patch('/test-drives/:id', async (req, res) => {
 router.get('/services', async (req, res) => {
   try {
     if (!req.tenantId) {
-      const { data, error } = await supabase
-        .from('service_appointments')
-        .select(`*, customer:customers(*)`)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      return res.json(data || []);
+      return res.status(400).json({
+        error: 'Bad Request',
+        message: 'Tenant ID is required',
+      });
     }
 
-    const data = await supabaseService.getServiceAppointments(req.tenantId);
+    const data = await supabaseService.getServiceAppointments(req.tenantId, null, req.token);
     res.json(data);
   } catch (error) {
     console.error('[API] Services fetch error:', error);
@@ -1533,20 +1523,15 @@ router.get('/services', async (req, res) => {
  */
 router.patch('/services/:id', async (req, res) => {
   try {
+    if (!req.tenantId) {
+      return res.status(400).json({
+        error: 'Bad Request',
+        message: 'Tenant ID is required',
+      });
+    }
+
     const { id } = req.params;
     const { status } = req.body;
-
-    if (!req.tenantId) {
-      const { data, error } = await supabase
-        .from('service_appointments')
-        .update({ status })
-        .eq('id', id)
-        .select()
-        .single();
-
-      if (error) throw error;
-      return res.json(data);
-    }
 
     const data = await supabaseService.updateServiceStatus(req.tenantId, id, status);
     res.json(data);
@@ -1563,16 +1548,13 @@ router.patch('/services/:id', async (req, res) => {
 router.get('/customers', async (req, res) => {
   try {
     if (!req.tenantId) {
-      const { data, error } = await supabase
-        .from('customers')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      return res.json(data || []);
+      return res.status(400).json({
+        error: 'Bad Request',
+        message: 'Tenant ID is required',
+      });
     }
 
-    const data = await supabaseService.getAllCustomers(req.tenantId);
+    const data = await supabaseService.getAllCustomers(req.tenantId, req.token);
     res.json(data);
   } catch (error) {
     console.error('[API] Customers fetch error:', error);
@@ -1589,28 +1571,15 @@ router.get('/vehicles', async (req, res) => {
     // Admin için query param'dan, normal kullanıcı için req.tenantId'den al
     const tenantId = req.query.tenant_id || req.tenantId;
 
-    let data, error;
-
     if (!tenantId) {
-      // Hiç tenant_id yoksa tüm araçları getir (sadece super_admin için)
-      const result = await supabase
-        .from('vehicles')
-        .select('*')
-        .order('brand', { ascending: true });
-      data = result.data;
-      error = result.error;
-    } else {
-      // Belirli tenant'ın araçlarını getir
-      const result = await supabase
-        .from('vehicles')
-        .select('*')
-        .eq('tenant_id', tenantId)
-        .order('brand', { ascending: true });
-      data = result.data;
-      error = result.error;
+      return res.status(400).json({
+        error: 'Bad Request',
+        message: 'Tenant ID is required',
+      });
     }
 
-    if (error) throw error;
+    // Token ile RLS aktif client kullan
+    const data = await supabaseService.getAllVehicles(tenantId, req.token);
 
     // Frontend uyumluluğu için available_for_test_drive -> is_available
     const vehicles = (data || []).map(v => ({
@@ -1634,12 +1603,14 @@ router.post('/vehicles', async (req, res) => {
     // Admin için body'den tenant_id alınabilir, normal kullanıcı için req.tenantId
     const tenantId = req.body.tenant_id || req.tenantId;
     if (!tenantId) {
-      return res.status(400).json({ error: 'Tenant ID required' });
+      return res.status(400).json({ error: 'Tenant ID is required' });
     }
 
     const { brand, model, year, price, color, fuel_type, transmission, is_available } = req.body;
 
-    const { data, error } = await supabase
+    // Yazma işlemleri için token ile auth client kullan (RLS ile)
+    const client = req.token ? supabaseService.createAuthClient(req.token) : supabaseAdmin;
+    const { data, error } = await client
       .from('vehicles')
       .insert({
         tenant_id: tenantId,
@@ -1672,9 +1643,16 @@ router.put('/vehicles/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const tenantId = req.body.tenant_id || req.tenantId;
+
+    if (!tenantId) {
+      return res.status(400).json({ error: 'Tenant ID is required' });
+    }
+
     const { brand, model, year, price, color, fuel_type, transmission, is_available } = req.body;
 
-    let query = supabase
+    // Yazma işlemleri için token ile auth client kullan (RLS ile)
+    const client = req.token ? supabaseService.createAuthClient(req.token) : supabaseAdmin;
+    const { data, error } = await client
       .from('vehicles')
       .update({
         brand,
@@ -1687,13 +1665,10 @@ router.put('/vehicles/:id', async (req, res) => {
         available_for_test_drive: is_available,
         updated_at: new Date().toISOString(),
       })
-      .eq('id', id);
-
-    if (tenantId) {
-      query = query.eq('tenant_id', tenantId);
-    }
-
-    const { data, error } = await query.select().single();
+      .eq('id', id)
+      .eq('tenant_id', tenantId)
+      .select()
+      .single();
 
     if (error) throw error;
     res.json({ ...data, is_available: data.available_for_test_drive });
@@ -1712,13 +1687,17 @@ router.delete('/vehicles/:id', async (req, res) => {
     const { id } = req.params;
     const tenantId = req.tenantId;
 
-    let query = supabase.from('vehicles').delete().eq('id', id);
-
-    if (tenantId) {
-      query = query.eq('tenant_id', tenantId);
+    if (!tenantId) {
+      return res.status(400).json({ error: 'Tenant ID is required' });
     }
 
-    const { error } = await query;
+    // Yazma işlemleri için token ile auth client kullan (RLS ile)
+    const client = req.token ? supabaseService.createAuthClient(req.token) : supabaseAdmin;
+    const { error } = await client
+      .from('vehicles')
+      .delete()
+      .eq('id', id)
+      .eq('tenant_id', tenantId);
 
     if (error) throw error;
     res.json({ success: true });
@@ -1735,17 +1714,13 @@ router.delete('/vehicles/:id', async (req, res) => {
 router.get('/call-logs', async (req, res) => {
   try {
     if (!req.tenantId) {
-      const { data, error } = await supabase
-        .from('call_logs')
-        .select(`*, customer:customers(name, phone)`)
-        .order('created_at', { ascending: false })
-        .limit(50);
-
-      if (error) throw error;
-      return res.json(data || []);
+      return res.status(400).json({
+        error: 'Bad Request',
+        message: 'Tenant ID is required',
+      });
     }
 
-    const data = await supabaseService.getCallLogs(req.tenantId, 50);
+    const data = await supabaseService.getCallLogs(req.tenantId, 50, req.token);
     res.json(data);
   } catch (error) {
     console.error('[API] Call logs fetch error:', error);
@@ -1764,7 +1739,7 @@ router.get('/call-logs', async (req, res) => {
 router.get('/beauty/services', authenticate(), resolveTenant(), async (req, res) => {
   try {
     const { category } = req.query;
-    const data = await supabaseService.getBeautyServices(req.tenantId, { category });
+    const data = await supabaseService.getBeautyServices(req.tenantId, { category }, req.token);
     res.json(data);
   } catch (error) {
     console.error('[API] Beauty services fetch error:', error);
@@ -1778,7 +1753,8 @@ router.get('/beauty/services', authenticate(), resolveTenant(), async (req, res)
  */
 router.post('/beauty/services', authenticate(), resolveTenant(), requireTenantAdmin, async (req, res) => {
   try {
-    const { data, error } = await supabase
+    const client = req.token ? supabaseService.createAuthClient(req.token) : supabaseAdmin;
+    const { data, error } = await client
       .from('beauty_services')
       .insert({
         tenant_id: req.tenantId,
@@ -1801,7 +1777,8 @@ router.post('/beauty/services', authenticate(), resolveTenant(), requireTenantAd
  */
 router.put('/beauty/services/:id', authenticate(), resolveTenant(), requireTenantAdmin, async (req, res) => {
   try {
-    const { data, error } = await supabase
+    const client = req.token ? supabaseService.createAuthClient(req.token) : supabaseAdmin;
+    const { data, error } = await client
       .from('beauty_services')
       .update(req.body)
       .eq('id', req.params.id)
@@ -1825,7 +1802,8 @@ router.put('/beauty/services/:id', authenticate(), resolveTenant(), requireTenan
 router.delete('/beauty/services/:id', authenticate(), resolveTenant(), requireTenantAdmin, async (req, res) => {
   try {
     // Soft delete: deleted_at set edilir, is_active false yapılır
-    const { data, error } = await supabase
+    const client = req.token ? supabaseService.createAuthClient(req.token) : supabaseAdmin;
+    const { data, error } = await client
       .from('beauty_services')
       .update({
         deleted_at: new Date().toISOString(),
@@ -1860,11 +1838,11 @@ router.get('/beauty/appointments', async (req, res) => {
     if (!req.tenantId) {
       return res.status(400).json({
         error: 'Bad Request',
-        message: 'Tenant ID required',
+        message: 'Tenant ID is required',
       });
     }
 
-    const data = await supabaseService.getBeautyAppointments(req.tenantId);
+    const data = await supabaseService.getBeautyAppointments(req.tenantId, null, req.token);
     res.json(data);
   } catch (error) {
     console.error('[API] Beauty appointments fetch error:', error);
@@ -2164,7 +2142,8 @@ router.get('/admin/tenants/:id/feedback', authenticate(), requireSuperAdmin, asy
     const tenantId = req.params.id;
     const { type, status } = req.query;
 
-    let query = supabase
+    // Super admin - RLS bypass gerekli
+    let query = supabaseAdmin
       .from('feedback')
       .select(`*, customer:customers(name, phone, email)`)
       .eq('tenant_id', tenantId)
@@ -2203,7 +2182,8 @@ router.put('/admin/tenants/:id/feedback/:fid', authenticate(), requireSuperAdmin
     if (status) updateData.status = status;
     if (admin_notes !== undefined) updateData.admin_notes = admin_notes;
 
-    const { data, error } = await supabase
+    // Super admin - RLS bypass gerekli
+    const { data, error } = await supabaseAdmin
       .from('feedback')
       .update(updateData)
       .eq('id', feedbackId)
@@ -2230,7 +2210,8 @@ router.put('/admin/tenants/:id/feedback/:fid', authenticate(), requireSuperAdmin
  */
 router.get('/prompts', authenticate(), resolveTenant(), requireTenantAccess, async (req, res) => {
   try {
-    const { data, error } = await supabase
+    const client = req.token ? supabaseService.createAuthClient(req.token) : supabaseAdmin;
+    const { data, error } = await client
       .from('prompt_templates')
       .select('*')
       .eq('tenant_id', req.tenantId)
@@ -2251,10 +2232,11 @@ router.get('/prompts', authenticate(), resolveTenant(), requireTenantAccess, asy
 router.post('/prompts', authenticate(), resolveTenant(), requireTenantAdmin, async (req, res) => {
   try {
     const { id, ...promptData } = req.body;
+    const client = req.token ? supabaseService.createAuthClient(req.token) : supabaseAdmin;
 
     if (id) {
       // Update existing
-      const { data, error } = await supabase
+      const { data, error } = await client
         .from('prompt_templates')
         .update(promptData)
         .eq('id', id)
@@ -2267,7 +2249,7 @@ router.post('/prompts', authenticate(), resolveTenant(), requireTenantAdmin, asy
     }
 
     // Create new
-    const { data, error } = await supabase
+    const { data, error } = await client
       .from('prompt_templates')
       .insert({
         tenant_id: req.tenantId,

@@ -7,7 +7,8 @@ const { createClient } = require('@supabase/supabase-js');
 const config = require('../config/env');
 const tenantService = require('./tenantService');
 
-const supabase = createClient(config.supabase.url, config.supabase.anonKey);
+// Onboarding service creates tenants and users, needs serviceRoleKey
+const supabase = createClient(config.supabase.url, config.supabase.serviceRoleKey);
 
 // VAPI Service - lazy load to avoid circular dependency
 let vapiService = null;

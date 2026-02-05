@@ -7,7 +7,8 @@ const { createClient } = require('@supabase/supabase-js');
 const config = require('../config/env');
 const { getToolsFromUseCases, buildUseCasePromptSections } = require('../prompts/useCasePrompts');
 
-const supabase = createClient(config.supabase.url, config.supabase.anonKey);
+// Use case service is called from admin routes and webhooks, needs serviceRoleKey
+const supabase = createClient(config.supabase.url, config.supabase.serviceRoleKey);
 
 // Lazy load templateService to avoid circular dependencies
 let _templateService = null;

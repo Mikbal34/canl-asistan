@@ -10,7 +10,8 @@ const config = require('../../config/env');
 const vapiService = require('../../services/vapiService');
 const { getFunctionDefinitions } = require('../../prompts/functions');
 
-const supabase = createClient(config.supabase.url, config.supabase.anonKey);
+// Admin routes need serviceRoleKey to bypass RLS
+const supabase = createClient(config.supabase.url, config.supabase.serviceRoleKey);
 
 /**
  * Tum preset'leri listele

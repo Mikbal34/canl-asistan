@@ -6,11 +6,10 @@
 const { createClient } = require('@supabase/supabase-js');
 const config = require('../config/env');
 
-// Normal DB işlemleri için anonKey
-const supabase = createClient(config.supabase.url, config.supabase.anonKey);
-
-// Admin işlemleri için serviceRoleKey (auth.admin.createUser vb.)
-const supabaseAdmin = createClient(config.supabase.url, config.supabase.serviceRoleKey);
+// Admin service - tüm işlemler için serviceRoleKey (RLS bypass gerekli)
+// Tenant service admin route'larından çağrılır ve cross-tenant işlemler yapar
+const supabase = createClient(config.supabase.url, config.supabase.serviceRoleKey);
+const supabaseAdmin = supabase; // Alias for backward compatibility
 
 // VAPI Service - lazy load to avoid circular dependency
 let vapiService = null;
