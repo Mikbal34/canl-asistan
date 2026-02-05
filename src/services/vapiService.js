@@ -29,6 +29,32 @@ function getPromptCompiler() {
 const VAPI_API_BASE = 'https://api.vapi.ai';
 
 /**
+ * Türkçe ünlü uyumuna göre "-dan/-den/-tan/-ten" ekini belirle
+ * @param {string} name - Firma adı
+ * @returns {string} - Uygun ek ("'dan", "'den", "'tan", "'ten")
+ */
+function getTurkishSuffix(name) {
+  if (!name) return "'dan";
+
+  const lastChar = name.slice(-1).toLowerCase();
+  const hardConsonants = ['p', 'ç', 't', 'k', 's', 'ş', 'h', 'f'];
+
+  // Son ünlüyü bul
+  const vowels = name.match(/[aeıioöuü]/gi);
+  const lastVowel = vowels ? vowels[vowels.length - 1].toLowerCase() : 'a';
+  const isHardVowel = ['a', 'ı', 'o', 'u'].includes(lastVowel);
+
+  // Sert ünsüzle mi bitiyor?
+  const isHardConsonant = hardConsonants.includes(lastChar);
+
+  if (isHardVowel) {
+    return isHardConsonant ? "'tan" : "'dan";
+  } else {
+    return isHardConsonant ? "'ten" : "'den";
+  }
+}
+
+/**
  * Dil kodunu transcriber language formatına çevir
  */
 function getTranscriberLanguage(langCode) {
@@ -114,7 +140,10 @@ function mergeConfig(presetConfig, tenantOverride, tenantInfo) {
   }
 
   if (config.first_message) {
+    // Türkçe ünlü uyumlu firma adı eki
+    const firmaSuffix = getTurkishSuffix(tenantInfo.name);
     config.first_message = config.first_message
+      .replace(/{FIRMA_ADI_DAN}/g, (tenantInfo.name || 'Firma') + firmaSuffix)
       .replace(/{FIRMA_ADI}/g, tenantInfo.name || 'Firma')
       .replace(/{ASISTAN_ADI}/g, tenantInfo.assistant_name || 'Asistan');
   }
