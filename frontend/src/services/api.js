@@ -167,6 +167,7 @@ export const voiceConfigAPI = {
 // Slot Management APIs (Admin)
 export const slotAPI = {
   getSlots: (tenantId, date) => api.get(`/api/admin/tenants/${tenantId}/slots`, { params: { date } }),
+  getSummary: (tenantId, month) => api.get(`/api/admin/tenants/${tenantId}/slots/summary`, { params: { month } }),
   updateSlot: (tenantId, slotId, data) => api.put(`/api/admin/tenants/${tenantId}/slots/${slotId}`, data),
   bulkUpdate: (tenantId, slots) => api.post(`/api/admin/tenants/${tenantId}/slots/bulk`, { slots }),
   generateSlots: (tenantId, days) => api.post(`/api/admin/tenants/${tenantId}/slots/generate`, { days }),

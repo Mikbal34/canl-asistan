@@ -1,4 +1,4 @@
-import { Navigate } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 
 /**
@@ -9,6 +9,7 @@ import { useAuth } from '../hooks/useAuth';
  */
 export const ProtectedRoute = ({ children, requiredRole }) => {
   const { isAuthenticated, loading, user } = useAuth();
+  const location = useLocation();
 
   // localStorage'dan da kontrol et (state async güncellenebilir)
   const hasToken = !!localStorage.getItem('token');
@@ -36,7 +37,16 @@ export const ProtectedRoute = ({ children, requiredRole }) => {
     return <Navigate to="/login" replace />;
   }
 
+  // Super admin tenant sayfalarına erişmeye çalışırsa admin dashboard'a yönlendir
+  const isSuperAdmin = effectiveUser?.role === 'super_admin';
+  const isOnTenantPage = !location.pathname.startsWith('/admin');
+
+  if (isSuperAdmin && isOnTenantPage && !requiredRole) {
+    return <Navigate to="/admin/dashboard" replace />;
+  }
+
   if (requiredRole && effectiveUser?.role !== requiredRole) {
+    // Tenant admin, admin sayfasına erişmeye çalışırsa kendi dashboard'a yönlendir
     return <Navigate to="/dashboard" replace />;
   }
 

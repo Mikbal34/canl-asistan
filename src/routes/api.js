@@ -1263,6 +1263,73 @@ router.post('/admin/tenants/:id/slots/bulk', authenticate(), requireSuperAdmin, 
 });
 
 /**
+ * Get slot summary for a month (for calendar coloring)
+ * GET /api/admin/tenants/:id/slots/summary?month=YYYY-MM
+ */
+router.get('/admin/tenants/:id/slots/summary', authenticate(), requireSuperAdmin, async (req, res) => {
+  try {
+    const tenantId = req.params.id;
+    const { month } = req.query;
+
+    if (!month) {
+      return res.status(400).json({
+        error: 'Bad Request',
+        message: 'Month parameter is required (YYYY-MM)',
+      });
+    }
+
+    // Validate month format
+    const monthRegex = /^\d{4}-\d{2}$/;
+    if (!monthRegex.test(month)) {
+      return res.status(400).json({
+        error: 'Bad Request',
+        message: 'Invalid month format. Use YYYY-MM',
+      });
+    }
+
+    // Calculate date range for the month
+    const [year, monthNum] = month.split('-').map(Number);
+    const startDate = `${month}-01`;
+    const lastDay = new Date(year, monthNum, 0).getDate();
+    const endDate = `${month}-${String(lastDay).padStart(2, '0')}`;
+
+    // Get all slots for the month
+    const { data: slots, error } = await supabaseAdmin
+      .from('appointment_slots')
+      .select('slot_date, is_available')
+      .eq('tenant_id', tenantId)
+      .gte('slot_date', startDate)
+      .lte('slot_date', endDate);
+
+    if (error) {
+      // Table might not exist, return empty summary
+      if (error.code === '42P01') {
+        return res.json({});
+      }
+      throw error;
+    }
+
+    // Group by date and calculate summary
+    const summary = {};
+    for (const slot of (slots || [])) {
+      const date = slot.slot_date;
+      if (!summary[date]) {
+        summary[date] = { hasSlots: true, availableCount: 0, totalCount: 0 };
+      }
+      summary[date].totalCount++;
+      if (slot.is_available) {
+        summary[date].availableCount++;
+      }
+    }
+
+    res.json(summary);
+  } catch (error) {
+    console.error('[API] Get slot summary error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
  * Generate slots for a date range
  * POST /api/admin/tenants/:id/slots/generate
  */

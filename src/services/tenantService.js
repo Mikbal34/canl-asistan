@@ -341,7 +341,6 @@ async function deleteTenant(tenantId, hard = false) {
  * Tenant istatistikleri
  */
 async function getTenantStats(tenantId) {
-  const today = new Date().toISOString().split('T')[0];
   const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0];
 
   // Parallel queries
@@ -352,6 +351,7 @@ async function getTenantStats(tenantId) {
     beautyResult,
     todayAppointmentsResult,
     callsResult,
+    completedCallsResult,
   ] = await Promise.all([
     // Total customers
     supabase
@@ -359,45 +359,63 @@ async function getTenantStats(tenantId) {
       .select('id', { count: 'exact', head: true })
       .eq('tenant_id', tenantId),
 
-    // Pending test drives
+    // All test drives (not just pending)
     supabase
       .from('test_drive_appointments')
       .select('id', { count: 'exact', head: true })
-      .eq('tenant_id', tenantId)
-      .eq('status', 'pending'),
+      .eq('tenant_id', tenantId),
 
-    // Pending services
+    // All services (not just pending)
     supabase
       .from('service_appointments')
       .select('id', { count: 'exact', head: true })
-      .eq('tenant_id', tenantId)
-      .eq('status', 'pending'),
+      .eq('tenant_id', tenantId),
 
-    // Pending beauty appointments
+    // All beauty appointments (not just pending)
     supabase
       .from('beauty_appointments')
       .select('id', { count: 'exact', head: true })
-      .eq('tenant_id', tenantId)
-      .eq('status', 'pending'),
+      .eq('tenant_id', tenantId),
 
     // Today's appointments (all types)
     supabase.rpc('get_today_appointment_count', { p_tenant_id: tenantId }),
 
-    // This month's calls
+    // Total calls this month
     supabase
       .from('call_logs')
       .select('id', { count: 'exact', head: true })
       .eq('tenant_id', tenantId)
       .gte('created_at', monthStart),
+
+    // Completed/successful calls this month (for success rate)
+    supabase
+      .from('call_logs')
+      .select('id', { count: 'exact', head: true })
+      .eq('tenant_id', tenantId)
+      .gte('created_at', monthStart)
+      .eq('status', 'completed'),
   ]);
+
+  const totalCalls = callsResult.count || 0;
+  const completedCalls = completedCallsResult.count || 0;
+  const successRate = totalCalls > 0 ? Math.round((completedCalls / totalCalls) * 100) : 0;
+
+  const totalAppointments =
+    (testDrivesResult.count || 0) +
+    (servicesResult.count || 0) +
+    (beautyResult.count || 0);
 
   return {
     totalCustomers: customersResult.count || 0,
+    totalAppointments,
+    totalCalls,
+    successRate,
+    todayAppointments: todayAppointmentsResult.data || 0,
+    // Legacy fields for backward compatibility
     pendingTestDrives: testDrivesResult.count || 0,
     pendingServices: servicesResult.count || 0,
     pendingBeauty: beautyResult.count || 0,
-    todayAppointments: todayAppointmentsResult.data || 0,
-    callsThisMonth: callsResult.count || 0,
+    callsThisMonth: totalCalls,
   };
 }
 

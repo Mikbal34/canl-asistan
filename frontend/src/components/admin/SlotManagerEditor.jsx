@@ -58,6 +58,10 @@ export const SlotManagerEditor = ({ tenantId, tenant, onTenantUpdate }) => {
   const [bulkDays, setBulkDays] = useState(7);
   const [bulkGenerating, setBulkGenerating] = useState(false);
 
+  // Slot summary state (for calendar coloring)
+  const [slotSummary, setSlotSummary] = useState({});
+  const [summaryLoading, setSummaryLoading] = useState(false);
+
   // Get current month/year
   const currentMonth = currentDate.getMonth();
   const currentYear = currentDate.getFullYear();
@@ -67,6 +71,27 @@ export const SlotManagerEditor = ({ tenantId, tenant, onTenantUpdate }) => {
       setWorkingHours(tenant.working_hours);
     }
   }, [tenant?.working_hours]);
+
+  // Fetch slot summary when month changes
+  useEffect(() => {
+    const fetchSlotSummary = async () => {
+      try {
+        setSummaryLoading(true);
+        const monthStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}`;
+        const response = await slotAPI.getSummary(tenantId, monthStr);
+        setSlotSummary(response.data || {});
+      } catch (error) {
+        console.error('Failed to fetch slot summary:', error);
+        setSlotSummary({});
+      } finally {
+        setSummaryLoading(false);
+      }
+    };
+
+    if (tenantId) {
+      fetchSlotSummary();
+    }
+  }, [tenantId, currentMonth, currentYear]);
 
   // Navigate months
   const goToPrevMonth = () => {
@@ -178,6 +203,9 @@ export const SlotManagerEditor = ({ tenantId, tenant, onTenantUpdate }) => {
       setSlots(response.data || []);
       setSlotsAreDefault(false);
       setHasChanges(false);
+
+      // Refresh slot summary for calendar coloring
+      await refreshSlotSummary();
     } catch (error) {
       console.error('Failed to generate slots:', error);
       alert('Slot oluşturma hatası: ' + error.message);
@@ -214,6 +242,9 @@ export const SlotManagerEditor = ({ tenantId, tenant, onTenantUpdate }) => {
 
       const response = await slotAPI.getSlots(tenantId, formatDateISO(selectedDate));
       setSlots(response.data || []);
+
+      // Refresh slot summary for calendar coloring
+      await refreshSlotSummary();
     } catch (error) {
       console.error('Failed to save slots:', error);
       alert('Slot kaydetme hatası: ' + error.message);
@@ -273,6 +304,9 @@ export const SlotManagerEditor = ({ tenantId, tenant, onTenantUpdate }) => {
       const response = await slotAPI.generateSlots(tenantId, bulkDays);
       alert(`${response.data.count} slot oluşturuldu (${response.data.days} gün için)`);
 
+      // Refresh slot summary for calendar coloring
+      await refreshSlotSummary();
+
       // Refresh selected date if any
       if (selectedDate && !isDayClosed(selectedDate)) {
         const slotsResponse = await slotAPI.getSlots(tenantId, formatDateISO(selectedDate));
@@ -310,6 +344,31 @@ export const SlotManagerEditor = ({ tenantId, tenant, onTenantUpdate }) => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     return date < today;
+  };
+
+  // Check if date has slots in database
+  const hasDbSlots = (date) => {
+    if (!date) return false;
+    const dateStr = formatDateISO(date);
+    return slotSummary[dateStr]?.hasSlots === true;
+  };
+
+  // Get slot info for a date
+  const getSlotInfo = (date) => {
+    if (!date) return null;
+    const dateStr = formatDateISO(date);
+    return slotSummary[dateStr] || null;
+  };
+
+  // Refresh slot summary for current month
+  const refreshSlotSummary = async () => {
+    try {
+      const monthStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}`;
+      const response = await slotAPI.getSummary(tenantId, monthStr);
+      setSlotSummary(response.data || {});
+    } catch (error) {
+      console.error('Failed to refresh slot summary:', error);
+    }
   };
 
   const calendarDays = generateCalendarDays();
@@ -407,24 +466,53 @@ export const SlotManagerEditor = ({ tenantId, tenant, onTenantUpdate }) => {
                     const past = isPast(date);
                     const today = isToday(date);
                     const selected = isSelected(date);
+                    const hasSlots = hasDbSlots(date);
+                    const slotInfo = getSlotInfo(date);
                     const isOpen = !closed && !past;
+
+                    // Determine color class based on state
+                    let colorClass = '';
+                    if (selected) {
+                      colorClass = 'bg-indigo-600 text-white hover:bg-indigo-700';
+                    } else if (past) {
+                      colorClass = 'text-slate-300 cursor-not-allowed bg-slate-50';
+                    } else if (closed) {
+                      colorClass = 'bg-red-100 text-red-500';
+                    } else if (hasSlots) {
+                      // Dark green - slots exist in DB
+                      colorClass = 'bg-emerald-500 text-white hover:bg-emerald-600';
+                    } else if (isOpen) {
+                      // Light yellow/amber - working day but no slots yet
+                      colorClass = 'bg-amber-100 text-amber-700 hover:bg-amber-200';
+                    }
 
                     return (
                       <button
                         key={idx}
                         onClick={() => handleDateSelect(date)}
                         disabled={!date || past}
+                        title={
+                          hasSlots && slotInfo
+                            ? `${slotInfo.availableCount}/${slotInfo.totalCount} slot müsait`
+                            : isOpen && !hasSlots
+                            ? 'Slot oluşturulmamış'
+                            : ''
+                        }
                         className={`
-                          h-10 flex items-center justify-center rounded-lg text-sm font-medium transition-all
+                          h-10 flex items-center justify-center rounded-lg text-sm font-medium transition-all relative
                           ${!date ? 'invisible' : ''}
-                          ${past ? 'text-slate-300 cursor-not-allowed bg-slate-50' : 'cursor-pointer'}
+                          ${!past && !selected ? 'cursor-pointer' : ''}
                           ${today ? 'ring-2 ring-indigo-400' : ''}
-                          ${selected ? 'bg-indigo-600 text-white hover:bg-indigo-700' : ''}
-                          ${closed && !past && !selected ? 'bg-red-100 text-red-500' : ''}
-                          ${isOpen && !selected ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100' : ''}
+                          ${colorClass}
                         `}
                       >
                         {date?.getDate()}
+                        {/* Small indicator for available slots */}
+                        {hasSlots && slotInfo && !selected && (
+                          <span className="absolute bottom-0.5 text-[8px] font-normal opacity-80">
+                            {slotInfo.availableCount}
+                          </span>
+                        )}
                       </button>
                     );
                   })}
@@ -432,10 +520,14 @@ export const SlotManagerEditor = ({ tenantId, tenant, onTenantUpdate }) => {
               </div>
 
               {/* Legend */}
-              <div className="flex items-center gap-3 text-xs text-slate-500 mb-4 pb-4 border-b border-slate-200">
+              <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500 mb-4 pb-4 border-b border-slate-200">
                 <div className="flex items-center gap-1">
-                  <div className="w-3 h-3 rounded bg-emerald-100 border border-emerald-200"></div>
-                  <span>Açık</span>
+                  <div className="w-3 h-3 rounded bg-emerald-500"></div>
+                  <span>Slot Var</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <div className="w-3 h-3 rounded bg-amber-100 border border-amber-200"></div>
+                  <span>Slot Yok</span>
                 </div>
                 <div className="flex items-center gap-1">
                   <div className="w-3 h-3 rounded bg-red-100 border border-red-200"></div>

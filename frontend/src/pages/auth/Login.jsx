@@ -30,7 +30,13 @@ export const Login = () => {
     try {
       const result = await login(formData);
       if (result.success) {
-        navigate('/dashboard');
+        // Kullanıcı rolüne göre doğru sayfaya yönlendir
+        const savedUser = JSON.parse(localStorage.getItem('user') || '{}');
+        if (savedUser?.role === 'super_admin') {
+          navigate('/admin/dashboard');
+        } else {
+          navigate('/dashboard');
+        }
       } else {
         setError(result.error);
       }

@@ -66,6 +66,16 @@ function App() {
               }
             />
             <Route
+              path="/test-drives"
+              element={
+                <ProtectedRoute>
+                  <Layout>
+                    <Appointments />
+                  </Layout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
               path="/customers"
               element={
                 <ProtectedRoute>
