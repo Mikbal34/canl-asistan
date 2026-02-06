@@ -6,7 +6,7 @@ import { useTenant } from '../../hooks/useTenant';
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/common/Card';
 import { Badge } from '../../components/common/Badge';
 import { Button } from '../../components/common/Button';
-import { testDriveAPI, beautyAPI } from '../../services/api';
+import { testDriveAPI, beautyAPI, serviceAppointmentAPI } from '../../services/api';
 
 /**
  * Dashboard page component
@@ -29,13 +29,25 @@ export const Dashboard = () => {
   const fetchRecentAppointments = async () => {
     try {
       setError(null);
-      let response;
+      let allAppointments = [];
       if (tenantSettings?.industry === 'automotive') {
-        response = await testDriveAPI.getAll({ limit: 5 });
+        const [testDriveRes, serviceRes] = await Promise.allSettled([
+          testDriveAPI.getAll({ limit: 5 }),
+          serviceAppointmentAPI.getAll({ limit: 5 }),
+        ]);
+        const testDrives = (testDriveRes.status === 'fulfilled' ? testDriveRes.value.data?.data || testDriveRes.value.data || [] : [])
+          .map(a => ({ ...a, _type: 'test_drive' }));
+        const services = (serviceRes.status === 'fulfilled' ? serviceRes.value.data?.data || serviceRes.value.data || [] : [])
+          .map(a => ({ ...a, _type: 'service' }));
+        allAppointments = [...testDrives, ...services]
+          .sort((a, b) => new Date(b.appointment_date) - new Date(a.appointment_date))
+          .slice(0, 5);
       } else {
-        response = await beautyAPI.getAppointments({ limit: 5 });
+        const response = await beautyAPI.getAppointments({ limit: 5 });
+        allAppointments = (response.data?.data || response.data || [])
+          .map(a => ({ ...a, _type: 'beauty' }));
       }
-      setRecentAppointments(response.data?.data || response.data || []);
+      setRecentAppointments(allAppointments);
     } catch (err) {
       console.error('Failed to fetch appointments:', err);
       setError(err.message);
@@ -189,13 +201,18 @@ export const Dashboard = () => {
                   {recentAppointments.map((appointment) => (
                     <tr key={appointment.id} className="hover:bg-slate-50 transition-colors">
                       <td className="py-3 px-4 text-sm text-slate-900">
-                        {appointment.customerName || appointment.customer_name}
+                        {appointment.customer?.name || 'N/A'}
                       </td>
                       <td className="py-3 px-4 text-sm text-slate-600">
-                        {formatDate(appointment.scheduledDate || appointment.scheduled_date)}
+                        {formatDate(appointment.appointment_date)}
+                        {appointment.appointment_time && (
+                          <span className="text-slate-400 ml-2">
+                            {appointment.appointment_time.slice(0, 5)}
+                          </span>
+                        )}
                       </td>
                       <td className="py-3 px-4 text-sm text-slate-600">
-                        {appointment.service ||
+                        {appointment.service?.name ||
                          (appointment.vehicle ? `${appointment.vehicle.brand} ${appointment.vehicle.model}` : null) ||
                          appointment.vehicle_name ||
                          'N/A'}

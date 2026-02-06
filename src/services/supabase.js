@@ -103,8 +103,8 @@ async function updateCustomer(tenantId, customerId, updates) {
  * @param {string} tenantId - Tenant ID
  * @param {string|null} token - JWT token (RLS için)
  */
-async function getAllCustomers(tenantId, token = null) {
-  const client = getClient(token);
+async function getAllCustomers(tenantId, token = null, options = {}) {
+  const client = getClient(token, options);
   const { data, error } = await client
     .from('customers')
     .select('*')
@@ -402,8 +402,8 @@ async function createTestDriveAppointment(tenantId, customerId, vehicleId, date,
  * @param {string|null} customerId - Müşteri ID (opsiyonel filtre)
  * @param {string|null} token - JWT token (RLS için)
  */
-async function getTestDriveAppointments(tenantId, customerId = null, token = null) {
-  const client = getClient(token);
+async function getTestDriveAppointments(tenantId, customerId = null, token = null, options = {}) {
+  const client = getClient(token, options);
   let query = client
     .from('test_drive_appointments')
     .select(`
@@ -474,8 +474,8 @@ async function createServiceAppointment(tenantId, customerId, vehiclePlate, vehi
  * @param {string|null} customerId - Müşteri ID (opsiyonel filtre)
  * @param {string|null} token - JWT token (RLS için)
  */
-async function getServiceAppointments(tenantId, customerId = null, token = null) {
-  const client = getClient(token);
+async function getServiceAppointments(tenantId, customerId = null, token = null, options = {}) {
+  const client = getClient(token, options);
   let query = client
     .from('service_appointments')
     .select(`
@@ -548,8 +548,8 @@ async function createBeautyAppointment(tenantId, customerId, serviceId, date, ti
  * @param {string|null} customerId - Müşteri ID (opsiyonel filtre)
  * @param {string|null} token - JWT token (RLS için)
  */
-async function getBeautyAppointments(tenantId, customerId = null, token = null) {
-  const client = getClient(token);
+async function getBeautyAppointments(tenantId, customerId = null, token = null, options = {}) {
+  const client = getClient(token, options);
   let query = client
     .from('beauty_appointments')
     .select(`
@@ -755,8 +755,8 @@ async function updateCallLog(tenantId, callLogId, updates) {
  * @param {number} limit - Kayıt limiti
  * @param {string|null} token - JWT token (RLS için)
  */
-async function getCallLogs(tenantId, limit = 50, token = null) {
-  const client = getClient(token);
+async function getCallLogs(tenantId, limit = 50, token = null, options = {}) {
+  const client = getClient(token, options);
   const { data, error } = await client
     .from('call_logs')
     .select(`

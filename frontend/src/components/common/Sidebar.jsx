@@ -6,7 +6,6 @@ import {
   Users,
   Phone,
   Settings,
-  Car,
   Shield,
   Building2,
   Palette,
@@ -46,11 +45,8 @@ export const Sidebar = () => {
     // Sektore gore ozel menuler
     // Voice settings ve Services artik admin panelinden yonetiliyor
     if (industry === 'automotive') {
-      // Otomotiv: Test Drives
       return [
-        ...baseItems.slice(0, 1), // Dashboard
-        { path: '/test-drives', icon: Car, label: t('navigation.testDrives') },
-        ...baseItems.slice(1), // Appointments, Customers
+        ...baseItems,
         { path: '/call-logs', icon: Phone, label: t('navigation.callLogs') },
         { path: '/settings', icon: Settings, label: t('navigation.settings') },
       ];

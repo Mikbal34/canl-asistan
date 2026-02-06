@@ -79,6 +79,11 @@ export const beautyAPI = {
   updateAppointment: (id, data) => api.put(`/api/beauty/appointments/${id}`, data),
 };
 
+// Service Appointments APIs (Automotive service appointments)
+export const serviceAppointmentAPI = {
+  getAll: (params) => api.get('/api/services', { params }),
+};
+
 // Services APIs (Beauty Services)
 // tenantId parametresi admin panelden başka tenant yönetirken kullanılır
 export const serviceAPI = {

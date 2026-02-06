@@ -67,13 +67,7 @@ function App() {
             />
             <Route
               path="/test-drives"
-              element={
-                <ProtectedRoute>
-                  <Layout>
-                    <Appointments />
-                  </Layout>
-                </ProtectedRoute>
-              }
+              element={<Navigate to="/appointments" replace />}
             />
             <Route
               path="/customers"

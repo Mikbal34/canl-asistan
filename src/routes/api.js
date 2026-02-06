@@ -1531,7 +1531,7 @@ router.get('/test-drives', async (req, res) => {
       });
     }
 
-    const data = await supabaseService.getTestDriveAppointments(req.tenantId, null, req.token);
+    const data = await supabaseService.getTestDriveAppointments(req.tenantId, null, req.token, { useAdmin: true });
     res.json(data);
   } catch (error) {
     console.error('[API] Test drives fetch error:', error);
@@ -1576,7 +1576,7 @@ router.get('/services', async (req, res) => {
       });
     }
 
-    const data = await supabaseService.getServiceAppointments(req.tenantId, null, req.token);
+    const data = await supabaseService.getServiceAppointments(req.tenantId, null, req.token, { useAdmin: true });
     res.json(data);
   } catch (error) {
     console.error('[API] Services fetch error:', error);
@@ -1621,7 +1621,7 @@ router.get('/customers', async (req, res) => {
       });
     }
 
-    const data = await supabaseService.getAllCustomers(req.tenantId, req.token);
+    const data = await supabaseService.getAllCustomers(req.tenantId, req.token, { useAdmin: true });
     res.json(data);
   } catch (error) {
     console.error('[API] Customers fetch error:', error);
@@ -1787,7 +1787,7 @@ router.get('/call-logs', async (req, res) => {
       });
     }
 
-    const data = await supabaseService.getCallLogs(req.tenantId, 50, req.token);
+    const data = await supabaseService.getCallLogs(req.tenantId, 50, req.token, { useAdmin: true });
 
     // Frontend formatına dönüştür
     const mappedData = data.map(log => ({
@@ -1822,7 +1822,7 @@ router.get('/call-logs', async (req, res) => {
 router.get('/beauty/services', authenticate(), resolveTenant(), async (req, res) => {
   try {
     const { category } = req.query;
-    const data = await supabaseService.getBeautyServices(req.tenantId, { category }, req.token);
+    const data = await supabaseService.getBeautyServices(req.tenantId, { category }, { token: req.token, useAdmin: true });
     res.json(data);
   } catch (error) {
     console.error('[API] Beauty services fetch error:', error);
@@ -1925,7 +1925,7 @@ router.get('/beauty/appointments', async (req, res) => {
       });
     }
 
-    const data = await supabaseService.getBeautyAppointments(req.tenantId, null, req.token);
+    const data = await supabaseService.getBeautyAppointments(req.tenantId, null, req.token, { useAdmin: true });
     res.json(data);
   } catch (error) {
     console.error('[API] Beauty appointments fetch error:', error);

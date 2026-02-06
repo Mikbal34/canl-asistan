@@ -13,6 +13,7 @@ export const CallLogs = () => {
   const { t } = useTranslation();
   const [callLogs, setCallLogs] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     fetchCallLogs();
@@ -20,10 +21,12 @@ export const CallLogs = () => {
 
   const fetchCallLogs = async () => {
     try {
+      setError(null);
       const response = await callLogAPI.getAll();
-      setCallLogs(response.data.data || response.data);
-    } catch (error) {
-      console.error('Failed to fetch call logs:', error);
+      setCallLogs(response.data?.data || response.data || []);
+    } catch (err) {
+      console.error('Failed to fetch call logs:', err);
+      setError(err.message || 'Arama kayıtları yüklenirken bir hata oluştu');
     } finally {
       setLoading(false);
     }
@@ -118,12 +121,25 @@ export const CallLogs = () => {
         </div>
       </div>
 
+      {/* Error Display */}
+      {error && (
+        <div className="p-4 rounded-lg bg-red-50 border border-red-200 text-red-600">
+          {error}
+        </div>
+      )}
+
       {/* Call Logs Table */}
       <Card>
         <CardContent>
           {loading ? (
             <div className="text-center py-12 text-slate-500">
               {t('common.loading')}
+            </div>
+          ) : callLogs.length === 0 ? (
+            <div className="text-center py-12 text-slate-500">
+              <Phone className="w-12 h-12 mx-auto mb-4 text-slate-300" />
+              <p className="text-lg font-medium">Henüz arama kaydı bulunmuyor</p>
+              <p className="text-sm mt-1">Sesli asistan aramaları burada listelenecektir</p>
             </div>
           ) : (
             <Table
