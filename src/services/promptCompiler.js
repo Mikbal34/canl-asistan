@@ -339,6 +339,17 @@ function addVapiRules(prompt, language = 'tr') {
 - Hemen cevap ver
 - Sessizlik olmadan konuş
 
+## Tool Çağrısı Davranışı:
+- Tool çağırdığında HEMEN ardından sonucu söyle, kullanıcının sormasını BEKLEME
+- Örnek: Tool çağır → Sonuç gelir → "Evet, BMW üç yirmi modelimiz var" (hemen devam et)
+- ASLA sessiz kalma, tool sonucunu aldığında direkt konuşmaya devam et
+
+## Sayı ve Model Okuma:
+- Araç modelleri: "320" → "üç yirmi" (üç yüz yirmi DEĞİL)
+- Saatler: "10:00" → "on" veya "saat on"
+- Fiyatlar: "850.000 TL" → "sekiz yüz elli bin lira"
+- Plakalar: harf harf ve rakam rakam oku
+
 ## Tool Sonuçları Kullanımı:
 - Tool'dan dönen \`message\` alanını temel al
 - LİSTELERİ BAŞTAN SONA OKUMA:
@@ -359,6 +370,16 @@ function addVapiRules(prompt, language = 'tr') {
 - Respond immediately
 - Speak without silence
 
+## Tool Call Behavior:
+- After calling a tool, IMMEDIATELY speak the result, DON'T WAIT for user to ask
+- Example: Call tool → Get result → "Yes, we have the BMW 320 available" (continue right away)
+- NEVER stay silent, continue speaking as soon as you get tool result
+
+## Number and Model Reading:
+- Car models: "320" → "three twenty" (NOT "three hundred twenty")
+- Times: "10:00" → "ten" or "ten o'clock"
+- Prices: read naturally with currency
+
 ## Tool Response Usage:
 - Use the \`message\` field from tool response as base
 - DON'T READ LISTS FROM START TO END:
@@ -378,6 +399,16 @@ function addVapiRules(prompt, language = 'tr') {
 - Verwenden Sie keine Wartephrasen wie "Einen Moment", "Bitte warten"
 - Antworten Sie sofort
 - Sprechen Sie ohne Pausen
+
+## Tool-Aufruf Verhalten:
+- Nach einem Tool-Aufruf SOFORT das Ergebnis mitteilen, NICHT warten bis der Kunde fragt
+- Beispiel: Tool aufrufen → Ergebnis erhalten → "Ja, wir haben den BMW 320 verfügbar" (sofort weitersprechen)
+- NIE still bleiben, sofort weitersprechen wenn das Tool-Ergebnis da ist
+
+## Zahlen und Modellnamen:
+- Automodelle: "320" → "drei zwanzig" (NICHT "dreihundertzwanzig")
+- Uhrzeiten: "10:00" → "zehn Uhr"
+- Preise: natürlich mit Währung vorlesen
 
 ## Tool-Ergebnis Verwendung:
 - Verwenden Sie das \`message\` Feld als Basis
