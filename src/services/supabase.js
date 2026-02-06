@@ -67,13 +67,26 @@ async function getOrCreateCustomer(tenantId, phone, name = null) {
     .single();
 
   if (existing) {
+    // İsim güncellemesi: mevcut isim boşsa ve yeni isim varsa güncelle
+    if (name && name.trim() !== '' && (!existing.name || existing.name === 'unknown')) {
+      const { error: updateError } = await supabaseAdmin
+        .from('customers')
+        .update({ name: name.trim() })
+        .eq('id', existing.id);
+      if (!updateError) {
+        existing.name = name.trim();
+      }
+    }
     return existing;
   }
 
   // Yeni müşteri oluştur
+  if (!name || name.trim() === '') {
+    console.warn(`[Supabase] Creating customer with empty name for phone: ${phone}`);
+  }
   const { data, error } = await supabaseAdmin
     .from('customers')
-    .insert({ tenant_id: tenantId, phone, name })
+    .insert({ tenant_id: tenantId, phone, name: name ? name.trim() : name })
     .select()
     .single();
 

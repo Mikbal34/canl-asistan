@@ -482,6 +482,15 @@ async function processBeautyFunctionCall(tenantId, functionName, args, callerPho
           };
         }
 
+        // Müşteri adı kontrolü
+        if (!args.customer_name || args.customer_name.trim() === '') {
+          return {
+            success: false,
+            error: 'missing_customer_name',
+            message: 'Müşterinin adını öğrenmeniz gerekiyor. Lütfen adını sorun.',
+          };
+        }
+
         // Müşteriyi oluştur veya getir
         const customer = await supabaseService.getOrCreateCustomer(
           tenantId,
@@ -927,6 +936,15 @@ async function processBeautyFunctionCall(tenantId, functionName, args, callerPho
             success: false,
             error: 'slot_unavailable',
             message: `Maalesef ${args.appointment_date} tarihinde saat ${args.appointment_time} müsait değil. Lütfen başka bir saat seçin.`,
+          };
+        }
+
+        // Müşteri adı kontrolü
+        if (!args.customer_name || args.customer_name.trim() === '') {
+          return {
+            success: false,
+            error: 'missing_customer_name',
+            message: 'Müşterinin adını öğrenmeniz gerekiyor. Lütfen adını sorun.',
           };
         }
 
