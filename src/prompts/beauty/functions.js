@@ -375,9 +375,10 @@ async function processBeautyFunctionCall(tenantId, functionName, args, callerPho
   try {
     switch (functionName) {
       case 'get_beauty_services': {
+        // VAPI tool calls need admin access (bypass RLS)
         const services = await supabaseService.getBeautyServices(tenantId, {
           category: args.category,
-        });
+        }, { useAdmin: true });
 
         // Kategorilere göre grupla
         const categorizedServices = {};
@@ -438,7 +439,7 @@ async function processBeautyFunctionCall(tenantId, functionName, args, callerPho
         let serviceName = args.service_name;
 
         if (!serviceId && serviceName) {
-          const services = await supabaseService.getBeautyServices(tenantId);
+          const services = await supabaseService.getBeautyServices(tenantId, {}, { useAdmin: true });
           const matchedService = services.find(s =>
             s.name.toLowerCase().includes(serviceName.toLowerCase()) ||
             serviceName.toLowerCase().includes(s.name.toLowerCase())
@@ -743,7 +744,7 @@ async function processBeautyFunctionCall(tenantId, functionName, args, callerPho
           filters.category = args.category;
         }
 
-        const services = await supabaseService.getBeautyServices(tenantId, filters);
+        const services = await supabaseService.getBeautyServices(tenantId, filters, { useAdmin: true });
 
         if (args.service_name) {
           const matchedService = services.find(s =>
@@ -891,7 +892,7 @@ async function processBeautyFunctionCall(tenantId, functionName, args, callerPho
         }
 
         // Hizmeti bul
-        const services = await supabaseService.getBeautyServices(tenantId);
+        const services = await supabaseService.getBeautyServices(tenantId, {}, { useAdmin: true });
         const matchedService = services.find(s =>
           s.name.toLowerCase().includes(args.service_name.toLowerCase()) ||
           args.service_name.toLowerCase().includes(s.name.toLowerCase())

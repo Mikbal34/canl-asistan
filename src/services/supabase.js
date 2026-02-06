@@ -33,11 +33,16 @@ function createAuthClient(token) {
  * Token varsa auth client, yoksa anon client döner (RLS aktif)
  * Webhook fonksiyonları doğrudan supabaseAdmin kullanır
  * @param {string|null} token - JWT access token (opsiyonel)
+ * @param {Object} options - Ek seçenekler
+ * @param {boolean} options.useAdmin - Admin client kullan (RLS bypass)
  * @returns {SupabaseClient} Uygun Supabase client
  */
-function getClient(token) {
+function getClient(token, options = {}) {
+  // Admin flag varsa RLS'i bypass et (VAPI tool calls için)
+  if (options.useAdmin) {
+    return supabaseAdmin;
+  }
   // Token varsa authenticated client, yoksa anon (RLS ile)
-  // NOT: Webhook'lar bu fonksiyonu kullanmaz, doğrudan supabaseAdmin kullanır
   return token ? createAuthClient(token) : supabase;
 }
 
@@ -119,12 +124,12 @@ async function getAllCustomers(tenantId, token = null) {
  * Müsait araçları getir (tenant-scoped)
  * @param {string} tenantId - Tenant ID
  * @param {Object} filters - Filtreler
- * @param {string|null} token - JWT token (RLS için)
+ * @param {Object} options - { token, useAdmin }
  */
-async function getAvailableVehicles(tenantId, filters = {}, token = null) {
-  console.log('[Supabase] getAvailableVehicles called with tenantId:', tenantId, 'filters:', filters);
+async function getAvailableVehicles(tenantId, filters = {}, options = {}) {
+  console.log('[Supabase] getAvailableVehicles called with tenantId:', tenantId, 'filters:', filters, 'useAdmin:', options.useAdmin);
 
-  const client = getClient(token);
+  const client = getClient(options.token, { useAdmin: options.useAdmin });
   let query = client
     .from('vehicles')
     .select('*')
@@ -193,10 +198,10 @@ async function getAllVehicles(tenantId, token = null) {
  * Güzellik hizmetlerini getir (tenant-scoped)
  * @param {string} tenantId - Tenant ID
  * @param {Object} filters - Filtreler
- * @param {string|null} token - JWT token (RLS için)
+ * @param {Object} options - { token, useAdmin }
  */
-async function getBeautyServices(tenantId, filters = {}, token = null) {
-  const client = getClient(token);
+async function getBeautyServices(tenantId, filters = {}, options = {}) {
+  const client = getClient(options.token, { useAdmin: options.useAdmin });
   let query = client
     .from('beauty_services')
     .select('*')

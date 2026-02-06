@@ -390,11 +390,12 @@ async function processAutomotiveFunctionCall(tenantId, functionName, args, calle
   try {
     switch (functionName) {
       case 'get_available_vehicles': {
+        // VAPI tool calls need admin access (bypass RLS)
         const vehicles = await supabaseService.getAvailableVehicles(tenantId, {
           brand: args.brand,
           model: args.model,
           maxPrice: args.max_price,
-        });
+        }, { useAdmin: true });
 
         return {
           success: true,

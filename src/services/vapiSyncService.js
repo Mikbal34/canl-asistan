@@ -136,6 +136,7 @@ async function buildVapiConfig(tenant, language, promptData) {
     provider: mergedConfig.voice_provider || '11labs',
     voiceId: mergedConfig.voice_id,
     speed: mergedConfig.voice_speed || 1.0,
+    language: language, // Force TTS language to prevent code-switching on alphanumeric strings
   };
 
   if (voiceConfig.provider === '11labs' || voiceConfig.provider === 'elevenlabs') {
