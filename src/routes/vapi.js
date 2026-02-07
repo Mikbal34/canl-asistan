@@ -113,22 +113,42 @@ router.post('/webhook', async (req, res) => {
 
     // End of call report - Aramayi kaydet
     if (body.message?.type === 'end-of-call-report') {
+      const callId = body.message.call?.id || body.message.callId;
+      const endedReason = body.message.endedReason;
+      const summary = body.message.summary || body.message.artifact?.summary;
+      const transcript = body.message.transcript || body.message.artifact?.transcript;
+
       console.log('[Vapi] Arama bitti:', {
-        callId: body.message.call?.id,
-        reason: body.message.endedReason,
-        summary: body.message.summary,
+        callId,
+        reason: endedReason,
+        summary: summary?.substring(0, 100),
+        tenantId: tenantId || 'TENANT BULUNAMADI!',
       });
+
+      if (!tenantId) {
+        console.error('[Vapi] END-OF-CALL-REPORT: Tenant bulunamadi! Call:', JSON.stringify({
+          callId,
+          assistantId: body.message.call?.assistantId,
+          customerPhone,
+        }));
+        return res.json({ success: false, error: 'tenant_not_found' });
+      }
 
       try {
         await saveCallLog(tenantId, {
           call: body.message.call,
-          summary: body.message.summary,
-          transcript: body.message.transcript,
-          endedReason: body.message.endedReason,
+          summary,
+          transcript,
+          endedReason,
         });
-        console.log('[Vapi] Arama kaydi Supabase\'e kaydedildi');
+        console.log('[Vapi] Arama kaydi Supabase\'e kaydedildi, tenant:', tenantId);
       } catch (saveError) {
         console.error('[Vapi] Arama kaydi kaydetme hatasi:', saveError);
+        console.error('[Vapi] Call data:', JSON.stringify({
+          callId,
+          tenantId,
+          customerPhone,
+        }));
       }
 
       return res.json({ success: true });

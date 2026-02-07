@@ -361,6 +361,13 @@ function buildAssistantConfig(mergedConfig, tenantInfo, language, tools = []) {
     firstMessage: mergedConfig.first_message,
     serverUrl: `${serverUrl}/vapi/webhook`,
     serverUrlSecret: config.vapi.webhookSecret,
+    // VAPI'ye hangi webhook event'lerini göndereceğini açıkça belirt
+    serverMessages: [
+      'end-of-call-report',
+      'tool-calls',
+      'status-update',
+      'transfer-update',
+    ],
     metadata: {
       tenantId: tenantInfo.id,
       industry: tenantInfo.industry,
