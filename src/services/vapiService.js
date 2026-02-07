@@ -622,14 +622,18 @@ function hasConfigChanged(currentConfig, newConfig) {
   return false;
 }
 
-async function updateAssistant(assistantId, updateConfig) {
-  // Önce mevcut config'i al
-  const currentAssistant = await getAssistant(assistantId);
+async function updateAssistant(assistantId, updateConfig, { force = false } = {}) {
+  if (!force) {
+    // Önce mevcut config'i al
+    const currentAssistant = await getAssistant(assistantId);
 
-  // Değişiklik var mı kontrol et
-  if (!hasConfigChanged(currentAssistant, updateConfig)) {
-    console.log(`[VapiService] No changes detected for assistant ${assistantId}, skipping update`);
-    return currentAssistant;
+    // Değişiklik var mı kontrol et
+    if (!hasConfigChanged(currentAssistant, updateConfig)) {
+      console.log(`[VapiService] No changes detected for assistant ${assistantId}, skipping update`);
+      return currentAssistant;
+    }
+  } else {
+    console.log(`[VapiService] Force updating assistant ${assistantId}`);
   }
 
   // Debug: Kaç tool gönderildiğini logla
@@ -1426,6 +1430,8 @@ async function fetchAndSaveRecentCalls() {
     // Son 50 aramayı çek
     const calls = await vapiRequest('/call?limit=50');
 
+    console.log(`[VapiService] VAPI API response type: ${typeof calls}, isArray: ${Array.isArray(calls)}, length: ${calls?.length}`);
+
     if (!calls || !Array.isArray(calls)) {
       console.log('[VapiService] No calls returned from VAPI API');
       return { fetched: 0, saved: 0, errors: 0 };
@@ -1507,6 +1513,7 @@ async function fetchAndSaveRecentCalls() {
             status: call.endedReason || 'completed',
             summary: call.summary || null,
             transcript: transcriptStr,
+            created_at: call.createdAt || new Date().toISOString(),
           });
 
         if (insertError) {
@@ -1564,4 +1571,6 @@ module.exports = {
   // Utilities
   mergeConfig,
   buildAssistantConfig,
+  getToolStartMessage,
+  getToolFailMessage,
 };

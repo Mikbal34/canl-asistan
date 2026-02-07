@@ -116,6 +116,7 @@ async function buildVapiConfig(tenant, language, promptData) {
   const toolDefinitions = useCaseService.getToolDefinitionsForUseCases(promptData.useCases);
 
   // Build tool configs for VAPI
+  const vapiService = getVapiService();
   const tools = toolDefinitions.map(def => ({
     type: 'function',
     function: {
@@ -129,6 +130,16 @@ async function buildVapiConfig(tenant, language, promptData) {
         'x-tenant-id': tenant.id,
       },
     },
+    messages: [
+      {
+        type: 'request-start',
+        content: vapiService.getToolStartMessage(def.function.name, language),
+      },
+      {
+        type: 'request-failed',
+        content: vapiService.getToolFailMessage(language),
+      },
+    ],
   }));
 
   // Build voice config
@@ -193,6 +204,13 @@ async function buildVapiConfig(tenant, language, promptData) {
     firstMessage,
     serverUrl: `${serverUrl}/vapi/webhook`,
     serverUrlSecret: config.vapi?.webhookSecret,
+    // VAPI'ye hangi webhook event'lerini göndereceğini açıkça belirt
+    serverMessages: [
+      'end-of-call-report',
+      'tool-calls',
+      'status-update',
+      'transfer-update',
+    ],
     metadata: {
       tenantId: tenant.id,
       industry: tenant.industry,
@@ -277,10 +295,14 @@ async function syncTenant(tenantId, reason = SYNC_REASONS.MANUAL, language = nul
       // Build VAPI config
       const assistantConfig = await buildVapiConfig(tenant, lang, promptData);
 
+      // Log prompt details for debugging
+      console.log(`[VapiSyncService] Prompt length: ${promptData.systemPrompt.length}, ends with: ...${promptData.systemPrompt.slice(-100)}`);
+
       if (existingAssistantId) {
-        // Update existing assistant
-        console.log(`[VapiSyncService] Updating assistant ${existingAssistantId} for ${lang}`);
-        const updated = await vapiService.updateAssistant(existingAssistantId, assistantConfig);
+        // Update existing assistant - force update for startup sync
+        const forceUpdate = reason === 'startup_sync';
+        console.log(`[VapiSyncService] Updating assistant ${existingAssistantId} for ${lang} (force: ${forceUpdate})`);
+        const updated = await vapiService.updateAssistant(existingAssistantId, assistantConfig, { force: forceUpdate });
         results.push({
           language: lang,
           action: 'updated',
