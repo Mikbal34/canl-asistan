@@ -278,14 +278,11 @@ function buildAssistantConfig(mergedConfig, tenantInfo, language, tools = []) {
       },
     },
     // Doğal geçiş mesajları - "bir dakika" yerine context-aware mesajlar
+    // NOT: request-complete tanımlanmıyor — VAPI default davranışıyla LLM tool sonucuna göre cevap üretir
     messages: [
       {
         type: 'request-start',
         content: getToolStartMessage(tool.name, language),
-      },
-      {
-        type: 'request-complete',
-        content: '', // Sessiz - sonuç zaten konuşulacak
       },
       {
         type: 'request-failed',
