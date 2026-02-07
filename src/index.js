@@ -184,6 +184,45 @@ server.listen(PORT, HOST, () => {
   console.log('4. ngrok http 3000 ile sunucuyu expose edin');
   console.log('5. Twilio/Vapi webhook\'larını ayarlayın');
   console.log('');
+
+  // Startup: VAPI sync + arama kayıtlarını çekme
+  setTimeout(async () => {
+    try {
+      console.log('[Startup] VAPI sync ve arama kayıtları çekme başlıyor...');
+
+      // 1. Tüm aktif tenant'ları VAPI ile sync et (prompt güncellemesi)
+      const vapiSyncService = require('./services/vapiSyncService');
+      const { createClient } = require('@supabase/supabase-js');
+      const envConfig = require('./config/env');
+      const supabaseAdmin = createClient(envConfig.supabase.url, envConfig.supabase.serviceRoleKey);
+
+      const { data: activeTenants } = await supabaseAdmin
+        .from('tenants')
+        .select('id, name')
+        .eq('is_active', true);
+
+      if (activeTenants && activeTenants.length > 0) {
+        console.log(`[Startup] ${activeTenants.length} aktif tenant sync ediliyor...`);
+        for (const tenant of activeTenants) {
+          try {
+            await vapiSyncService.syncTenant(tenant.id, 'startup_sync');
+            console.log(`[Startup] Tenant synced: ${tenant.name}`);
+          } catch (syncError) {
+            console.error(`[Startup] Tenant sync error (${tenant.name}):`, syncError.message);
+          }
+        }
+      }
+
+      // 2. VAPI'den son aramaları çek ve DB'ye kaydet
+      const vapiService = require('./services/vapiService');
+      const callResult = await vapiService.fetchAndSaveRecentCalls();
+      console.log(`[Startup] Arama kayıtları: ${callResult.saved} yeni kayıt, ${callResult.skipped || 0} mevcut`);
+
+      console.log('[Startup] VAPI sync ve arama kayıtları tamamlandı.');
+    } catch (startupError) {
+      console.error('[Startup] VAPI sync hatası:', startupError.message);
+    }
+  }, 5000);
 });
 
 // Graceful shutdown

@@ -1417,6 +1417,118 @@ async function duplicateMasterForTenant(industry, language, tenantId) {
   return assistant;
 }
 
+/**
+ * VAPI API'den son aramaları çek ve DB'ye kaydet (pull-based)
+ * Webhook'a güvenmek yerine direkt VAPI API'den çeker
+ */
+async function fetchAndSaveRecentCalls() {
+  try {
+    // Son 50 aramayı çek
+    const calls = await vapiRequest('/call?limit=50');
+
+    if (!calls || !Array.isArray(calls)) {
+      console.log('[VapiService] No calls returned from VAPI API');
+      return { fetched: 0, saved: 0, errors: 0 };
+    }
+
+    console.log(`[VapiService] Fetched ${calls.length} calls from VAPI API`);
+
+    let saved = 0;
+    let skipped = 0;
+    let errors = 0;
+
+    for (const call of calls) {
+      try {
+        // call_sid (= vapi call.id) ile call_logs'da var mı kontrol et
+        const { data: existing } = await supabaseAdmin
+          .from('call_logs')
+          .select('id')
+          .eq('call_sid', call.id)
+          .maybeSingle();
+
+        if (existing) {
+          skipped++;
+          continue;
+        }
+
+        // assistantId'den tenant bul
+        const assistantId = call.assistantId;
+        if (!assistantId) {
+          continue;
+        }
+
+        const tenant = await getTenantByVapiAssistant(assistantId);
+        if (!tenant) {
+          continue;
+        }
+
+        // Süreyi hesapla
+        let durationSeconds = null;
+        if (call.startedAt && call.endedAt) {
+          const started = new Date(call.startedAt);
+          const ended = new Date(call.endedAt);
+          durationSeconds = Math.round((ended - started) / 1000);
+        }
+
+        // Transcript'i string'e çevir
+        let transcriptStr = null;
+        if (call.transcript) {
+          transcriptStr = typeof call.transcript === 'string'
+            ? call.transcript
+            : JSON.stringify(call.transcript);
+        }
+
+        // Müşteriyi bul (varsa)
+        const callerPhone = call.customer?.number || 'unknown';
+        let customerId = null;
+        if (callerPhone !== 'unknown') {
+          const { data: customer } = await supabaseAdmin
+            .from('customers')
+            .select('id')
+            .eq('tenant_id', tenant.id)
+            .eq('phone', callerPhone)
+            .maybeSingle();
+
+          if (customer) {
+            customerId = customer.id;
+          }
+        }
+
+        // call_logs'a insert et
+        const { error: insertError } = await supabaseAdmin
+          .from('call_logs')
+          .insert({
+            tenant_id: tenant.id,
+            call_sid: call.id,
+            from_number: callerPhone,
+            customer_id: customerId,
+            direction: 'inbound',
+            duration: durationSeconds,
+            status: call.endedReason || 'completed',
+            summary: call.summary || null,
+            transcript: transcriptStr,
+          });
+
+        if (insertError) {
+          console.error(`[VapiService] Error saving call ${call.id}:`, insertError.message);
+          errors++;
+        } else {
+          saved++;
+        }
+      } catch (callError) {
+        console.error(`[VapiService] Error processing call ${call.id}:`, callError.message);
+        errors++;
+      }
+    }
+
+    console.log(`[VapiService] Call fetch complete: ${saved} saved, ${skipped} skipped, ${errors} errors`);
+    return { fetched: calls.length, saved, skipped, errors };
+  } catch (error) {
+    console.error('[VapiService] Error fetching calls from VAPI:', error.message);
+    return { fetched: 0, saved: 0, errors: 1 };
+  }
+}
+
 module.exports = {
   // Assistant CRUD
   createAssistant,
@@ -1436,6 +1548,7 @@ module.exports = {
 
   // Call operations
   initiateOutboundCall,
+  fetchAndSaveRecentCalls,
 
   // Phone number
   createPhoneNumber,

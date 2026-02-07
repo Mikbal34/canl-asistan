@@ -361,7 +361,12 @@ function addVapiRules(prompt, language = 'tr') {
   - Müşteri telefon numarası
   - Internal kodlar
 - RANDEVU SONRASI: sadece tarih + saat + ana bilgi (araç/hizmet/personel)
-- ÇALIŞMA SAATLERİ: sadece sorulan gün veya bugün/yarın`,
+- ÇALIŞMA SAATLERİ: sadece sorulan gün veya bugün/yarın
+
+## Müşteri Bilgisi Kuralı:
+- Randevu oluşturmadan ÖNCE mutlaka müşterinin adını sor
+- Adını öğrenmeden create_test_drive_appointment, create_service_appointment, create_beauty_appointment veya book_with_staff ÇAĞIRMA
+- Müşteri adını söyledikten sonra randevu sürecine devam et`,
 
     en: `
 
@@ -391,7 +396,12 @@ function addVapiRules(prompt, language = 'tr') {
   - Customer phone number
   - Internal codes
 - AFTER APPOINTMENT: only date + time + main info (vehicle/service/staff)
-- WORKING HOURS: only the asked day or today/tomorrow`,
+- WORKING HOURS: only the asked day or today/tomorrow
+
+## Customer Information Rule:
+- ALWAYS ask for the customer's name BEFORE creating any appointment
+- Do NOT call create_test_drive_appointment, create_service_appointment, create_beauty_appointment or book_with_staff without the customer's name
+- Continue with the appointment process after getting the name`,
 
     de: `
 
@@ -421,7 +431,12 @@ function addVapiRules(prompt, language = 'tr') {
   - Telefonnummer des Kunden
   - Interne Codes
 - NACH TERMIN: nur Datum + Uhrzeit + Hauptinfo (Fahrzeug/Service/Personal)
-- ARBEITSZEITEN: nur der gefragte Tag oder heute/morgen`,
+- ARBEITSZEITEN: nur der gefragte Tag oder heute/morgen
+
+## Kundeninformationsregel:
+- Fragen Sie IMMER nach dem Namen des Kunden BEVOR Sie einen Termin erstellen
+- Rufen Sie NICHT create_test_drive_appointment, create_service_appointment, create_beauty_appointment oder book_with_staff auf ohne den Namen zu kennen
+- Fahren Sie mit dem Terminprozess fort nachdem Sie den Namen erhalten haben`,
   };
 
   return prompt + (rules[language] || rules.tr);
