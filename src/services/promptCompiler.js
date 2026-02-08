@@ -363,10 +363,13 @@ function addVapiRules(prompt, language = 'tr') {
 - RANDEVU SONRASI: sadece tarih + saat + ana bilgi (araç/hizmet/personel)
 - ÇALIŞMA SAATLERİ: sadece sorulan gün veya bugün/yarın
 
-## Müşteri Bilgisi Kuralı:
-- Randevu oluşturmadan ÖNCE mutlaka müşterinin adını sor
-- Adını öğrenmeden create_test_drive_appointment, create_service_appointment, create_beauty_appointment veya book_with_staff ÇAĞIRMA
-- Müşteri adını söyledikten sonra randevu sürecine devam et`,
+## KRİTİK — Müşteri Adı Kuralı (ASLA ATLAMA):
+- Konuşmanın İLK ADIMLARI: Selamlaşmadan hemen sonra "Adınızı öğrenebilir miyim?" sor
+- Müşteri adını söylemeden BAŞKA HİÇBİR İŞLEM YAPMA
+- Müşteri konu değiştirip araç/randevu sorarsa, ÖNCE adını al: "Tabii yardımcı olurum, önce adınızı öğrenebilir miyim?"
+- İsim almadan ASLA şu tool'ları çağırma: create_test_drive_appointment, create_service_appointment, create_beauty_appointment, book_with_staff
+- İsim almadan randevu tarih/saat sorma, araç önerme gibi adımlara GEÇİŞ YAPMA
+- Bu kural en yüksek öncelikli kuraldır, diğer tüm kurallardan önce gelir`,
 
     en: `
 
@@ -398,10 +401,13 @@ function addVapiRules(prompt, language = 'tr') {
 - AFTER APPOINTMENT: only date + time + main info (vehicle/service/staff)
 - WORKING HOURS: only the asked day or today/tomorrow
 
-## Customer Information Rule:
-- ALWAYS ask for the customer's name BEFORE creating any appointment
-- Do NOT call create_test_drive_appointment, create_service_appointment, create_beauty_appointment or book_with_staff without the customer's name
-- Continue with the appointment process after getting the name`,
+## CRITICAL — Customer Name Rule (NEVER SKIP):
+- FIRST STEPS of conversation: Right after greeting, ask "May I have your name?"
+- Do NOT proceed with ANY action until the customer gives their name
+- If customer changes topic to vehicle/appointment, FIRST get name: "Of course, but may I have your name first?"
+- NEVER call these tools without a name: create_test_drive_appointment, create_service_appointment, create_beauty_appointment, book_with_staff
+- Do NOT move to date/time selection or vehicle suggestions without getting the name first
+- This rule has the HIGHEST priority, overrides all other rules`,
 
     de: `
 
@@ -433,10 +439,13 @@ function addVapiRules(prompt, language = 'tr') {
 - NACH TERMIN: nur Datum + Uhrzeit + Hauptinfo (Fahrzeug/Service/Personal)
 - ARBEITSZEITEN: nur der gefragte Tag oder heute/morgen
 
-## Kundeninformationsregel:
-- Fragen Sie IMMER nach dem Namen des Kunden BEVOR Sie einen Termin erstellen
-- Rufen Sie NICHT create_test_drive_appointment, create_service_appointment, create_beauty_appointment oder book_with_staff auf ohne den Namen zu kennen
-- Fahren Sie mit dem Terminprozess fort nachdem Sie den Namen erhalten haben`,
+## KRITISCH — Kundenname-Regel (NIE ÜBERSPRINGEN):
+- ERSTE SCHRITTE: Direkt nach der Begrüßung fragen: "Darf ich Ihren Namen erfahren?"
+- KEINE Aktion durchführen, bis der Kunde seinen Namen nennt
+- Wenn der Kunde das Thema wechselt: "Natürlich, aber darf ich zuerst Ihren Namen erfahren?"
+- NIEMALS ohne Namen aufrufen: create_test_drive_appointment, create_service_appointment, create_beauty_appointment, book_with_staff
+- KEINE Termin-/Fahrzeugvorschläge ohne den Namen
+- Diese Regel hat HÖCHSTE Priorität`,
   };
 
   return prompt + (rules[language] || rules.tr);
