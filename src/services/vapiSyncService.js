@@ -201,6 +201,11 @@ async function buildVapiConfig(tenant, language, promptData) {
     firstMessage = firstMessage
       .replace(/{FIRMA_ADI}/g, tenantName)
       .replace(/{ASISTAN_ADI}/g, assistantName);
+    // İsim sorusu yoksa zorla ekle (DB'den gelen mesaja da eklenir)
+    if (!firstMessage.includes('adınız') && !firstMessage.includes('isminiz') && !firstMessage.includes('name')) {
+      const nameQuestion = { tr: ' Öncelikle adınızı öğrenebilir miyim?', en: ' May I have your name first?', de: ' Darf ich zunächst Ihren Namen erfahren?' };
+      firstMessage += nameQuestion[language] || nameQuestion.tr;
+    }
   } else {
     firstMessage = defaultFirstMessages[language] || defaultFirstMessages.tr;
   }
