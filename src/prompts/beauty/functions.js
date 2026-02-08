@@ -7,6 +7,15 @@
 const supabaseService = require('../../services/supabase');
 const webhookService = require('../../services/webhookService');
 
+// Sahte/generic müşteri isimlerini engelle
+const INVALID_NAMES = ['müşteri', 'musteri', 'customer', 'isim', 'ad', 'misafir', 'anonim', 'bilinmiyor', 'unknown', 'test', 'deneme', 'kullanıcı', 'kullanici', 'user', 'guest', 'soyad', 'ad soyad'];
+
+function isValidCustomerName(name) {
+  if (!name || name.trim().length < 2) return false;
+  const normalized = name.trim().toLowerCase();
+  return !INVALID_NAMES.includes(normalized);
+}
+
 /**
  * Güzellik sektörü için OpenAI Function tanımlamaları
  */
@@ -435,11 +444,11 @@ async function processBeautyFunctionCall(tenantId, functionName, args, callerPho
 
       case 'create_beauty_appointment': {
         // Server-side: customer_name zorunlu (hard constraint)
-        if (!args.customer_name || args.customer_name.trim().length < 2) {
+        if (!isValidCustomerName(args.customer_name)) {
           return {
             success: false,
             error: 'missing_customer_name',
-            message: 'Randevu oluşturmak için müşterinin adını öğrenmeniz gerekiyor. Lütfen önce müşterinin adını sorun.',
+            message: 'Randevu oluşturmak için müşterinin gerçek adını öğrenmeniz gerekiyor. Lütfen önce müşterinin adını ve soyadını sorun.',
           };
         }
 
@@ -890,11 +899,11 @@ async function processBeautyFunctionCall(tenantId, functionName, args, callerPho
 
       case 'book_with_staff': {
         // Server-side: customer_name zorunlu (hard constraint)
-        if (!args.customer_name || args.customer_name.trim().length < 2) {
+        if (!isValidCustomerName(args.customer_name)) {
           return {
             success: false,
             error: 'missing_customer_name',
-            message: 'Randevu oluşturmak için müşterinin adını öğrenmeniz gerekiyor. Lütfen önce müşterinin adını sorun.',
+            message: 'Randevu oluşturmak için müşterinin gerçek adını öğrenmeniz gerekiyor. Lütfen önce müşterinin adını ve soyadını sorun.',
           };
         }
 
