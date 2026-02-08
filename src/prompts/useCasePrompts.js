@@ -87,32 +87,42 @@ const useCasePromptSections = {
   // =====================================================
   test_drive: {
     tr: `## Test Sürüşü Randevusu
-1. Müşterinin adını sor
-2. Müşterinin ilgilendiği aracı sor (marka/model/bütçe)
-3. Müsait araçları listele
-4. Uygun tarih ve saat belirle
-5. Randevu detaylarını özetle ve onayla`,
+1. ⚠️ ÖNCE müşterinin AD ve SOYADINI sor — adını öğrenmeden 2. adıma GEÇME
+2. Hangi araçla ilgilendiğini sor (marka/model/bütçe)
+3. get_available_vehicles çağır, araçları sun
+4. Tercih ettiği tarih ve saati sor
+5. get_available_time_slots çağır, müsait saatleri sun
+6. ⚠️ Onay öncesi kontrol: Eğer müşterinin adını hâlâ bilmiyorsan, ŞIMDI sor: "Randevunuzu oluşturmadan önce adınızı ve soyadınızı öğrenebilir miyim?"
+7. Özet ver: "[İSİM], [araç] için [tarih] saat [saat]'te randevu oluşturuyorum, onaylıyor musunuz?"
+8. Onay gelince create_test_drive_appointment çağır`,
     en: `## Test Drive Appointment
-1. Ask for the customer's name
-2. Ask which vehicle customer is interested in (brand/model/budget)
-3. List available vehicles
-4. Determine suitable date and time
-5. Summarize and confirm appointment details`,
+1. ⚠️ FIRST ask for customer's FULL NAME — do NOT proceed to step 2 without their name
+2. Ask which vehicle they're interested in (brand/model/budget)
+3. Call get_available_vehicles, present options
+4. Ask preferred date and time
+5. Call get_available_time_slots, present available times
+6. ⚠️ Pre-confirmation check: If you still don't know the customer's name, ASK NOW: "Before I create your appointment, may I have your full name?"
+7. Summary: "[NAME], I'm booking a [vehicle] test drive for [date] at [time], shall I confirm?"
+8. After confirmation call create_test_drive_appointment`,
   },
 
   service_appointment: {
     tr: `## Servis Randevusu
-1. Müşterinin adını sor
+1. ⚠️ ÖNCE müşterinin AD ve SOYADINI sor — adını öğrenmeden 2. adıma GEÇME
 2. Araç bilgilerini al (plaka, marka, model)
 3. Servis türünü belirle (bakım, yağ değişimi, lastik, tamir)
 4. Uygun tarih ve saat seç
-5. Varsa yaklaşık fiyat bilgisi ver`,
+5. Varsa yaklaşık fiyat bilgisi ver
+6. ⚠️ Onay öncesi kontrol: Eğer müşterinin adını hâlâ bilmiyorsan, ŞIMDI sor: "Randevunuzu oluşturmadan önce adınızı ve soyadınızı öğrenebilir miyim?"
+7. Özet ver ve onay al`,
     en: `## Service Appointment
-1. Ask for the customer's name
+1. ⚠️ FIRST ask for customer's FULL NAME — do NOT proceed to step 2 without their name
 2. Get vehicle information (plate, brand, model)
 3. Determine service type (maintenance, oil change, tire, repair)
 4. Select suitable date and time
-5. Provide approximate price if available`,
+5. Provide approximate price if available
+6. ⚠️ Pre-confirmation check: If you still don't know the customer's name, ASK NOW: "Before I create your appointment, may I have your full name?"
+7. Summarize and confirm`,
   },
 
   // =====================================================
@@ -120,30 +130,36 @@ const useCasePromptSections = {
   // =====================================================
   beauty_services: {
     tr: `## Güzellik Randevusu
-1. Müşterinin adını sor
+1. ⚠️ ÖNCE müşterinin AD ve SOYADINI sor — adını öğrenmeden 2. adıma GEÇME
 2. İstenen hizmeti öğren (cilt, tırnak, makyaj, SPA)
 3. Hizmet detaylarını ve süresini belirt
 4. Müsait saatleri sun
-5. Randevu detaylarını onayla`,
+5. ⚠️ Onay öncesi kontrol: Eğer müşterinin adını hâlâ bilmiyorsan, ŞIMDI sor
+6. Randevu detaylarını onayla`,
     en: `## Beauty Appointment
-1. Ask for the customer's name
+1. ⚠️ FIRST ask for customer's FULL NAME — do NOT proceed to step 2 without their name
 2. Learn the requested service (skin, nails, makeup, SPA)
 3. Specify service details and duration
 4. Present available times
-5. Confirm appointment details`,
+5. ⚠️ Pre-confirmation check: If you still don't know the name, ASK NOW
+6. Confirm appointment details`,
   },
 
   staff_selection: {
     tr: `## Personel Seçimi
-1. Müşterinin personel tercihi olup olmadığını sor
-2. Müsait personelleri listele
-3. Seçilen personelin müsait saatlerini sun
-4. Personel adıyla birlikte randevu oluştur`,
+1. ⚠️ ÖNCE müşterinin AD ve SOYADINI sor — adını öğrenmeden 2. adıma GEÇME
+2. Müşterinin personel tercihi olup olmadığını sor
+3. Müsait personelleri listele
+4. Seçilen personelin müsait saatlerini sun
+5. ⚠️ Onay öncesi kontrol: Eğer müşterinin adını hâlâ bilmiyorsan, ŞIMDI sor
+6. Personel adıyla birlikte randevu oluştur`,
     en: `## Staff Selection
-1. Ask if customer has staff preference
-2. List available staff
-3. Present available times for selected staff
-4. Create appointment with staff name`,
+1. ⚠️ FIRST ask for customer's FULL NAME — do NOT proceed to step 2 without their name
+2. Ask if customer has staff preference
+3. List available staff
+4. Present available times for selected staff
+5. ⚠️ Pre-confirmation check: If you still don't know the name, ASK NOW
+6. Create appointment with staff name`,
   },
 
   // =====================================================

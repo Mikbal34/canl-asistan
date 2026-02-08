@@ -187,12 +187,22 @@ async function buildVapiConfig(tenant, language, promptData) {
     tools,
   };
 
-  // Build first message
+  // Build first message — isim sorusu dahil
+  const assistantName = tenant.assistant_name || 'Asistan';
+  const tenantName = tenant.name || 'Firma';
+  const defaultFirstMessages = {
+    tr: `Merhaba, ${tenantName}'ya hoş geldiniz! Ben ${assistantName}. Size yardımcı olabilmem için önce adınızı öğrenebilir miyim?`,
+    en: `Hello, welcome to ${tenantName}! I'm ${assistantName}. May I have your name so I can assist you?`,
+    de: `Hallo, willkommen bei ${tenantName}! Ich bin ${assistantName}. Darf ich Ihren Namen erfahren?`,
+  };
+
   let firstMessage = mergedConfig.first_message || '';
   if (firstMessage) {
     firstMessage = firstMessage
-      .replace(/{FIRMA_ADI}/g, tenant.name || 'Firma')
-      .replace(/{ASISTAN_ADI}/g, tenant.assistant_name || 'Asistan');
+      .replace(/{FIRMA_ADI}/g, tenantName)
+      .replace(/{ASISTAN_ADI}/g, assistantName);
+  } else {
+    firstMessage = defaultFirstMessages[language] || defaultFirstMessages.tr;
   }
 
   // Build final assistant config
