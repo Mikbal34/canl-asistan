@@ -223,6 +223,19 @@ server.listen(PORT, HOST, () => {
       console.error('[Startup] VAPI sync hatası:', startupError.message);
     }
   }, 5000);
+
+  // Periyodik arama kayıtları çekme (her 5 dakika)
+  setInterval(async () => {
+    try {
+      const vapiService = require('./services/vapiService');
+      const callResult = await vapiService.fetchAndSaveRecentCalls();
+      if (callResult.saved > 0) {
+        console.log(`[Periodic] ${callResult.saved} yeni arama kaydı kaydedildi`);
+      }
+    } catch (err) {
+      console.error('[Periodic] Arama kayıtları çekme hatası:', err.message);
+    }
+  }, 5 * 60 * 1000);
 });
 
 // Graceful shutdown

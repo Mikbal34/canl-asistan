@@ -619,6 +619,20 @@ function hasConfigChanged(currentConfig, newConfig) {
     }
   }
 
+  // serverMessages karşılaştır
+  if (JSON.stringify(currentConfig.serverMessages) !== JSON.stringify(newConfig.serverMessages)) {
+    console.log('[VapiService] serverMessages changed');
+    return true;
+  }
+
+  // Tool sayısı karşılaştır
+  const currentToolCount = currentConfig.model?.tools?.length || 0;
+  const newToolCount = newConfig.model?.tools?.length || 0;
+  if (currentToolCount !== newToolCount) {
+    console.log(`[VapiService] Tool count changed: ${currentToolCount} → ${newToolCount}`);
+    return true;
+  }
+
   return false;
 }
 
@@ -1428,11 +1442,21 @@ async function duplicateMasterForTenant(industry, language, tenantId) {
 async function fetchAndSaveRecentCalls() {
   try {
     // Son 50 aramayı çek
-    const calls = await vapiRequest('/call?limit=50');
+    const rawResponse = await vapiRequest('/call?limit=50');
 
-    console.log(`[VapiService] VAPI API response type: ${typeof calls}, isArray: ${Array.isArray(calls)}, length: ${calls?.length}`);
+    // VAPI API hem direkt array hem paginated object dönebilir
+    let calls;
+    if (Array.isArray(rawResponse)) {
+      calls = rawResponse;
+    } else if (rawResponse && typeof rawResponse === 'object') {
+      // Paginated response: { results: [...] } veya { data: [...] }
+      calls = rawResponse.results || rawResponse.data || rawResponse.calls || [];
+      console.log(`[VapiService] VAPI returned object, extracted ${calls.length} calls from keys: ${Object.keys(rawResponse).join(', ')}`);
+    } else {
+      calls = [];
+    }
 
-    if (!calls || !Array.isArray(calls)) {
+    if (!calls.length) {
       console.log('[VapiService] No calls returned from VAPI API');
       return { fetched: 0, saved: 0, errors: 0 };
     }

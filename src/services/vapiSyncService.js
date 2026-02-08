@@ -299,10 +299,9 @@ async function syncTenant(tenantId, reason = SYNC_REASONS.MANUAL, language = nul
       console.log(`[VapiSyncService] Prompt length: ${promptData.systemPrompt.length}, ends with: ...${promptData.systemPrompt.slice(-100)}`);
 
       if (existingAssistantId) {
-        // Update existing assistant - force update for startup sync
-        const forceUpdate = reason === 'startup_sync';
-        console.log(`[VapiSyncService] Updating assistant ${existingAssistantId} for ${lang} (force: ${forceUpdate})`);
-        const updated = await vapiService.updateAssistant(existingAssistantId, assistantConfig, { force: forceUpdate });
+        // Her zaman force update — hasConfigChanged serverMessages/tools'u tam karşılaştıramıyor
+        console.log(`[VapiSyncService] Updating assistant ${existingAssistantId} for ${lang} (force: true)`);
+        const updated = await vapiService.updateAssistant(existingAssistantId, assistantConfig, { force: true });
         results.push({
           language: lang,
           action: 'updated',

@@ -452,6 +452,15 @@ async function processAutomotiveFunctionCall(tenantId, functionName, args, calle
       }
 
       case 'create_test_drive_appointment': {
+        // Server-side: customer_name zorunlu (hard constraint)
+        if (!args.customer_name || args.customer_name.trim().length < 2) {
+          return {
+            success: false,
+            error: 'missing_customer_name',
+            message: 'Randevu oluşturmak için müşterinin adını öğrenmeniz gerekiyor. Lütfen önce müşterinin adını sorun.',
+          };
+        }
+
         // Önce aynı tarih/saat için mevcut randevu var mı kontrol et
         const existingTestDrive = await supabaseService.checkExistingAppointment(
           tenantId,
@@ -481,15 +490,6 @@ async function processAutomotiveFunctionCall(tenantId, functionName, args, calle
             success: false,
             error: 'slot_unavailable',
             message: `Maalesef ${args.appointment_date} tarihinde saat ${args.appointment_time} müsait değil. Lütfen başka bir saat seçin.`,
-          };
-        }
-
-        // Müşteri adı kontrolü
-        if (!args.customer_name || args.customer_name.trim() === '') {
-          return {
-            success: false,
-            error: 'missing_customer_name',
-            message: 'Müşterinin adını öğrenmeniz gerekiyor. Lütfen adını sorun.',
           };
         }
 
@@ -536,6 +536,15 @@ async function processAutomotiveFunctionCall(tenantId, functionName, args, calle
       }
 
       case 'create_service_appointment': {
+        // Server-side: customer_name zorunlu (hard constraint)
+        if (!args.customer_name || args.customer_name.trim().length < 2) {
+          return {
+            success: false,
+            error: 'missing_customer_name',
+            message: 'Randevu oluşturmak için müşterinin adını öğrenmeniz gerekiyor. Lütfen önce müşterinin adını sorun.',
+          };
+        }
+
         // Önce aynı tarih/saat için mevcut randevu var mı kontrol et
         const existingService = await supabaseService.checkExistingAppointment(
           tenantId,
@@ -565,15 +574,6 @@ async function processAutomotiveFunctionCall(tenantId, functionName, args, calle
             success: false,
             error: 'slot_unavailable',
             message: `Maalesef ${args.appointment_date} tarihinde saat ${args.appointment_time} müsait değil. Lütfen başka bir saat seçin.`,
-          };
-        }
-
-        // Müşteri adı kontrolü
-        if (!args.customer_name || args.customer_name.trim() === '') {
-          return {
-            success: false,
-            error: 'missing_customer_name',
-            message: 'Müşterinin adını öğrenmeniz gerekiyor. Lütfen adını sorun.',
           };
         }
 

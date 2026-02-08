@@ -434,6 +434,15 @@ async function processBeautyFunctionCall(tenantId, functionName, args, callerPho
       }
 
       case 'create_beauty_appointment': {
+        // Server-side: customer_name zorunlu (hard constraint)
+        if (!args.customer_name || args.customer_name.trim().length < 2) {
+          return {
+            success: false,
+            error: 'missing_customer_name',
+            message: 'Randevu oluşturmak için müşterinin adını öğrenmeniz gerekiyor. Lütfen önce müşterinin adını sorun.',
+          };
+        }
+
         // Hizmet ID'si yoksa isimden bul
         let serviceId = args.service_id;
         let serviceName = args.service_name;
@@ -479,15 +488,6 @@ async function processBeautyFunctionCall(tenantId, functionName, args, callerPho
             success: false,
             error: 'slot_unavailable',
             message: `Maalesef ${args.appointment_date} tarihinde saat ${args.appointment_time} müsait değil. Lütfen başka bir saat seçin.`,
-          };
-        }
-
-        // Müşteri adı kontrolü
-        if (!args.customer_name || args.customer_name.trim() === '') {
-          return {
-            success: false,
-            error: 'missing_customer_name',
-            message: 'Müşterinin adını öğrenmeniz gerekiyor. Lütfen adını sorun.',
           };
         }
 
@@ -889,6 +889,15 @@ async function processBeautyFunctionCall(tenantId, functionName, args, callerPho
       }
 
       case 'book_with_staff': {
+        // Server-side: customer_name zorunlu (hard constraint)
+        if (!args.customer_name || args.customer_name.trim().length < 2) {
+          return {
+            success: false,
+            error: 'missing_customer_name',
+            message: 'Randevu oluşturmak için müşterinin adını öğrenmeniz gerekiyor. Lütfen önce müşterinin adını sorun.',
+          };
+        }
+
         // Personeli bul
         const staff = await supabaseService.getStaffByName(tenantId, args.staff_name);
 
@@ -936,15 +945,6 @@ async function processBeautyFunctionCall(tenantId, functionName, args, callerPho
             success: false,
             error: 'slot_unavailable',
             message: `Maalesef ${args.appointment_date} tarihinde saat ${args.appointment_time} müsait değil. Lütfen başka bir saat seçin.`,
-          };
-        }
-
-        // Müşteri adı kontrolü
-        if (!args.customer_name || args.customer_name.trim() === '') {
-          return {
-            success: false,
-            error: 'missing_customer_name',
-            message: 'Müşterinin adını öğrenmeniz gerekiyor. Lütfen adını sorun.',
           };
         }
 
