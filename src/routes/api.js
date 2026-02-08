@@ -1792,16 +1792,16 @@ router.get('/call-logs', async (req, res) => {
     // Frontend formatına dönüştür
     const mappedData = data.map(log => ({
       id: log.id,
-      callerPhone: log.from_number || 'Bilinmiyor',
+      callerPhone: log.caller_phone || 'Bilinmiyor',
       callerName: log.customer?.name || null,
       timestamp: log.created_at,
-      duration: log.duration || 0,
-      outcome: log.status || 'completed',
+      duration: log.duration_seconds || 0,
+      outcome: log.end_reason || 'completed',
       // Ek bilgiler
-      direction: log.direction,
+      direction: log.call_type,
       transcript: log.transcript,
       summary: log.summary,
-      callSid: log.call_sid,
+      callSid: log.call_id,
     }));
 
     res.json(mappedData);

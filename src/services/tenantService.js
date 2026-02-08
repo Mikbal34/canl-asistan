@@ -393,7 +393,7 @@ async function getTenantStats(tenantId) {
       .select('id', { count: 'exact', head: true })
       .eq('tenant_id', tenantId)
       .gte('created_at', monthStart)
-      .eq('status', 'completed'),
+      .eq('end_reason', 'completed'),
   ]);
 
   const totalCalls = callsResult.count || 0;

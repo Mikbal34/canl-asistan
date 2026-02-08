@@ -733,11 +733,10 @@ async function createCallLog(tenantId, customerId, callData) {
     .insert({
       tenant_id: tenantId,
       customer_id: customerId,
-      call_sid: callData.callSid,
-      from_number: callData.from,
-      to_number: callData.to,
-      direction: callData.direction || 'inbound',
-      status: 'in_progress',
+      call_id: callData.callSid,
+      caller_phone: callData.from,
+      call_type: callData.direction || 'inbound',
+      end_reason: 'in_progress',
     })
     .select()
     .single();
@@ -819,12 +818,14 @@ async function saveCallLog(tenantId, callReport) {
     .from('call_logs')
     .insert({
       tenant_id: tenantId,
-      call_sid: call?.id,
-      from_number: callerPhone,
+      call_id: call?.id,
+      caller_phone: callerPhone,
       customer_id: customerId,
-      direction: 'inbound',
-      duration: durationSeconds,
-      status: endedReason || 'completed',
+      call_type: 'inbound',
+      duration_seconds: durationSeconds,
+      started_at: call?.startedAt || null,
+      ended_at: call?.endedAt || null,
+      end_reason: endedReason || 'completed',
       summary: summary,
       transcript: typeof transcript === 'string' ? transcript : JSON.stringify(transcript),
     })

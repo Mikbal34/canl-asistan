@@ -1469,11 +1469,11 @@ async function fetchAndSaveRecentCalls() {
 
     for (const call of calls) {
       try {
-        // call_sid (= vapi call.id) ile call_logs'da var mı kontrol et
+        // call_id (= vapi call.id) ile call_logs'da var mı kontrol et
         const { data: existing } = await supabaseAdmin
           .from('call_logs')
           .select('id')
-          .eq('call_sid', call.id)
+          .eq('call_id', call.id)
           .maybeSingle();
 
         if (existing) {
@@ -1524,17 +1524,19 @@ async function fetchAndSaveRecentCalls() {
           }
         }
 
-        // call_logs'a insert et
+        // call_logs'a insert et (DB kolon isimleri: call_id, caller_phone, duration_seconds, end_reason, call_type)
         const { error: insertError } = await supabaseAdmin
           .from('call_logs')
           .insert({
             tenant_id: tenant.id,
-            call_sid: call.id,
-            from_number: callerPhone,
+            call_id: call.id,
+            caller_phone: callerPhone,
             customer_id: customerId,
-            direction: 'inbound',
-            duration: durationSeconds,
-            status: call.endedReason || 'completed',
+            call_type: 'inbound',
+            duration_seconds: durationSeconds,
+            started_at: call.startedAt || null,
+            ended_at: call.endedAt || null,
+            end_reason: call.endedReason || 'completed',
             summary: call.summary || null,
             transcript: transcriptStr,
             created_at: call.createdAt || new Date().toISOString(),
