@@ -1508,8 +1508,8 @@ async function fetchAndSaveRecentCalls() {
             : JSON.stringify(call.transcript);
         }
 
-        // Müşteriyi bul (varsa)
-        const callerPhone = call.customer?.number || 'unknown';
+        // Müşteriyi bul (varsa) — webCall'da numara olmaz, phoneCall'da customer.number gelir
+        const callerPhone = call.customer?.number || call.phoneNumber?.number || 'unknown';
         let customerId = null;
         if (callerPhone !== 'unknown') {
           const { data: customer } = await supabaseAdmin
