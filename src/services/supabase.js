@@ -784,6 +784,46 @@ async function getCallLogs(tenantId, limit = 50, token = null, options = {}) {
 }
 
 /**
+ * Transcript'ten müşteri adını çıkar
+ * 1. Tool call argümanlarından (en güvenilir)
+ * 2. Bot adı sorduktan sonraki user mesajından
+ */
+function extractCustomerNameFromTranscript(transcript) {
+  if (!transcript || !Array.isArray(transcript)) return null;
+
+  // 1. Tool call argümanlarından çıkar (en güvenilir)
+  for (const msg of transcript) {
+    if (msg.toolCalls) {
+      for (const tc of msg.toolCalls) {
+        try {
+          const args = typeof tc.function?.arguments === 'string'
+            ? JSON.parse(tc.function.arguments)
+            : tc.function?.arguments;
+          if (args?.customer_name) return args.customer_name;
+        } catch (e) { /* ignore parse error */ }
+      }
+    }
+  }
+
+  // 2. İlk user mesajından çıkar (bot adı sorduktan sonra)
+  let botAskedName = false;
+  for (const msg of transcript) {
+    if (msg.role === 'bot' && msg.message &&
+        (msg.message.includes('adınız') || msg.message.includes('isminiz') || msg.message.includes('your name'))) {
+      botAskedName = true;
+      continue;
+    }
+    if (botAskedName && msg.role === 'user' && msg.message) {
+      const name = msg.message.replace(/^(benim adım|adım|ben|adı)\s*/i, '').replace(/[.!?,]+$/g, '').trim();
+      if (name.length >= 2 && name.length <= 50) return name;
+      botAskedName = false;
+    }
+  }
+
+  return null;
+}
+
+/**
  * Vapi formatında arama kaydı kaydet
  */
 async function saveCallLog(tenantId, callReport) {
@@ -805,6 +845,9 @@ async function saveCallLog(tenantId, callReport) {
       customerId = customer.id;
     }
   }
+
+  // Transcript'ten müşteri adını çıkar
+  const customerName = extractCustomerNameFromTranscript(transcript);
 
   // Süreyi hesapla
   let durationSeconds = null;
@@ -828,6 +871,7 @@ async function saveCallLog(tenantId, callReport) {
       end_reason: endedReason || 'completed',
       summary: summary,
       transcript: typeof transcript === 'string' ? transcript : JSON.stringify(transcript),
+      customer_name: customerName,
     })
     .select()
     .single();
