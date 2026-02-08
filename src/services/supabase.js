@@ -827,7 +827,7 @@ function extractCustomerNameFromTranscript(transcript) {
  * Vapi formatında arama kaydı kaydet
  */
 async function saveCallLog(tenantId, callReport) {
-  const { call, summary, transcript, endedReason } = callReport;
+  const { call, summary, transcript, messages, endedReason } = callReport;
 
   const callerPhone = call?.customer?.number || 'unknown';
 
@@ -846,8 +846,8 @@ async function saveCallLog(tenantId, callReport) {
     }
   }
 
-  // Transcript'ten müşteri adını çıkar
-  const customerName = extractCustomerNameFromTranscript(transcript);
+  // Transcript mesajlarından müşteri adını çıkar (artifact.messages array'i)
+  const customerName = extractCustomerNameFromTranscript(messages);
 
   // Süreyi hesapla
   let durationSeconds = null;

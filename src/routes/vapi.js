@@ -139,6 +139,7 @@ router.post('/webhook', async (req, res) => {
           call: body.message.call,
           summary,
           transcript,
+          messages: body.message.artifact?.messages || [],
           endedReason,
         });
         console.log('[Vapi] Arama kaydi Supabase\'e kaydedildi, tenant:', tenantId);
