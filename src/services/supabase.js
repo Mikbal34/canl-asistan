@@ -805,17 +805,46 @@ function extractCustomerNameFromTranscript(transcript) {
     }
   }
 
-  // 2. İlk user mesajından çıkar (bot adı sorduktan sonra)
+  // 2. Tüm user mesajlarından pattern ile çıkar
+  const namePatterns = /^(?:benim adım|adım|ben|adı|ismim|isim|adım soyadım)\s+/i;
+  const nameSuffixPatterns = /\s+(?:benim|diyebilirsiniz|diyebilirsin|derler|dersiniz)\.?$/i;
+
+  for (const msg of transcript) {
+    if (msg.role === 'user' && msg.message) {
+      const text = msg.message.trim();
+      // "benim adım Ahmet", "ismim Ahmet Yılmaz", "adım soyadım Ali Kara"
+      if (namePatterns.test(text)) {
+        const name = text.replace(namePatterns, '').replace(/[.!?,]+$/g, '').trim();
+        if (name.length >= 2 && name.length <= 50) return name;
+      }
+      // "Ahmet diyebilirsiniz", "Ali Kara benim"
+      if (nameSuffixPatterns.test(text)) {
+        const name = text.replace(nameSuffixPatterns, '').replace(/[.!?,]+$/g, '').trim();
+        if (name.length >= 2 && name.length <= 50 && name.split(/\s+/).length <= 3) return name;
+      }
+    }
+  }
+
+  // 3. Bot adı sorduktan sonraki kısa user mesajını isim olarak kabul et
+  const nameKeywords = ['adınız', 'isminiz', 'your name', 'adınızı', 'isminizi', 'ismini', 'adını', 'adınızı öğrenebilir', 'isminizi öğrenebilir', 'isminiz nedir', 'adınız nedir'];
   let botAskedName = false;
   for (const msg of transcript) {
-    if (msg.role === 'bot' && msg.message &&
-        (msg.message.includes('adınız') || msg.message.includes('isminiz') || msg.message.includes('your name'))) {
-      botAskedName = true;
-      continue;
+    if (msg.role === 'bot' && msg.message) {
+      const lower = msg.message.toLowerCase();
+      if (nameKeywords.some(kw => lower.includes(kw))) {
+        botAskedName = true;
+        continue;
+      }
     }
     if (botAskedName && msg.role === 'user' && msg.message) {
-      const name = msg.message.replace(/^(benim adım|adım|ben|adı)\s*/i, '').replace(/[.!?,]+$/g, '').trim();
-      if (name.length >= 2 && name.length <= 50) return name;
+      const text = msg.message.replace(/[.!?,]+$/g, '').trim();
+      // Kısa cevap (1-3 kelime) ise direkt isim olarak kabul et
+      const words = text.split(/\s+/);
+      if (words.length >= 1 && words.length <= 3 && text.length >= 2 && text.length <= 50) {
+        // Pattern prefix varsa temizle
+        const cleaned = text.replace(namePatterns, '').trim();
+        return cleaned.length >= 2 ? cleaned : text;
+      }
       botAskedName = false;
     }
   }
@@ -831,23 +860,19 @@ async function saveCallLog(tenantId, callReport) {
 
   const callerPhone = call?.customer?.number || 'unknown';
 
-  // Müşteriyi bul (varsa)
-  let customerId = null;
-  if (callerPhone !== 'unknown') {
-    const { data: customer } = await supabaseAdmin
-      .from('customers')
-      .select('id')
-      .eq('tenant_id', tenantId)
-      .eq('phone', callerPhone)
-      .single();
-
-    if (customer) {
-      customerId = customer.id;
-    }
-  }
-
   // Transcript mesajlarından müşteri adını çıkar (artifact.messages array'i)
   const customerName = extractCustomerNameFromTranscript(messages);
+
+  // Müşteriyi bul/oluştur ve ismi güncelle
+  let customerId = null;
+  if (callerPhone !== 'unknown') {
+    try {
+      const customer = await getOrCreateCustomer(tenantId, callerPhone, customerName);
+      customerId = customer.id;
+    } catch (err) {
+      console.error('[Supabase] Customer getOrCreate hatası:', err.message);
+    }
+  }
 
   // Süreyi hesapla
   let durationSeconds = null;

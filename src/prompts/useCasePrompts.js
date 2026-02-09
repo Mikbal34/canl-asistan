@@ -94,7 +94,8 @@ const useCasePromptSections = {
 5. get_available_time_slots çağır, müsait saatleri sun
 6. ⚠️ Onay öncesi kontrol: Eğer müşterinin adını hâlâ bilmiyorsan, ŞIMDI sor: "Randevunuzu oluşturmadan önce adınızı ve soyadınızı öğrenebilir miyim?"
 7. Özet ver: "[İSİM], [araç] için [tarih] saat [saat]'te randevu oluşturuyorum, onaylıyor musunuz?"
-8. Onay gelince create_test_drive_appointment çağır`,
+8. ⚠️ KRİTİK: ASLA customer_name parametresini boş bırakma. İsim bilmiyorsan randevu oluşturma, ÖNCE ismi sor.
+9. Onay gelince create_test_drive_appointment çağır`,
     en: `## Test Drive Appointment
 1. ⚠️ FIRST ask for customer's FULL NAME — do NOT proceed to step 2 without their name
 2. Ask which vehicle they're interested in (brand/model/budget)
@@ -103,7 +104,8 @@ const useCasePromptSections = {
 5. Call get_available_time_slots, present available times
 6. ⚠️ Pre-confirmation check: If you still don't know the customer's name, ASK NOW: "Before I create your appointment, may I have your full name?"
 7. Summary: "[NAME], I'm booking a [vehicle] test drive for [date] at [time], shall I confirm?"
-8. After confirmation call create_test_drive_appointment`,
+8. ⚠️ CRITICAL: NEVER leave customer_name empty. If you don't know the name, do NOT create the appointment — ask for the name FIRST.
+9. After confirmation call create_test_drive_appointment`,
   },
 
   service_appointment: {
@@ -114,7 +116,8 @@ const useCasePromptSections = {
 4. Uygun tarih ve saat seç
 5. Varsa yaklaşık fiyat bilgisi ver
 6. ⚠️ Onay öncesi kontrol: Eğer müşterinin adını hâlâ bilmiyorsan, ŞIMDI sor: "Randevunuzu oluşturmadan önce adınızı ve soyadınızı öğrenebilir miyim?"
-7. Özet ver ve onay al`,
+7. ⚠️ KRİTİK: ASLA customer_name parametresini boş bırakma. İsim bilmiyorsan randevu oluşturma, ÖNCE ismi sor.
+8. Özet ver: "[İSİM], [araç/hizmet] için [tarih] saat [saat]'te randevu oluşturuyorum, onaylıyor musunuz?" ve onay al`,
     en: `## Service Appointment
 1. ⚠️ FIRST ask for customer's FULL NAME — do NOT proceed to step 2 without their name
 2. Get vehicle information (plate, brand, model)
@@ -122,7 +125,8 @@ const useCasePromptSections = {
 4. Select suitable date and time
 5. Provide approximate price if available
 6. ⚠️ Pre-confirmation check: If you still don't know the customer's name, ASK NOW: "Before I create your appointment, may I have your full name?"
-7. Summarize and confirm`,
+7. ⚠️ CRITICAL: NEVER leave customer_name empty. If you don't know the name, do NOT create the appointment — ask for the name FIRST.
+8. Summarize and confirm`,
   },
 
   // =====================================================
@@ -135,14 +139,16 @@ const useCasePromptSections = {
 3. Hizmet detaylarını ve süresini belirt
 4. Müsait saatleri sun
 5. ⚠️ Onay öncesi kontrol: Eğer müşterinin adını hâlâ bilmiyorsan, ŞIMDI sor
-6. Randevu detaylarını onayla`,
+6. ⚠️ KRİTİK: ASLA customer_name parametresini boş bırakma. İsim bilmiyorsan randevu oluşturma, ÖNCE ismi sor.
+7. Özet ver: "[İSİM], [hizmet] için [tarih] saat [saat]'te randevu oluşturuyorum, onaylıyor musunuz?" ve onayla`,
     en: `## Beauty Appointment
 1. ⚠️ FIRST ask for customer's FULL NAME — do NOT proceed to step 2 without their name
 2. Learn the requested service (skin, nails, makeup, SPA)
 3. Specify service details and duration
 4. Present available times
 5. ⚠️ Pre-confirmation check: If you still don't know the name, ASK NOW
-6. Confirm appointment details`,
+6. ⚠️ CRITICAL: NEVER leave customer_name empty. If you don't know the name, do NOT create the appointment — ask for the name FIRST.
+7. Summary: "[NAME], I'm booking [service] for [date] at [time], shall I confirm?" and confirm`,
   },
 
   staff_selection: {
@@ -152,14 +158,16 @@ const useCasePromptSections = {
 3. Müsait personelleri listele
 4. Seçilen personelin müsait saatlerini sun
 5. ⚠️ Onay öncesi kontrol: Eğer müşterinin adını hâlâ bilmiyorsan, ŞIMDI sor
-6. Personel adıyla birlikte randevu oluştur`,
+6. ⚠️ KRİTİK: ASLA customer_name parametresini boş bırakma. İsim bilmiyorsan randevu oluşturma, ÖNCE ismi sor.
+7. Personel adıyla birlikte randevu oluştur`,
     en: `## Staff Selection
 1. ⚠️ FIRST ask for customer's FULL NAME — do NOT proceed to step 2 without their name
 2. Ask if customer has staff preference
 3. List available staff
 4. Present available times for selected staff
 5. ⚠️ Pre-confirmation check: If you still don't know the name, ASK NOW
-6. Create appointment with staff name`,
+6. ⚠️ CRITICAL: NEVER leave customer_name empty. If you don't know the name, do NOT create the appointment — ask for the name FIRST.
+7. Create appointment with staff name`,
   },
 
   // =====================================================
@@ -167,19 +175,23 @@ const useCasePromptSections = {
   // =====================================================
   hairdresser_services: {
     tr: `## Kuaför Randevusu
-1. Müşterinin adını sor
+1. ⚠️ ÖNCE müşterinin AD ve SOYADINI sor — adını öğrenmeden 2. adıma GEÇME
 2. İstenen hizmeti öğren (saç kesimi, boyama, fön)
 3. Kuaför tercihi olup olmadığını sor (önemli!)
 4. Hizmet süresini ve fiyatını belirt
 5. Müsait saatleri sun
-6. Randevu detaylarını onayla`,
+6. ⚠️ Onay öncesi kontrol: Eğer müşterinin adını hâlâ bilmiyorsan, ŞIMDI sor
+7. ⚠️ KRİTİK: ASLA customer_name parametresini boş bırakma. İsim bilmiyorsan randevu oluşturma, ÖNCE ismi sor.
+8. Randevu detaylarını onayla`,
     en: `## Hairdresser Appointment
-1. Ask for the customer's name
+1. ⚠️ FIRST ask for customer's FULL NAME — do NOT proceed to step 2 without their name
 2. Learn the requested service (haircut, coloring, styling)
 3. Ask if customer has stylist preference (important!)
 4. Specify service duration and price
 5. Present available times
-6. Confirm appointment details`,
+6. ⚠️ Pre-confirmation check: If you still don't know the name, ASK NOW
+7. ⚠️ CRITICAL: NEVER leave customer_name empty. If you don't know the name, do NOT create the appointment — ask for the name FIRST.
+8. Confirm appointment details`,
   },
 
   // =====================================================
