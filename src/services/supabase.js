@@ -907,7 +907,7 @@ async function saveCallLog(tenantId, callReport) {
 
   const { data, error } = await supabaseAdmin
     .from('call_logs')
-    .insert({
+    .upsert({
       tenant_id: tenantId,
       call_id: call?.id,
       caller_phone: callerPhone,
@@ -920,7 +920,7 @@ async function saveCallLog(tenantId, callReport) {
       summary: summary,
       transcript: typeof transcript === 'string' ? transcript : JSON.stringify(transcript),
       customer_name: customerName,
-    })
+    }, { onConflict: 'call_id' })
     .select()
     .single();
 
