@@ -1494,10 +1494,23 @@ async function fetchAndSaveRecentCalls() {
 
         // Süreyi hesapla
         let durationSeconds = null;
-        if (call.startedAt && call.endedAt) {
-          const started = new Date(call.startedAt);
-          const ended = new Date(call.endedAt);
-          durationSeconds = Math.round((ended - started) / 1000);
+        // 1) messages varsa secondsFromStart'tan hesapla
+        if (call.messages && call.messages.length > 0) {
+          const firstMsg = call.messages[0];
+          const lastMsg = call.messages[call.messages.length - 1];
+          const startTime = firstMsg.time ?? firstMsg.startTime ?? firstMsg.secondsFromStart;
+          const endTime = lastMsg.endTime ?? lastMsg.time ?? lastMsg.secondsFromStart;
+          if (startTime != null && endTime != null) {
+            durationSeconds = Math.round(endTime - startTime);
+          }
+        }
+        // 2) Fallback: startedAt/endedAt
+        if (!durationSeconds && call.startedAt && call.endedAt) {
+          durationSeconds = Math.round((new Date(call.endedAt) - new Date(call.startedAt)) / 1000);
+        }
+        // 3) Fallback: createdAt/updatedAt
+        if (!durationSeconds && call.createdAt && call.updatedAt) {
+          durationSeconds = Math.round((new Date(call.updatedAt) - new Date(call.createdAt)) / 1000);
         }
 
         // Transcript'i string'e çevir

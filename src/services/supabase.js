@@ -67,8 +67,12 @@ async function getOrCreateCustomer(tenantId, phone, name = null) {
     .single();
 
   if (existing) {
-    // İsim güncellemesi: mevcut isim boşsa ve yeni isim varsa güncelle
-    if (name && name.trim() !== '' && (!existing.name || existing.name === 'unknown')) {
+    // İsim güncellemesi: mevcut isim boş, geçersiz veya placeholder ise güncelle
+    const INVALID_CUSTOMER_NAMES = ['müşteri', 'musteri', 'customer', 'isim', 'ad', 'misafir', 'anonim', 'bilinmiyor', 'unknown', 'test', 'deneme', 'kullanıcı', 'kullanici', 'user', 'guest', 'soyad', 'ad soyad'];
+    const existingNameInvalid = !existing.name || existing.name.trim() === '' ||
+      INVALID_CUSTOMER_NAMES.includes(existing.name.trim().toLowerCase());
+
+    if (name && name.trim() !== '' && existingNameInvalid) {
       const { error: updateError } = await supabaseAdmin
         .from('customers')
         .update({ name: name.trim() })
@@ -876,10 +880,23 @@ async function saveCallLog(tenantId, callReport) {
 
   // Süreyi hesapla
   let durationSeconds = null;
-  if (call?.startedAt && call?.endedAt) {
-    const started = new Date(call.startedAt);
-    const ended = new Date(call.endedAt);
-    durationSeconds = Math.round((ended - started) / 1000);
+  // 1) artifact.messages'dan hesapla (secondsFromStart alanları)
+  if (messages && messages.length > 0) {
+    const firstMsg = messages[0];
+    const lastMsg = messages[messages.length - 1];
+    const startTime = firstMsg.time ?? firstMsg.startTime ?? firstMsg.secondsFromStart;
+    const endTime = lastMsg.endTime ?? lastMsg.time ?? lastMsg.secondsFromStart;
+    if (startTime != null && endTime != null) {
+      durationSeconds = Math.round(endTime - startTime);
+    }
+  }
+  // 2) Fallback: startedAt/endedAt
+  if (!durationSeconds && call?.startedAt && call?.endedAt) {
+    durationSeconds = Math.round((new Date(call.endedAt) - new Date(call.startedAt)) / 1000);
+  }
+  // 3) Fallback: createdAt/updatedAt
+  if (!durationSeconds && call?.createdAt && call?.updatedAt) {
+    durationSeconds = Math.round((new Date(call.updatedAt) - new Date(call.createdAt)) / 1000);
   }
 
   const { data, error } = await supabaseAdmin
