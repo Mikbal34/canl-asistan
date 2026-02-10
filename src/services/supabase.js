@@ -880,14 +880,20 @@ async function saveCallLog(tenantId, callReport) {
 
   // Süreyi hesapla
   let durationSeconds = null;
-  // 1) artifact.messages'dan hesapla (secondsFromStart alanları)
+  // 1) artifact.messages'dan hesapla
   if (messages && messages.length > 0) {
-    const firstMsg = messages[0];
     const lastMsg = messages[messages.length - 1];
-    const startTime = firstMsg.time ?? firstMsg.startTime ?? firstMsg.secondsFromStart;
-    const endTime = lastMsg.endTime ?? lastMsg.time ?? lastMsg.secondsFromStart;
-    if (startTime != null && endTime != null) {
-      durationSeconds = Math.round(endTime - startTime);
+    // secondsFromStart zaten saniye cinsinden (arama başlangıcından itibaren)
+    if (lastMsg.secondsFromStart != null) {
+      durationSeconds = Math.round(lastMsg.secondsFromStart);
+    } else if (messages.length >= 2) {
+      // time alanları epoch ms — farkı 1000'e böl
+      const firstMsg = messages[0];
+      const start = firstMsg.time ?? firstMsg.startTime;
+      const end = lastMsg.endTime ?? lastMsg.time;
+      if (start != null && end != null) {
+        durationSeconds = Math.round((end - start) / 1000);
+      }
     }
   }
   // 2) Fallback: startedAt/endedAt

@@ -1496,12 +1496,18 @@ async function fetchAndSaveRecentCalls() {
         let durationSeconds = null;
         // 1) messages varsa secondsFromStart'tan hesapla
         if (call.messages && call.messages.length > 0) {
-          const firstMsg = call.messages[0];
           const lastMsg = call.messages[call.messages.length - 1];
-          const startTime = firstMsg.time ?? firstMsg.startTime ?? firstMsg.secondsFromStart;
-          const endTime = lastMsg.endTime ?? lastMsg.time ?? lastMsg.secondsFromStart;
-          if (startTime != null && endTime != null) {
-            durationSeconds = Math.round(endTime - startTime);
+          // secondsFromStart zaten saniye cinsinden (arama başlangıcından itibaren)
+          if (lastMsg.secondsFromStart != null) {
+            durationSeconds = Math.round(lastMsg.secondsFromStart);
+          } else if (call.messages.length >= 2) {
+            // time alanları epoch ms — farkı 1000'e böl
+            const firstMsg = call.messages[0];
+            const start = firstMsg.time ?? firstMsg.startTime;
+            const end = lastMsg.endTime ?? lastMsg.time;
+            if (start != null && end != null) {
+              durationSeconds = Math.round((end - start) / 1000);
+            }
           }
         }
         // 2) Fallback: startedAt/endedAt
