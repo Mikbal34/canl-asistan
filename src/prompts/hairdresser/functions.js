@@ -284,6 +284,52 @@ const hairdresserFunctionDefinitions = [
       },
     },
   },
+  {
+    type: 'function',
+    function: {
+      name: 'get_active_promotions',
+      description: 'Aktif kampanyalari ve indirimleri listeler',
+      parameters: {
+        type: 'object',
+        properties: {},
+        required: [],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'get_loyalty_points',
+      description: 'Musterinin sadakat puanini ve uyelik seviyesini sorgular',
+      parameters: {
+        type: 'object',
+        properties: {
+          customer_phone: {
+            type: 'string',
+            description: 'Musteri telefon numarasi',
+          },
+        },
+        required: [],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'apply_promo_code',
+      description: 'Promosyon/indirim kodu uygular ve gecerliligini kontrol eder',
+      parameters: {
+        type: 'object',
+        properties: {
+          code: {
+            type: 'string',
+            description: 'Indirim kodu',
+          },
+        },
+        required: ['code'],
+      },
+    },
+  },
 ];
 
 /**
