@@ -57,6 +57,17 @@ function getBeautyFunctionDefinitions() {
   return _beautyFunctionDefinitions;
 }
 
+// Lazy load hairdresser tool definitions
+let _hairdresserFunctionDefinitions = null;
+
+function getHairdresserFunctionDefinitions() {
+  if (!_hairdresserFunctionDefinitions) {
+    const { hairdresserFunctionDefinitions } = require('../prompts/hairdresser/functions');
+    _hairdresserFunctionDefinitions = hairdresserFunctionDefinitions;
+  }
+  return _hairdresserFunctionDefinitions;
+}
+
 /**
  * TÜM tool tanımlarını tek bir master listede birleştir
  * Industry'den bağımsız, tüm mevcut tool'lar
@@ -73,9 +84,19 @@ function getMasterToolDefinitions() {
       _masterToolDefinitions[def.function.name] = def;
     });
 
-    // Beauty tool'larını ekle (aynı isimli olanlar override edilir - bu beklenen davranış)
+    // Beauty tool'larını ekle — sadece automotive'de OLMAYAN tool'lar
+    // Aynı isimli tool'lar (get_service_price vb.) automotive versiyonunu korur
     getBeautyFunctionDefinitions().forEach(def => {
-      _masterToolDefinitions[def.function.name] = def;
+      if (!_masterToolDefinitions[def.function.name]) {
+        _masterToolDefinitions[def.function.name] = def;
+      }
+    });
+
+    // Hairdresser tool'larını ekle — sadece daha önce eklenmemiş olanlar
+    getHairdresserFunctionDefinitions().forEach(def => {
+      if (!_masterToolDefinitions[def.function.name]) {
+        _masterToolDefinitions[def.function.name] = def;
+      }
     });
   }
   return _masterToolDefinitions;
@@ -93,6 +114,30 @@ const masterToolDefinitions = new Proxy({}, {
     }
   },
 });
+
+/**
+ * Belirli bir industry için tool tanımlarını getir
+ * Industry'ye özel tool'ları döndürür (çakışma olmaz)
+ * @param {string} industry - Industry kodu (automotive, beauty, beauty_salon, hairdresser)
+ * @returns {Object} - Tool name → definition map
+ */
+function getIndustryToolDefinitions(industry) {
+  const defs = {};
+  switch (industry) {
+    case 'beauty':
+    case 'beauty_salon':
+      getBeautyFunctionDefinitions().forEach(def => { defs[def.function.name] = def; });
+      break;
+    case 'hairdresser':
+      getHairdresserFunctionDefinitions().forEach(def => { defs[def.function.name] = def; });
+      break;
+    case 'automotive':
+    default:
+      getAutomotiveFunctionDefinitions().forEach(def => { defs[def.function.name] = def; });
+      break;
+  }
+  return defs;
+}
 
 /**
  * Tüm use case'leri getir
@@ -369,13 +414,14 @@ async function setupDefaultUseCases(tenantId, industry) {
 /**
  * Seçilen use case'ler için tool tanımlarını getir
  * @param {Array} useCases - Use case objeleri (tools array içeren)
+ * @param {string|null} industry - Industry kodu (verilirse sektöre özel tool'lar kullanılır)
  * @returns {Array} - Tool tanımları (OpenAI function format)
  */
-function getToolDefinitionsForUseCases(useCases) {
+function getToolDefinitionsForUseCases(useCases, industry = null) {
   const toolNames = getToolsFromUseCases(useCases);
-  const defs = getMasterToolDefinitions();
+  const defs = industry ? getIndustryToolDefinitions(industry) : getMasterToolDefinitions();
 
-  // Master listeden ilgili tool tanımlarını al
+  // İlgili tool tanımlarını al
   const toolDefinitions = toolNames
     .map(name => defs[name])
     .filter(def => def !== undefined);
@@ -390,6 +436,11 @@ function getToolDefinitionsForUseCases(useCases) {
  * @returns {Array} - Tool tanımları
  */
 async function getToolDefinitionsForTenant(tenantId) {
+  // Tenant industry bilgisini al
+  const { data: tenant } = await supabase
+    .from('tenants').select('industry').eq('id', tenantId).single();
+  const industry = tenant?.industry || 'automotive';
+
   // Try to get effective use cases from template system first
   try {
     const templateService = getTemplateService();
@@ -403,7 +454,7 @@ async function getToolDefinitionsForTenant(tenantId) {
         .in('id', effectiveUseCaseIds);
 
       if (!error && useCases && useCases.length > 0) {
-        return getToolDefinitionsForUseCases(useCases);
+        return getToolDefinitionsForUseCases(useCases, industry);
       }
     }
   } catch (err) {
@@ -413,7 +464,7 @@ async function getToolDefinitionsForTenant(tenantId) {
 
   // Fallback to existing tenant_use_cases
   const useCases = await getTenantUseCases(tenantId);
-  return getToolDefinitionsForUseCases(useCases);
+  return getToolDefinitionsForUseCases(useCases, industry);
 }
 
 /**
@@ -575,6 +626,8 @@ module.exports = {
   getToolDefinitionsForTenant,
   getVapiToolsForTenant,
   getAllAvailableTools,
+  getIndustryToolDefinitions,
+  getHairdresserFunctionDefinitions,
   masterToolDefinitions,
 
   // Prompts

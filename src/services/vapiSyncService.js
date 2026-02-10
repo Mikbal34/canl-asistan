@@ -111,9 +111,9 @@ async function buildVapiConfig(tenant, language, promptData) {
 
   const serverUrl = config.vapi?.serverUrl || config.server?.url;
 
-  // Get tool definitions for the use cases
+  // Get tool definitions for the use cases (industry-aware)
   const useCaseService = getUseCaseService();
-  const toolDefinitions = useCaseService.getToolDefinitionsForUseCases(promptData.useCases);
+  const toolDefinitions = useCaseService.getToolDefinitionsForUseCases(promptData.useCases, tenant.industry);
 
   // Build tool configs for VAPI
   const vapiService = getVapiService();
@@ -137,7 +137,7 @@ async function buildVapiConfig(tenant, language, promptData) {
       },
       {
         type: 'request-failed',
-        content: vapiService.getToolFailMessage(language),
+        content: vapiService.getToolFailMessage(def.function.name, language),
       },
     ],
   }));

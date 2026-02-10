@@ -344,11 +344,16 @@ function addVapiRules(prompt, language = 'tr') {
 - Örnek: Tool çağır → Sonuç gelir → "Evet, BMW üç yirmi modelimiz var" (hemen devam et)
 - ASLA sessiz kalma, tool sonucunu aldığında direkt konuşmaya devam et
 
-## Sayı ve Model Okuma:
-- Araç modelleri: "320" → "üç yirmi" (üç yüz yirmi DEĞİL)
-- Saatler: "10:00" → "on" veya "saat on"
-- Fiyatlar: "850.000 TL" → "sekiz yüz elli bin lira"
-- Plakalar: harf harf ve rakam rakam oku
+## Türkçe Telaffuz Kuralları (ÇOK ÖNEMLİ):
+Tüm sayıları, tarihleri ve yılları TÜRKÇE telaffuz et:
+- Yıllar: "2026" → "iki bin yirmi altı" (ASLA İngilizce okuma)
+- Aylar: "Şubat", "Mart", "Nisan" (Türkçe ay isimleri)
+- Günler: "on beş Şubat" şeklinde söyle
+- Araç modelleri: "320i" → "üç yirmi i", "A6" → "a altı", "520d" → "beş yirmi d" (üç yüz yirmi DEĞİL)
+- Fiyatlar: "850.000" → "sekiz yüz elli bin lira"
+- Saatler: "10:30" → "on buçuk", "14:00" → "on dört" veya "öğleden sonra iki"
+- Plakalar: harf harf, rakam rakam (34 ABC 123 → "otuz dört a be ce yüz yirmi üç")
+- Büyük sayılar: "1.500.000" → "bir milyon beş yüz bin"
 
 ## Tool Sonuçları Kullanımı:
 - Tool'dan dönen \`message\` alanını temel al
@@ -383,10 +388,12 @@ function addVapiRules(prompt, language = 'tr') {
 - Example: Call tool → Get result → "Yes, we have the BMW 320 available" (continue right away)
 - NEVER stay silent, continue speaking as soon as you get tool result
 
-## Number and Model Reading:
-- Car models: "320" → "three twenty" (NOT "three hundred twenty")
-- Times: "10:00" → "ten" or "ten o'clock"
-- Prices: read naturally with currency
+## Number and Model Pronunciation:
+- Years: "2026" → "twenty twenty-six" (NEVER read digit by digit)
+- Car models: "320i" → "three twenty i", "A6" → "A six", "520d" → "five twenty d" (NOT "three hundred twenty")
+- Prices: read naturally with currency (e.g. "eight hundred fifty thousand")
+- Times: "10:30" → "ten thirty", "14:00" → "two PM"
+- Large numbers: "1,500,000" → "one million five hundred thousand"
 
 ## Tool Response Usage:
 - Use the \`message\` field from tool response as base
@@ -421,10 +428,12 @@ function addVapiRules(prompt, language = 'tr') {
 - Beispiel: Tool aufrufen → Ergebnis erhalten → "Ja, wir haben den BMW 320 verfügbar" (sofort weitersprechen)
 - NIE still bleiben, sofort weitersprechen wenn das Tool-Ergebnis da ist
 
-## Zahlen und Modellnamen:
-- Automodelle: "320" → "drei zwanzig" (NICHT "dreihundertzwanzig")
-- Uhrzeiten: "10:00" → "zehn Uhr"
-- Preise: natürlich mit Währung vorlesen
+## Zahlen und Modellnamen Aussprache:
+- Jahre: "2026" → "zweitausendsechsundzwanzig" (NIEMALS Ziffer für Ziffer)
+- Automodelle: "320i" → "drei zwanzig i", "A6" → "A sechs", "520d" → "fünf zwanzig d" (NICHT "dreihundertzwanzig")
+- Preise: natürlich mit Währung vorlesen (z.B. "achthundertfünfzigtausend")
+- Uhrzeiten: "10:30" → "halb elf", "14:00" → "vierzehn Uhr"
+- Große Zahlen: "1.500.000" → "eine Million fünfhunderttausend"
 
 ## Tool-Ergebnis Verwendung:
 - Verwenden Sie das \`message\` Feld als Basis

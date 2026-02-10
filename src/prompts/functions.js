@@ -6,6 +6,31 @@
 const supabaseService = require('../services/supabase');
 const webhookService = require('../services/webhookService');
 const { beautyFunctionDefinitions, processBeautyFunctionCall } = require('./beauty/functions');
+const { hairdresserFunctionDefinitions, processHairdresserFunctionCall } = require('./hairdresser/functions');
+
+// ==========================================
+// IN-MEMORY CACHE — Statik tool response'ları için
+// ==========================================
+const _toolCache = new Map();
+const CACHE_TTL = {
+  business_info: 60 * 60 * 1000,     // 1 saat
+  working_hours: 60 * 60 * 1000,     // 1 saat
+  promotions: 5 * 60 * 1000,         // 5 dakika
+};
+
+function getCached(tenantId, key) {
+  const cacheKey = `${tenantId}:${key}`;
+  const entry = _toolCache.get(cacheKey);
+  if (entry && Date.now() - entry.time < (CACHE_TTL[key] || 60000)) {
+    return entry.data;
+  }
+  if (entry) _toolCache.delete(cacheKey);
+  return null;
+}
+
+function setCache(tenantId, key, data) {
+  _toolCache.set(`${tenantId}:${key}`, { data, time: Date.now() });
+}
 
 // Sahte/generic müşteri isimlerini engelle
 const INVALID_NAMES = ['müşteri', 'musteri', 'customer', 'isim', 'ad', 'misafir', 'anonim', 'bilinmiyor', 'unknown', 'test', 'deneme', 'kullanıcı', 'kullanici', 'user', 'guest', 'soyad', 'ad soyad'];
@@ -382,8 +407,9 @@ function getFunctionDefinitions(industry = 'automotive') {
   switch (industry) {
     case 'beauty':
     case 'beauty_salon':
-    case 'hairdresser':
       return beautyFunctionDefinitions;
+    case 'hairdresser':
+      return hairdresserFunctionDefinitions;
     case 'automotive':
     default:
       return automotiveFunctionDefinitions;
@@ -406,20 +432,32 @@ async function processAutomotiveFunctionCall(tenantId, functionName, args, calle
           maxPrice: args.max_price,
         }, { useAdmin: true });
 
+        if (!vehicles || vehicles.length === 0) {
+          return {
+            success: true,
+            count: 0,
+            message: 'Şu an bu kriterlere uygun araç bulunamadı.',
+          };
+        }
+
+        // Sadece gerekli alanlar, max 5 araç
+        const vehicleList = vehicles.slice(0, 5).map(v => ({
+          id: v.id,
+          name: `${v.brand} ${v.model}`,
+          year: v.year,
+          price: v.price,
+        }));
+
+        const names = vehicleList.slice(0, 3).map(v => v.name).join(', ');
+        const message = vehicles.length <= 3
+          ? `${vehicles.length} araç var: ${names}.`
+          : `${vehicles.length} araç buldum. Örneğin ${names}. Hangisini anlatayım?`;
+
         return {
           success: true,
-          vehicles: vehicles.map(v => ({
-            id: v.id,
-            brand: v.brand,
-            model: v.model,
-            year: v.year,
-            color: v.color,
-            price: v.price,
-            fuelType: v.fuel_type,
-            transmission: v.transmission,
-            description: v.description,
-          })),
+          vehicles: vehicleList,
           count: vehicles.length,
+          message,
         };
       }
 
@@ -428,14 +466,23 @@ async function processAutomotiveFunctionCall(tenantId, functionName, args, calle
         const slotType = args.slot_type || 'test_drive';
         console.log(`[Functions] get_available_time_slots - date: ${args.date}, slot_type: ${slotType}`);
 
+        const formatDateTr = (dateStr) => {
+          const d = new Date(dateStr);
+          const months = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
+          return `${d.getDate()} ${months[d.getMonth()]}`;
+        };
+
         // Tarih verilmemişse, gelecek 7 günün müsait tarihlerini listele
         if (!args.date) {
           const availableDates = await supabaseService.getAvailableDates(tenantId, 7);
 
+          const dateExamples = availableDates.slice(0, 3).map(d => d.day_name).join(', ');
           return {
             success: true,
             mode: 'available_dates',
-            message: 'Müsait tarihler listelendi. Müşteriye bu tarihleri sunun.',
+            message: availableDates.length > 0
+              ? `${availableDates.length} gün müsait. Örneğin ${dateExamples}. Hangi gün uygun?`
+              : 'Maalesef yakın tarihte müsait gün bulunamadı.',
             available_dates: availableDates.map(d => ({
               date: d.date,
               day_name: d.day_name,
@@ -446,6 +493,14 @@ async function processAutomotiveFunctionCall(tenantId, functionName, args, calle
         }
 
         const slots = await supabaseService.getAvailableSlots(tenantId, args.date, slotType);
+        const slotTimes = slots.map(s => s.slot_time?.substring(0, 5));
+
+        // Max 4 örnek saat göster
+        const exampleSlots = slotTimes.slice(0, 4).join(', ');
+        const dateLabel = formatDateTr(args.date);
+        const message = slots.length === 0
+          ? `${dateLabel} için müsait saat kalmamış. Başka bir gün deneyelim mi?`
+          : `${dateLabel} için müsait saatler: ${exampleSlots}.${slots.length > 4 ? ' Başka saatler de var.' : ''}`;
 
         return {
           success: true,
@@ -457,6 +512,7 @@ async function processAutomotiveFunctionCall(tenantId, functionName, args, calle
             time: s.slot_time?.substring(0, 5),
           })),
           count: slots.length,
+          message,
         };
       }
 
@@ -770,6 +826,10 @@ async function processAutomotiveFunctionCall(tenantId, functionName, args, calle
       // ==========================================
 
       case 'get_business_info': {
+        // Cache: 1 saat — işletme bilgisi nadiren değişir
+        const cachedBiz = getCached(tenantId, 'business_info');
+        if (cachedBiz) return cachedBiz;
+
         const tenantInfo = await supabaseService.getTenantInfo(tenantId);
 
         if (!tenantInfo) {
@@ -780,22 +840,28 @@ async function processAutomotiveFunctionCall(tenantId, functionName, args, calle
           };
         }
 
-        return {
+        const bizResult = {
           success: true,
           business: {
             name: tenantInfo.name,
             address: tenantInfo.address,
             phone: tenantInfo.phone,
             email: tenantInfo.email,
-            website: tenantInfo.website,
           },
           message: tenantInfo.address
             ? `Adresimiz: ${tenantInfo.address}. Telefon: ${tenantInfo.phone || 'Belirtilmemiş'}`
             : 'Adres bilgisi henüz eklenmemiş.',
         };
+        setCache(tenantId, 'business_info', bizResult);
+        return bizResult;
       }
 
       case 'get_working_hours': {
+        // Cache: 1 saat — çalışma saatleri nadiren değişir
+        const whCacheKey = `working_hours_${args.day || 'all'}`;
+        const cachedWH = getCached(tenantId, whCacheKey);
+        if (cachedWH) return cachedWH;
+
         const dayNames = {
           'pazar': 0, 'pazartesi': 1, 'salı': 2, 'sali': 2,
           'çarşamba': 3, 'carsamba': 3, 'perşembe': 4, 'persembe': 4,
@@ -818,45 +884,49 @@ async function processAutomotiveFunctionCall(tenantId, functionName, args, calle
 
         const workingHours = await supabaseService.getWorkingHours(tenantId, dayOfWeek);
 
+        let whResult;
+
         if (!workingHours || workingHours.length === 0) {
-          return {
+          whResult = {
             success: true,
             message: 'Çalışma saatleri henüz belirlenmemiş. Lütfen bizimle iletişime geçin.',
           };
-        }
-
-        if (dayOfWeek !== null && workingHours.length === 1) {
+        } else if (dayOfWeek !== null && workingHours.length === 1) {
           const wh = workingHours[0];
           if (!wh.is_open) {
-            return {
+            whResult = {
               success: true,
               day: dayNamesTr[dayOfWeek],
               is_open: false,
               message: `${dayNamesTr[dayOfWeek]} günü kapalıyız.`,
             };
+          } else {
+            whResult = {
+              success: true,
+              day: dayNamesTr[dayOfWeek],
+              is_open: true,
+              open_time: wh.open_time?.substring(0, 5),
+              close_time: wh.close_time?.substring(0, 5),
+              message: `${dayNamesTr[dayOfWeek]} günü ${wh.open_time?.substring(0, 5)} - ${wh.close_time?.substring(0, 5)} saatleri arasında açığız.`,
+            };
           }
-          return {
+        } else {
+          // Tüm hafta
+          const schedule = workingHours.map(wh => ({
+            day: dayNamesTr[wh.day_of_week],
+            is_open: wh.is_open,
+            hours: wh.is_open ? `${wh.open_time?.substring(0, 5)} - ${wh.close_time?.substring(0, 5)}` : 'Kapalı',
+          }));
+
+          whResult = {
             success: true,
-            day: dayNamesTr[dayOfWeek],
-            is_open: true,
-            open_time: wh.open_time?.substring(0, 5),
-            close_time: wh.close_time?.substring(0, 5),
-            message: `${dayNamesTr[dayOfWeek]} günü ${wh.open_time?.substring(0, 5)} - ${wh.close_time?.substring(0, 5)} saatleri arasında açığız.`,
+            schedule,
+            message: 'Haftalık çalışma saatlerimiz yukarıda belirtilmiştir.',
           };
         }
 
-        // Tüm hafta
-        const schedule = workingHours.map(wh => ({
-          day: dayNamesTr[wh.day_of_week],
-          is_open: wh.is_open,
-          hours: wh.is_open ? `${wh.open_time?.substring(0, 5)} - ${wh.close_time?.substring(0, 5)}` : 'Kapalı',
-        }));
-
-        return {
-          success: true,
-          schedule,
-          message: 'Haftalık çalışma saatlerimiz yukarıda belirtilmiştir.',
-        };
+        setCache(tenantId, whCacheKey, whResult);
+        return whResult;
       }
 
       case 'get_service_price': {
@@ -955,14 +1025,20 @@ async function processAutomotiveFunctionCall(tenantId, functionName, args, calle
       // ==========================================
 
       case 'get_active_promotions': {
+        // Cache: 5 dakika — kampanyalar ara sıra değişir
+        const cachedPromos = getCached(tenantId, 'promotions');
+        if (cachedPromos) return cachedPromos;
+
         const campaigns = await supabaseService.getActiveCampaigns(tenantId);
 
         if (!campaigns || campaigns.length === 0) {
-          return {
+          const noPromoResult = {
             success: true,
             has_promotions: false,
             message: 'Şu anda aktif bir kampanyamız bulunmuyor.',
           };
+          setCache(tenantId, 'promotions', noPromoResult);
+          return noPromoResult;
         }
 
         const formatDate = (dateStr) => {
@@ -972,18 +1048,22 @@ async function processAutomotiveFunctionCall(tenantId, functionName, args, calle
 
         const promotions = campaigns.map(c => ({
           name: c.name,
-          description: c.description,
           discount: c.discount_type === 'percent' ? `%${c.discount_value}` : `${c.discount_value} TL`,
           valid_until: formatDate(c.valid_until),
         }));
 
-        return {
+        const firstPromo = promotions[0];
+        const promoResult = {
           success: true,
           has_promotions: true,
           promotions,
           count: promotions.length,
-          message: `${promotions.length} adet aktif kampanyamız var.`,
+          message: promotions.length === 1
+            ? `Bir kampanyamız var. ${firstPromo.name}, ${firstPromo.discount} indirimli. ${firstPromo.valid_until}'e kadar geçerli.`
+            : `${promotions.length} kampanyamız var. ${firstPromo.name} ${firstPromo.discount} indirimli.`,
         };
+        setCache(tenantId, 'promotions', promoResult);
+        return promoResult;
       }
 
       case 'get_loyalty_points': {
@@ -1087,8 +1167,9 @@ async function processFunctionCall(tenantId, industry, functionName, args, calle
   switch (industry) {
     case 'beauty':
     case 'beauty_salon':
-    case 'hairdresser':
       return processBeautyFunctionCall(tenantId, functionName, args, callerPhone);
+    case 'hairdresser':
+      return processHairdresserFunctionCall(tenantId, functionName, args, callerPhone);
     case 'automotive':
     default:
       return processAutomotiveFunctionCall(tenantId, functionName, args, callerPhone);
@@ -1104,6 +1185,8 @@ module.exports = {
   processFunctionCall,
   processAutomotiveFunctionCall,
   processBeautyFunctionCall,
+  processHairdresserFunctionCall,
   automotiveFunctionDefinitions,
   beautyFunctionDefinitions,
+  hairdresserFunctionDefinitions,
 };
