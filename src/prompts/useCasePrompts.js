@@ -60,9 +60,10 @@ const useCasePromptSections = {
   // =====================================================
   business_info: {
     tr: `## İşletme Bilgileri
-- Müşteri işletme bilgisi sorduğunda doğru bilgileri paylaş
-- Çalışma saatlerini net şekilde belirt
-- Adres tarifi yaparken açık ve anlaşılır ol`,
+- Adres sorulursa: get_business_info çağır, adresi net söyle
+- Telefon sorulursa: get_business_info çağır
+- Çalışma saatleri sorulursa: get_working_hours çağır
+- "Bugün açık mısınız?" → get_working_hours çağır, bugüne göre cevapla`,
     en: `## Business Information
 - Share accurate information when customer asks about business
 - Clearly state working hours
@@ -70,11 +71,25 @@ const useCasePromptSections = {
   },
 
   appointments_core: {
-    tr: `## Randevu Yönetimi
-- Randevu oluşturmadan önce mutlaka müşterinin adını öğren
-1. Müşterinin mevcut randevularını sorgula
-2. İptal veya değişiklik için onay al
-3. Yeni tarih/saat seçerken müsaitlik kontrol et`,
+    tr: `## Randevu Sorgulama
+Müşteri randevusunu öğrenmek isterse:
+1. get_my_appointments çağır
+2. Tarih, saat ve detayları söyle
+3. Birden fazla varsa listele
+
+## Randevu İptali
+1. get_my_appointments ile randevuyu bul
+2. Hangi randevuyu iptal etmek istediğini onayla
+3. "X tarihli randevunuzu iptal ediyorum, onaylıyor musunuz?"
+4. Onay alınca cancel_appointment çağır
+5. "Randevunuz iptal edildi" de
+
+## Randevu Değişikliği
+1. get_my_appointments ile mevcut randevuyu bul
+2. Yeni tarih/saat tercihini öğren
+3. get_available_time_slots ile müsaitliği kontrol et
+4. "Randevunuzu X tarihine alıyorum, uygun mu?"
+5. Onay alınca reschedule_appointment çağır`,
     en: `## Appointment Management
 - Always ask for the customer's name before creating an appointment
 1. Query customer's existing appointments
@@ -87,15 +102,13 @@ const useCasePromptSections = {
   // =====================================================
   test_drive: {
     tr: `## Test Sürüşü Randevusu
-1. ⚠️ ÖNCE müşterinin AD ve SOYADINI sor — adını öğrenmeden 2. adıma GEÇME
-2. Hangi araçla ilgilendiğini sor (marka/model/bütçe)
-3. get_available_vehicles çağır, araçları sun
-4. Tercih ettiği tarih ve saati sor
-5. get_available_time_slots çağır, müsait saatleri sun
-6. ⚠️ Onay öncesi kontrol: Eğer müşterinin adını hâlâ bilmiyorsan, ŞIMDI sor: "Randevunuzu oluşturmadan önce adınızı ve soyadınızı öğrenebilir miyim?"
-7. Özet ver: "[İSİM], [araç] için [tarih] saat [saat]'te randevu oluşturuyorum, onaylıyor musunuz?"
-8. ⚠️ KRİTİK: ASLA customer_name parametresini boş bırakma. İsim bilmiyorsan randevu oluşturma, ÖNCE ismi sor.
-9. Onay gelince create_test_drive_appointment çağır`,
+1. Hangi araçla ilgilendiğini sor (marka, model veya bütçe)
+2. get_available_vehicles çağır
+3. 2-3 seçenek sun, hepsini sayma
+4. Müşteri seçince tarih/saat tercihini öğren
+5. get_available_time_slots çağır
+6. Özet ver: "BMW üç yirmi i için yarın saat on buçukta test sürüşü, uygun mu?"
+7. Onay alınca create_test_drive_appointment çağır`,
     en: `## Test Drive Appointment
 1. ⚠️ FIRST ask for customer's FULL NAME — do NOT proceed to step 2 without their name
 2. Ask which vehicle they're interested in (brand/model/budget)
@@ -110,14 +123,14 @@ const useCasePromptSections = {
 
   service_appointment: {
     tr: `## Servis Randevusu
-1. ⚠️ ÖNCE müşterinin AD ve SOYADINI sor — adını öğrenmeden 2. adıma GEÇME
-2. Araç bilgilerini al (plaka, marka, model)
-3. Servis türünü belirle (bakım, yağ değişimi, lastik, tamir)
-4. Uygun tarih ve saat seç
-5. Varsa yaklaşık fiyat bilgisi ver
-6. ⚠️ Onay öncesi kontrol: Eğer müşterinin adını hâlâ bilmiyorsan, ŞIMDI sor: "Randevunuzu oluşturmadan önce adınızı ve soyadınızı öğrenebilir miyim?"
-7. ⚠️ KRİTİK: ASLA customer_name parametresini boş bırakma. İsim bilmiyorsan randevu oluşturma, ÖNCE ismi sor.
-8. Özet ver: "[İSİM], [araç/hizmet] için [tarih] saat [saat]'te randevu oluşturuyorum, onaylıyor musunuz?" ve onay al`,
+1. Araç bilgilerini al: plaka veya marka/model
+2. Servis türünü öğren: bakım, yağ değişimi, lastik, fren, arıza
+3. get_service_price ile tahmini fiyat ver
+4. "Kesin fiyat serviste belirlenir" de
+5. Tarih tercihini al
+6. get_available_time_slots çağır
+7. Özet ver ve onay al
+8. create_service_appointment çağır`,
     en: `## Service Appointment
 1. ⚠️ FIRST ask for customer's FULL NAME — do NOT proceed to step 2 without their name
 2. Get vehicle information (plate, brand, model)
@@ -134,13 +147,16 @@ const useCasePromptSections = {
   // =====================================================
   beauty_services: {
     tr: `## Güzellik Randevusu
-1. ⚠️ ÖNCE müşterinin AD ve SOYADINI sor — adını öğrenmeden 2. adıma GEÇME
-2. İstenen hizmeti öğren (cilt, tırnak, makyaj, SPA)
-3. Hizmet detaylarını ve süresini belirt
-4. Müsait saatleri sun
-5. ⚠️ Onay öncesi kontrol: Eğer müşterinin adını hâlâ bilmiyorsan, ŞIMDI sor
-6. ⚠️ KRİTİK: ASLA customer_name parametresini boş bırakma. İsim bilmiyorsan randevu oluşturma, ÖNCE ismi sor.
-7. Özet ver: "[İSİM], [hizmet] için [tarih] saat [saat]'te randevu oluşturuyorum, onaylıyor musunuz?" ve onayla`,
+1. İstenen hizmeti öğren
+2. get_beauty_services çağır, seçenekleri sun
+3. "Tercih ettiğiniz bir uzmanımız var mı?" diye sor
+4. Tercih varsa: get_available_staff çağır, o kişinin müsaitliğine bak
+5. Tercih yoksa: direkt devam et
+6. get_service_price ile fiyat ve süre bilgisi ver
+7. Tarih/saat tercihini öğren
+8. get_available_time_slots çağır
+9. Özet ver ve onay al
+10. Personel seçildiyse book_with_staff, seçilmediyse create_beauty_appointment çağır`,
     en: `## Beauty Appointment
 1. ⚠️ FIRST ask for customer's FULL NAME — do NOT proceed to step 2 without their name
 2. Learn the requested service (skin, nails, makeup, SPA)
@@ -153,13 +169,10 @@ const useCasePromptSections = {
 
   staff_selection: {
     tr: `## Personel Seçimi
-1. ⚠️ ÖNCE müşterinin AD ve SOYADINI sor — adını öğrenmeden 2. adıma GEÇME
-2. Müşterinin personel tercihi olup olmadığını sor
-3. Müsait personelleri listele
-4. Seçilen personelin müsait saatlerini sun
-5. ⚠️ Onay öncesi kontrol: Eğer müşterinin adını hâlâ bilmiyorsan, ŞIMDI sor
-6. ⚠️ KRİTİK: ASLA customer_name parametresini boş bırakma. İsim bilmiyorsan randevu oluşturma, ÖNCE ismi sor.
-7. Personel adıyla birlikte randevu oluştur`,
+- Her zaman sor: "Özel bir uzmanımızı tercih eder misiniz?"
+- get_available_staff ile müsait personeli listele
+- İsim ve uzmanlık alanını kısaca söyle
+- Tercih edilmezse "müsait ilk uzmanımıza yazıyorum" de`,
     en: `## Staff Selection
 1. ⚠️ FIRST ask for customer's FULL NAME — do NOT proceed to step 2 without their name
 2. Ask if customer has staff preference
@@ -175,14 +188,21 @@ const useCasePromptSections = {
   // =====================================================
   hairdresser_services: {
     tr: `## Kuaför Randevusu
-1. ⚠️ ÖNCE müşterinin AD ve SOYADINI sor — adını öğrenmeden 2. adıma GEÇME
-2. İstenen hizmeti öğren (saç kesimi, boyama, fön)
-3. Kuaför tercihi olup olmadığını sor (önemli!)
-4. Hizmet süresini ve fiyatını belirt
-5. Müsait saatleri sun
-6. ⚠️ Onay öncesi kontrol: Eğer müşterinin adını hâlâ bilmiyorsan, ŞIMDI sor
-7. ⚠️ KRİTİK: ASLA customer_name parametresini boş bırakma. İsim bilmiyorsan randevu oluşturma, ÖNCE ismi sor.
-8. Randevu detaylarını onayla`,
+1. İstenen hizmeti öğren (kesim, boyama, fön, bakım)
+2. get_hairdresser_services çağır
+3. MUTLAKA sor: "Tercih ettiğiniz bir kuaförümüz var mı?"
+4. Tercih varsa: get_available_staff çağır, o kişinin müsaitliğine bak
+5. Tercih yoksa: get_available_staff çağır, seçenekleri sun
+6. get_service_price ile fiyat ve süre bilgisi ver
+7. Tarih/saat tercihini öğren
+8. get_available_time_slots çağır
+9. Özet ver ve onay al
+10. book_with_staff çağır
+
+Hizmet detayları:
+- Kesim: "Nasıl bir kesim düşünüyorsunuz?"
+- Boyama: "Hangi renk veya teknik? Balyaj, ombre, düz renk?"
+- Bakım: "Keratin, botoks, nem bakımı seçeneklerimiz var"`,
     en: `## Hairdresser Appointment
 1. ⚠️ FIRST ask for customer's FULL NAME — do NOT proceed to step 2 without their name
 2. Learn the requested service (haircut, coloring, styling)
@@ -199,9 +219,9 @@ const useCasePromptSections = {
   // =====================================================
   promotions: {
     tr: `## Kampanyalar
-- Aktif kampanyaları müşteriye bildir
-- Promosyon kodu sorulduğunda geçerliliği kontrol et
-- İndirim detaylarını açıkça belirt`,
+- Müşteri kampanya sorarsa: get_active_promotions çağır
+- Güncel kampanyaları kısaca anlat
+- "Bu kampanyadan yararlanmak ister misiniz?" diye sor`,
     en: `## Promotions
 - Inform customer about active campaigns
 - Check validity when promo code is asked
@@ -210,9 +230,9 @@ const useCasePromptSections = {
 
   loyalty: {
     tr: `## Sadakat Programı
-- Müşterinin puan bakiyesini sorgula
-- Üyelik seviyesini ve avantajlarını açıkla
-- Puan kazanma yollarını anlat`,
+- Puan sorulursa: get_loyalty_points çağır
+- Puan bakiyesini ve ne yapılabileceğini söyle
+- "Puanlarınızı kullanmak ister misiniz?"`,
     en: `## Loyalty Program
 - Query customer's point balance
 - Explain membership level and benefits
@@ -221,9 +241,10 @@ const useCasePromptSections = {
 
   feedback: {
     tr: `## Geri Bildirim
-- Müşteri şikayetlerini dikkatle dinle
-- Empati göster ve özür dile
-- Geri bildirimi kaydet ve takip edileceğini belirt`,
+- Şikayet veya öneri için önce empati göster
+- "Anlıyorum, bu durumdan rahatsız olmanız normal"
+- submit_complaint çağır
+- "Geri bildiriminiz için teşekkür ederim, ilgili birime ilettim"`,
     en: `## Feedback
 - Listen carefully to customer complaints
 - Show empathy and apologize
@@ -232,9 +253,9 @@ const useCasePromptSections = {
 
   customer_history: {
     tr: `## Müşteri Geçmişi
-- Müşterinin önceki randevularını listele
-- Geçmiş hizmetleri hatırlat
-- Kişiselleştirilmiş öneriler sun`,
+- Yeni aramada get_customer_history çağırabilirsin
+- Geçmiş randevuları hatırlat: "Son gelişinizde X yaptırmıştınız"
+- Kişiselleştirilmiş öneri sun`,
     en: `## Customer History
 - List customer's previous appointments
 - Remind past services
@@ -243,13 +264,37 @@ const useCasePromptSections = {
 
   pricing: {
     tr: `## Fiyat Bilgisi
-- Fiyatları net şekilde belirt
-- Varsa fiyat aralığı ver
-- Ek maliyetleri açıkla`,
+- Fiyat sorulursa: get_service_price çağır
+- Net fiyatı söyle
+- Otomotiv sektöründe: "Kesin fiyat yerinde belirlenir" ekle`,
     en: `## Pricing Information
 - Clearly state prices
 - Give price range if applicable
 - Explain additional costs`,
+  },
+
+  promo_code: {
+    tr: `## Promosyon Kodu
+- Müşteri kod vermek isterse: apply_promo_code çağır
+- Geçerliyse indirimi uygula ve bilgilendir
+- Geçersizse: "Bu kod şu an geçerli değil, başka bir kodunuz var mı?"`,
+    en: `## Promo Code
+- When customer wants to use a code: call apply_promo_code
+- If valid, apply discount and inform
+- If invalid: "This code is not currently valid, do you have another code?"`,
+  },
+
+  staff_selection_hairdresser: {
+    tr: `## Kuaför Tercihi (ÇOK ÖNEMLİ!)
+- Her randevuda MUTLAKA sor: "Tercih ettiğiniz bir kuaförümüz var mı?"
+- Bu adımı ATLAMA!
+- Tercih varsa: o kuaförün müsaitliğini kontrol et
+- Tercih yoksa: "Müsait kuaförlerimizi söyleyeyim..." de`,
+    en: `## Stylist Preference (VERY IMPORTANT!)
+- ALWAYS ask at every appointment: "Do you have a preferred stylist?"
+- Do NOT skip this step!
+- If preferred: check that stylist's availability
+- If no preference: "Let me tell you about our available stylists..."`,
   },
 };
 

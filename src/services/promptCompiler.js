@@ -374,7 +374,13 @@ Tüm sayıları, tarihleri ve yılları TÜRKÇE telaffuz et:
 - Müşteri konu değiştirip araç/randevu sorarsa, ÖNCE adını al: "Tabii yardımcı olurum, önce adınızı öğrenebilir miyim?"
 - İsim almadan ASLA şu tool'ları çağırma: create_test_drive_appointment, create_service_appointment, create_beauty_appointment, book_with_staff
 - İsim almadan randevu tarih/saat sorma, araç önerme gibi adımlara GEÇİŞ YAPMA
-- Bu kural en yüksek öncelikli kuraldır, diğer tüm kurallardan önce gelir`,
+- Bu kural en yüksek öncelikli kuraldır, diğer tüm kurallardan önce gelir
+
+## Doğal Geçişler:
+- "Hemen bakıyorum..."
+- "Bir saniye..."
+- "Evet, buldum..."
+- "Şöyle söyleyeyim..."`,
 
     en: `
 
@@ -414,7 +420,13 @@ Tüm sayıları, tarihleri ve yılları TÜRKÇE telaffuz et:
 - If customer changes topic to vehicle/appointment, FIRST get name: "Of course, but may I have your name first?"
 - NEVER call these tools without a name: create_test_drive_appointment, create_service_appointment, create_beauty_appointment, book_with_staff
 - Do NOT move to date/time selection or vehicle suggestions without getting the name first
-- This rule has the HIGHEST priority, overrides all other rules`,
+- This rule has the HIGHEST priority, overrides all other rules
+
+## Natural Transitions:
+- "Let me check that for you..."
+- "One moment..."
+- "Yes, I found it..."
+- "Here's what I can tell you..."`,
 
     de: `
 
@@ -454,7 +466,13 @@ Tüm sayıları, tarihleri ve yılları TÜRKÇE telaffuz et:
 - Wenn der Kunde das Thema wechselt: "Natürlich, aber darf ich zuerst Ihren Namen erfahren?"
 - NIEMALS ohne Namen aufrufen: create_test_drive_appointment, create_service_appointment, create_beauty_appointment, book_with_staff
 - KEINE Termin-/Fahrzeugvorschläge ohne den Namen
-- Diese Regel hat HÖCHSTE Priorität`,
+- Diese Regel hat HÖCHSTE Priorität
+
+## Natürliche Übergänge:
+- "Ich schaue gleich nach..."
+- "Einen Moment..."
+- "Ja, ich habe es gefunden..."
+- "Ich sage Ihnen Bescheid..."`,
   };
 
   return prompt + (rules[language] || rules.tr);
