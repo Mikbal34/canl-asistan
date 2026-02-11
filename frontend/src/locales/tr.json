@@ -66,7 +66,25 @@
     "status": "Durum",
     "actions": "İşlemler",
     "noAppointments": "Randevu bulunamadı",
-    "filter": "Filtrele"
+    "filter": "Filtrele",
+    "all": "Tümü",
+    "subtitle": "Randevularınızı yönetin ve takip edin",
+    "type": "Tür",
+    "typeLabels": {
+      "test_drive": "Test Sürüşü",
+      "service": "Servis",
+      "beauty": "Güzellik Hizmeti"
+    },
+    "allTypes": "Tüm Türler",
+    "startDate": "Başlangıç",
+    "endDate": "Bitiş",
+    "editAppointment": "Randevuyu Düzenle",
+    "approve": "Onayla",
+    "reject": "Reddet",
+    "approveConfirm": "Bu randevuyu onaylamak istediğinize emin misiniz?",
+    "rejectConfirm": "Bu randevuyu reddetmek istediğinize emin misiniz?",
+    "updateSuccess": "Randevu başarıyla güncellendi.",
+    "updateError": "Randevu güncellenirken bir hata oluştu."
   },
   "customers": {
     "title": "Müşteriler",
@@ -108,7 +126,21 @@
     "outcome": "Sonuç",
     "timestamp": "Tarih/Saat",
     "transcript": "Transkript",
-    "noCalls": "Arama kaydı bulunamadı"
+    "noCalls": "Arama kaydı bulunamadı",
+    "subtitle": "Sesli asistan arama kayıtlarını ve transkriptleri görüntüleyin",
+    "summary": "Arama Özeti",
+    "noTranscript": "Transkript bulunamadı",
+    "outcomes": {
+      "completed": "Tamamlandı",
+      "no-answer": "Cevapsız",
+      "busy": "Meşgul",
+      "failed": "Başarısız",
+      "in-progress": "Devam Ediyor",
+      "appointment_booked": "Randevu Alındı",
+      "information_provided": "Bilgi Verildi",
+      "call_back_later": "Geri Aranacak",
+      "not_interested": "İlgilenmedi"
+    }
   },
   "settings": {
     "title": "Ayarlar",
@@ -126,7 +158,25 @@
     "notifications": "Bildirimler",
     "emailNotifications": "E-posta Bildirimleri",
     "smsNotifications": "SMS Bildirimleri",
-    "saveChanges": "Değişiklikleri Kaydet"
+    "saveChanges": "Değişiklikleri Kaydet",
+    "subtitle": "Firma ve sesli asistan ayarlarınızı yapılandırın",
+    "settingsUpdated": "Ayarlar başarıyla güncellendi."
+  },
+  "useCases": {
+    "business_info": "İşletme Bilgileri",
+    "appointments_core": "Randevu Yönetimi",
+    "test_drive": "Test Sürüşü",
+    "service_appointment": "Servis Randevusu",
+    "beauty_services": "Güzellik Hizmetleri",
+    "staff_selection": "Personel Tercihi",
+    "hairdresser_services": "Kuaför Hizmetleri",
+    "promotions": "Promosyonlar",
+    "loyalty": "Sadakat Puanları",
+    "pricing": "Fiyatlandırma",
+    "customer_history": "Müşteri Geçmişi",
+    "feedback": "Geri Bildirim",
+    "promo_code": "Promosyon Kodu",
+    "staff_selection_hairdresser": "Kuaför Tercihi"
   },
   "admin": {
     "title": "Yönetim Paneli",

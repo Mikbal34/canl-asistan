@@ -82,6 +82,8 @@ export const beautyAPI = {
 // Service Appointments APIs (Automotive service appointments)
 export const serviceAppointmentAPI = {
   getAll: (params) => api.get('/api/services', { params }),
+  update: (id, data) => api.put(`/api/services/${id}`, data),
+  updateStatus: (id, status) => api.patch(`/api/services/${id}`, { status }),
 };
 
 // Services APIs (Beauty Services)

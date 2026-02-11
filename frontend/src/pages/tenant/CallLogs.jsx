@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Phone, Clock } from 'lucide-react';
+import { Phone, Clock, X, MessageSquare } from 'lucide-react';
 import { Card, CardContent } from '../../components/common/Card';
 import { Table } from '../../components/common/Table';
 import { Badge } from '../../components/common/Badge';
@@ -14,6 +14,7 @@ export const CallLogs = () => {
   const [callLogs, setCallLogs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [selectedCall, setSelectedCall] = useState(null);
 
   useEffect(() => {
     fetchCallLogs();
@@ -50,19 +51,22 @@ export const CallLogs = () => {
 
   const getOutcomeVariant = (outcome) => {
     const variants = {
-      // Yeni status değerleri
       completed: 'success',
       'no-answer': 'warning',
       busy: 'warning',
       failed: 'error',
       'in-progress': 'info',
-      // Eski outcome değerleri (backward compat)
       appointment_booked: 'success',
       information_provided: 'info',
       call_back_later: 'warning',
       not_interested: 'error',
     };
     return variants[outcome] || 'info';
+  };
+
+  const getOutcomeLabel = (outcome) => {
+    if (!outcome) return '';
+    return t(`callLogs.outcomes.${outcome}`, outcome.replace(/_/g, ' '));
   };
 
   const columns = [
@@ -100,8 +104,20 @@ export const CallLogs = () => {
       accessor: 'outcome',
       render: (row) => (
         <Badge variant={getOutcomeVariant(row.outcome)}>
-          {row.outcome?.replace(/_/g, ' ')}
+          {getOutcomeLabel(row.outcome)}
         </Badge>
+      ),
+    },
+    {
+      header: t('callLogs.transcript'),
+      render: (row) => (
+        <button
+          onClick={(e) => { e.stopPropagation(); setSelectedCall(row); }}
+          className="text-indigo-600 hover:text-indigo-800 text-sm flex items-center gap-1"
+        >
+          <MessageSquare className="w-4 h-4" />
+          {row.transcript ? t('callLogs.transcript') : ''}
+        </button>
       ),
     },
   ];
@@ -116,7 +132,7 @@ export const CallLogs = () => {
         <div>
           <h1 className="text-3xl font-bold text-slate-900">{t('callLogs.title')}</h1>
           <p className="text-slate-500 mt-1">
-            View all voice assistant call logs and transcripts
+            {t('callLogs.subtitle')}
           </p>
         </div>
       </div>
@@ -145,11 +161,66 @@ export const CallLogs = () => {
             <Table
               columns={columns}
               data={callLogs}
-              onRowClick={(row) => console.log('View transcript:', row)}
+              onRowClick={(row) => setSelectedCall(row)}
             />
           )}
         </CardContent>
       </Card>
+
+      {/* Transcript Modal */}
+      {selectedCall && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setSelectedCall(null)}>
+          <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-2xl mx-4 max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="text-lg font-semibold text-slate-900">
+                  {selectedCall.callerName || selectedCall.callerPhone}
+                </h3>
+                <p className="text-sm text-slate-500">
+                  {formatDate(selectedCall.timestamp)} - {formatDuration(selectedCall.duration)}
+                </p>
+              </div>
+              <button onClick={() => setSelectedCall(null)} className="p-1 hover:bg-slate-100 rounded">
+                <X className="w-5 h-5 text-slate-400" />
+              </button>
+            </div>
+
+            <div className="overflow-y-auto flex-1 space-y-4">
+              {/* Summary */}
+              {selectedCall.summary && (
+                <div>
+                  <h4 className="text-sm font-medium text-slate-700 mb-2">{t('callLogs.summary')}</h4>
+                  <div className="p-3 bg-indigo-50 rounded-lg text-sm text-slate-700">
+                    {selectedCall.summary}
+                  </div>
+                </div>
+              )}
+
+              {/* Outcome */}
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium text-slate-700">{t('callLogs.outcome')}:</span>
+                <Badge variant={getOutcomeVariant(selectedCall.outcome)}>
+                  {getOutcomeLabel(selectedCall.outcome)}
+                </Badge>
+              </div>
+
+              {/* Transcript */}
+              <div>
+                <h4 className="text-sm font-medium text-slate-700 mb-2">{t('callLogs.transcript')}</h4>
+                {selectedCall.transcript ? (
+                  <div className="p-3 bg-slate-50 rounded-lg text-sm text-slate-600 whitespace-pre-wrap">
+                    {selectedCall.transcript}
+                  </div>
+                ) : (
+                  <div className="p-3 bg-slate-50 rounded-lg text-sm text-slate-400 text-center">
+                    {t('callLogs.noTranscript')}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

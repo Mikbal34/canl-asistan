@@ -398,12 +398,11 @@ async function getTenantStats(tenantId) {
 
   const totalCalls = callsResult.count || 0;
   const completedCalls = completedCallsResult.count || 0;
-  const successRate = totalCalls > 0 ? Math.round((completedCalls / totalCalls) * 100) : 0;
-
   const totalAppointments =
     (testDrivesResult.count || 0) +
     (servicesResult.count || 0) +
     (beautyResult.count || 0);
+  const successRate = totalCalls > 0 ? Math.round((totalAppointments / totalCalls) * 100) : 0;
 
   return {
     totalCustomers: customersResult.count || 0,

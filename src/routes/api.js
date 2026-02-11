@@ -1585,6 +1585,43 @@ router.get('/services', async (req, res) => {
 });
 
 /**
+ * Servis Randevusu Güncelle (tam düzenleme)
+ * PUT /api/services/:id
+ */
+router.put('/services/:id', async (req, res) => {
+  try {
+    if (!req.tenantId) {
+      return res.status(400).json({
+        error: 'Bad Request',
+        message: 'Tenant ID is required',
+      });
+    }
+
+    const { id } = req.params;
+    const { appointment_date, appointment_time, status } = req.body;
+
+    const updateData = { updated_at: new Date().toISOString() };
+    if (appointment_date) updateData.appointment_date = appointment_date;
+    if (appointment_time) updateData.appointment_time = appointment_time;
+    if (status) updateData.status = status;
+
+    const { data, error } = await supabaseAdmin
+      .from('service_appointments')
+      .update(updateData)
+      .eq('id', id)
+      .eq('tenant_id', req.tenantId)
+      .select()
+      .single();
+
+    if (error) throw error;
+    res.json(data);
+  } catch (error) {
+    console.error('[API] Service update error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
  * Servis Durumu Güncelle
  * PATCH /api/services/:id
  */

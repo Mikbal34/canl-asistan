@@ -134,7 +134,7 @@ export const Settings = () => {
       <div>
         <h1 className="text-3xl font-bold text-slate-900">{t('settings.title')}</h1>
         <p className="text-slate-500 mt-1">
-          Configure your company and voice assistant settings
+          {t('settings.subtitle')}
         </p>
       </div>
 
@@ -232,7 +232,7 @@ export const Settings = () => {
                             key={uc}
                             className="px-3 py-1 bg-indigo-50 text-indigo-700 text-sm rounded-full border border-indigo-100"
                           >
-                            {uc}
+                            {t(`useCases.${uc}`, uc)}
                           </span>
                         ))}
                       </div>
@@ -292,7 +292,7 @@ export const Settings = () => {
         {/* Success Message */}
         {success && (
           <div className="p-4 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-700">
-            {t('common.success')}! Settings updated successfully.
+            {t('settings.settingsUpdated')}
           </div>
         )}
 
