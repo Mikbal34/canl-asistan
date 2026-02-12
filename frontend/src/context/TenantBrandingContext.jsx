@@ -12,6 +12,7 @@ const DEFAULT_BRANDING = {
   primary_color: '#c9a227',
   favicon_url: null,
   login_message: null,
+  welcome_message: null,
   slug: null,
   industry: null,
 };
@@ -40,6 +41,7 @@ export const TenantBrandingProvider = ({ children }) => {
         primary_color: tenant.primary_color || DEFAULT_BRANDING.primary_color,
         favicon_url: tenant.favicon_url,
         login_message: tenant.login_message,
+        welcome_message: tenant.welcome_message,
         assistant_name: tenant.assistant_name,
       });
       setTenantResolved(true);
@@ -114,6 +116,7 @@ export const TenantBrandingProvider = ({ children }) => {
     primaryColor: branding.primary_color,
     faviconUrl: branding.favicon_url,
     loginMessage: branding.login_message,
+    welcomeMessage: branding.welcome_message,
     tenantSlug: branding.slug,
     tenantIndustry: branding.industry,
   };

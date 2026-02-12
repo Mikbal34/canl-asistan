@@ -13,12 +13,15 @@ import {
   Wrench,
   FileText,
   Sparkles,
+  Shield,
+  Lock,
+  Mail,
 } from 'lucide-react';
 import { useTenant } from '../../hooks/useTenant';
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/common/Card';
 import { Input } from '../../components/common/Input';
 import { Button } from '../../components/common/Button';
-import { templateAPI } from '../../services/api';
+import { templateAPI, authAPI } from '../../services/api';
 
 // Tier configuration
 const tierConfig = {
@@ -59,6 +62,16 @@ export const Settings = () => {
   });
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+
+  // Password change state
+  const [passwordForm, setPasswordForm] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
+  const [passwordLoading, setPasswordLoading] = useState(false);
+  const [passwordMsg, setPasswordMsg] = useState({ type: '', text: '' });
+
+  // Email change state
+  const [emailForm, setEmailForm] = useState({ password: '', newEmail: '' });
+  const [emailLoading, setEmailLoading] = useState(false);
+  const [emailMsg, setEmailMsg] = useState({ type: '', text: '' });
 
   // Assistant/Template state
   const [assistantInfo, setAssistantInfo] = useState(null);
@@ -112,7 +125,6 @@ export const Settings = () => {
       const updateData = {
         name: formData.name,
         phone: formData.phone,
-        email: formData.email,
         address: formData.address,
       };
 
@@ -125,6 +137,66 @@ export const Settings = () => {
       console.error('Failed to update settings:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handlePasswordChange = async (e) => {
+    e.preventDefault();
+    setPasswordMsg({ type: '', text: '' });
+
+    if (passwordForm.newPassword.length < 6) {
+      setPasswordMsg({ type: 'error', text: t('settings.passwordRequired') });
+      return;
+    }
+
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      setPasswordMsg({ type: 'error', text: t('settings.passwordMismatch') });
+      return;
+    }
+
+    setPasswordLoading(true);
+    try {
+      await authAPI.changePassword({
+        currentPassword: passwordForm.currentPassword,
+        newPassword: passwordForm.newPassword,
+      });
+      setPasswordMsg({ type: 'success', text: t('settings.passwordChanged') });
+      setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+      setTimeout(() => setPasswordMsg({ type: '', text: '' }), 5000);
+    } catch (error) {
+      const msg = error.response?.status === 401
+        ? t('settings.wrongPassword')
+        : (error.response?.data?.message || t('common.error'));
+      setPasswordMsg({ type: 'error', text: msg });
+    } finally {
+      setPasswordLoading(false);
+    }
+  };
+
+  const handleEmailChange = async (e) => {
+    e.preventDefault();
+    setEmailMsg({ type: '', text: '' });
+
+    if (!emailForm.newEmail || !emailForm.password) {
+      return;
+    }
+
+    setEmailLoading(true);
+    try {
+      await authAPI.changeEmail({
+        password: emailForm.password,
+        newEmail: emailForm.newEmail,
+      });
+      setEmailMsg({ type: 'success', text: t('settings.emailChanged') });
+      setEmailForm({ password: '', newEmail: '' });
+      setTimeout(() => setEmailMsg({ type: '', text: '' }), 5000);
+    } catch (error) {
+      const msg = error.response?.status === 401
+        ? t('settings.wrongPassword')
+        : (error.response?.data?.message || t('common.error'));
+      setEmailMsg({ type: 'error', text: msg });
+    } finally {
+      setEmailLoading(false);
     }
   };
 
@@ -226,14 +298,18 @@ export const Settings = () => {
                         <Wrench className="w-4 h-4" />
                         Aktif Özellikler
                       </h4>
-                      <div className="flex flex-wrap gap-2">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                         {assistantInfo.effectiveUseCases.map((uc) => (
-                          <span
-                            key={uc}
-                            className="px-3 py-1 bg-indigo-50 text-indigo-700 text-sm rounded-full border border-indigo-100"
-                          >
-                            {t(`useCases.${uc}`, uc)}
-                          </span>
+                          <div key={uc} className="p-3 bg-indigo-50 rounded-lg border border-indigo-100">
+                            <span className="text-sm font-medium text-indigo-700">
+                              {t(`useCases.${uc}`, uc)}
+                            </span>
+                            {t(`useCaseDescriptions.${uc}`, '') && (
+                              <p className="text-xs text-slate-500 mt-1">
+                                {t(`useCaseDescriptions.${uc}`, '')}
+                              </p>
+                            )}
+                          </div>
                         ))}
                       </div>
                     </div>
@@ -323,13 +399,6 @@ export const Settings = () => {
                 value={formData.phone}
                 onChange={handleChange}
               />
-              <Input
-                label={t('settings.email')}
-                name="email"
-                type="email"
-                value={formData.email}
-                onChange={handleChange}
-              />
               <div className="md:col-span-2">
                 <Input
                   label={t('settings.address')}
@@ -356,6 +425,98 @@ export const Settings = () => {
           </Button>
         </div>
       </form>
+
+      {/* Account Security */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Shield className="w-5 h-5 text-indigo-600" />
+            {t('settings.accountSecurity')}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            {/* Change Password */}
+            <form onSubmit={handlePasswordChange} className="space-y-4">
+              <h4 className="text-sm font-medium text-slate-700 flex items-center gap-2">
+                <Lock className="w-4 h-4" />
+                {t('settings.changePassword')}
+              </h4>
+
+              {passwordMsg.text && (
+                <div className={`p-3 rounded-lg text-sm ${
+                  passwordMsg.type === 'success'
+                    ? 'bg-emerald-50 border border-emerald-200 text-emerald-700'
+                    : 'bg-red-50 border border-red-200 text-red-700'
+                }`}>
+                  {passwordMsg.text}
+                </div>
+              )}
+
+              <Input
+                label={t('settings.currentPassword')}
+                type="password"
+                value={passwordForm.currentPassword}
+                onChange={(e) => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })}
+                required
+              />
+              <Input
+                label={t('settings.newPassword')}
+                type="password"
+                value={passwordForm.newPassword}
+                onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
+                required
+              />
+              <Input
+                label={t('settings.confirmPassword')}
+                type="password"
+                value={passwordForm.confirmPassword}
+                onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
+                required
+              />
+              <Button type="submit" variant="primary" disabled={passwordLoading} className="w-full">
+                {passwordLoading ? t('common.loading') : t('settings.changePassword')}
+              </Button>
+            </form>
+
+            {/* Change Email */}
+            <form onSubmit={handleEmailChange} className="space-y-4">
+              <h4 className="text-sm font-medium text-slate-700 flex items-center gap-2">
+                <Mail className="w-4 h-4" />
+                {t('settings.changeEmail')}
+              </h4>
+
+              {emailMsg.text && (
+                <div className={`p-3 rounded-lg text-sm ${
+                  emailMsg.type === 'success'
+                    ? 'bg-emerald-50 border border-emerald-200 text-emerald-700'
+                    : 'bg-red-50 border border-red-200 text-red-700'
+                }`}>
+                  {emailMsg.text}
+                </div>
+              )}
+
+              <Input
+                label={t('settings.currentPassword')}
+                type="password"
+                value={emailForm.password}
+                onChange={(e) => setEmailForm({ ...emailForm, password: e.target.value })}
+                required
+              />
+              <Input
+                label={t('settings.newEmail')}
+                type="email"
+                value={emailForm.newEmail}
+                onChange={(e) => setEmailForm({ ...emailForm, newEmail: e.target.value })}
+                required
+              />
+              <Button type="submit" variant="primary" disabled={emailLoading} className="w-full">
+                {emailLoading ? t('common.loading') : t('settings.changeEmail')}
+              </Button>
+            </form>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 };

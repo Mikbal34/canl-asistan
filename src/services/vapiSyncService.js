@@ -262,6 +262,16 @@ async function buildVapiConfig(tenant, language, promptData) {
     assistantConfig.endCallPhrases = mergedConfig.end_call_phrases;
   }
 
+  // Summary dilini ayarla — VAPI summary'yi bu dilde oluşturur
+  const summaryPrompts = {
+    tr: 'Bu aramanın kısa bir özetini Türkçe olarak yaz. Müşterinin talebi, sonuç ve varsa alınan aksiyonu belirt.',
+    en: 'Write a brief summary of this call in English. Mention the customer request, outcome, and any action taken.',
+    de: 'Schreibe eine kurze Zusammenfassung dieses Anrufs auf Deutsch. Nenne die Kundenanfrage, das Ergebnis und die ergriffenen Maßnahmen.',
+  };
+  assistantConfig.analysisPlan = {
+    summaryPrompt: summaryPrompts[language] || summaryPrompts.tr,
+  };
+
   return assistantConfig;
 }
 

@@ -7,6 +7,7 @@ import { Layout } from './components/common/Layout';
 
 // Auth Pages
 import { Login } from './pages/auth/Login';
+import { TenantLogin } from './pages/auth/TenantLogin';
 import { AuthCallback } from './pages/auth/AuthCallback';
 
 // Onboarding Pages
@@ -39,6 +40,7 @@ function App() {
           <TenantProvider>
             <Routes>
               {/* Public Routes */}
+              <Route path="/login/:slug" element={<TenantLogin />} />
               <Route path="/login" element={<Login />} />
               <Route path="/auth/callback" element={<AuthCallback />} />
               <Route path="/onboarding" element={<IndustrySelector />} />

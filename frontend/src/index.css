@@ -168,3 +168,21 @@
     border: 1px solid rgba(59, 130, 246, 0.2);
   }
 }
+
+/* react-colorful overrides */
+.react-colorful {
+  width: 100% !important;
+  height: 100% !important;
+}
+.react-colorful__saturation {
+  border-radius: 8px 8px 0 0 !important;
+}
+.react-colorful__hue {
+  border-radius: 0 0 8px 8px !important;
+  height: 14px !important;
+}
+.react-colorful__pointer {
+  width: 20px !important;
+  height: 20px !important;
+  border-width: 3px !important;
+}

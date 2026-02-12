@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Bell, ChevronDown, LogOut, User, Globe } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
+import { useTenantBranding } from '../../context/TenantBrandingContext';
 
 /**
  * Header component with user menu and language switcher
@@ -9,6 +10,7 @@ import { useAuth } from '../../hooks/useAuth';
 export const Header = () => {
   const { t, i18n } = useTranslation();
   const { user, logout } = useAuth();
+  const { welcomeMessage } = useTenantBranding();
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showLangMenu, setShowLangMenu] = useState(false);
 
@@ -37,7 +39,7 @@ export const Header = () => {
         {/* Page title - can be customized per page */}
         <div>
           <h2 className="text-xl font-semibold text-slate-900">
-            {t('common.welcome')}, {user?.name || user?.email}
+            {welcomeMessage || `${t('common.welcome')}, ${user?.name || user?.email}`}
           </h2>
         </div>
 

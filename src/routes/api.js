@@ -5,8 +5,26 @@
 
 const express = require('express');
 const router = express.Router();
+const multer = require('multer');
+const path = require('path');
 const { createClient } = require('@supabase/supabase-js');
 const config = require('../config/env');
+
+// Multer config for tenant asset upload (logo, favicon)
+const assetUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 2 * 1024 * 1024 }, // 2MB
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = ['image/png', 'image/jpeg', 'image/svg+xml', 'image/x-icon', 'image/vnd.microsoft.icon'];
+    const allowedExts = ['.png', '.jpg', '.jpeg', '.svg', '.ico'];
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (allowedTypes.includes(file.mimetype) || allowedExts.includes(ext)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only PNG, JPG, SVG, and ICO files are allowed'));
+    }
+  },
+});
 
 const { authenticate, requireSuperAdmin, requireTenantAdmin } = require('../middleware/auth');
 const { resolveTenant } = require('../middleware/tenantResolver');
@@ -254,6 +272,122 @@ router.get('/auth/me', authenticate(), async (req, res) => {
     user: req.user,
     tenant: req.user.tenant,
   });
+});
+
+/**
+ * Change password
+ * PUT /api/auth/change-password
+ */
+router.put('/auth/change-password', authenticate(), async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({
+        error: 'Bad Request',
+        message: 'Current password and new password are required',
+      });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({
+        error: 'Bad Request',
+        message: 'New password must be at least 6 characters',
+      });
+    }
+
+    // Verify current password by attempting sign in
+    const { error: signInError } = await supabase.auth.signInWithPassword({
+      email: req.user.email,
+      password: currentPassword,
+    });
+
+    if (signInError) {
+      return res.status(401).json({
+        error: 'Unauthorized',
+        message: 'Current password is incorrect',
+      });
+    }
+
+    // Update password via admin API
+    const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
+      req.user.auth_user_id,
+      { password: newPassword }
+    );
+
+    if (updateError) {
+      throw updateError;
+    }
+
+    res.json({ success: true, message: 'Password changed successfully' });
+  } catch (error) {
+    console.error('[API] Change password error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * Change email
+ * PUT /api/auth/change-email
+ */
+router.put('/auth/change-email', authenticate(), async (req, res) => {
+  try {
+    const { password, newEmail } = req.body;
+
+    if (!password || !newEmail) {
+      return res.status(400).json({
+        error: 'Bad Request',
+        message: 'Password and new email are required',
+      });
+    }
+
+    // Basic email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(newEmail)) {
+      return res.status(400).json({
+        error: 'Bad Request',
+        message: 'Invalid email format',
+      });
+    }
+
+    // Verify password by attempting sign in
+    const { error: signInError } = await supabase.auth.signInWithPassword({
+      email: req.user.email,
+      password,
+    });
+
+    if (signInError) {
+      return res.status(401).json({
+        error: 'Unauthorized',
+        message: 'Password is incorrect',
+      });
+    }
+
+    // Update email in Supabase Auth
+    const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
+      req.user.auth_user_id,
+      { email: newEmail }
+    );
+
+    if (updateError) {
+      throw updateError;
+    }
+
+    // Update email in users table
+    const { error: dbError } = await supabaseAdmin
+      .from('users')
+      .update({ email: newEmail })
+      .eq('id', req.user.id);
+
+    if (dbError) {
+      console.error('[API] Failed to update email in users table:', dbError);
+    }
+
+    res.json({ success: true, message: 'Email changed successfully' });
+  } catch (error) {
+    console.error('[API] Change email error:', error);
+    res.status(500).json({ error: error.message });
+  }
 });
 
 // ==========================================
@@ -504,6 +638,62 @@ router.delete('/admin/tenants/:id', authenticate(), requireSuperAdmin, async (re
 });
 
 /**
+ * Upload tenant asset (logo or favicon)
+ * POST /api/admin/tenants/:id/upload
+ * Body: multipart/form-data { file, type: 'logo' | 'favicon' }
+ */
+router.post('/admin/tenants/:id/upload', authenticate(), requireSuperAdmin, assetUpload.single('file'), async (req, res) => {
+  try {
+    const tenantId = req.params.id;
+    const assetType = req.body.type; // 'logo' or 'favicon'
+
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+    if (!['logo', 'favicon'].includes(assetType)) {
+      return res.status(400).json({ error: 'Type must be "logo" or "favicon"' });
+    }
+
+    const tenant = await tenantService.getTenantById(tenantId);
+    if (!tenant) {
+      return res.status(404).json({ error: 'Tenant not found' });
+    }
+
+    const ext = path.extname(req.file.originalname).toLowerCase() || '.png';
+    const fileName = `${tenantId}/${assetType}${ext}`;
+
+    // Upload to Supabase Storage (upsert to overwrite existing)
+    const { error: uploadError } = await supabaseAdmin.storage
+      .from('tenant-assets')
+      .upload(fileName, req.file.buffer, {
+        contentType: req.file.mimetype,
+        upsert: true,
+      });
+
+    if (uploadError) {
+      console.error('[API] Storage upload error:', uploadError);
+      return res.status(500).json({ error: 'Upload failed: ' + uploadError.message });
+    }
+
+    // Get public URL
+    const { data: urlData } = supabaseAdmin.storage
+      .from('tenant-assets')
+      .getPublicUrl(fileName);
+
+    const publicUrl = urlData.publicUrl;
+
+    // Update tenant record
+    const fieldName = assetType === 'logo' ? 'logo_url' : 'favicon_url';
+    await tenantService.updateTenant(tenantId, { [fieldName]: publicUrl });
+
+    res.json({ url: publicUrl, type: assetType });
+  } catch (error) {
+    console.error('[API] Upload tenant asset error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
  * Sync tenant to VAPI
  * POST /api/admin/tenants/:id/sync
  */
@@ -575,6 +765,70 @@ router.post('/admin/tenants/:id/test-call', authenticate(), requireSuperAdmin, r
     });
   } catch (error) {
     console.error('[API] Test call error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * Admin Dashboard Stats
+ * GET /api/admin/dashboard-stats
+ */
+router.get('/admin/dashboard-stats', authenticate(), requireSuperAdmin, async (req, res) => {
+  try {
+    // Get all tenants
+    const tenants = await tenantService.getAllTenants();
+
+    const totalTenants = tenants.length;
+    const activeTenants = tenants.filter(t => t.is_active === true).length;
+
+    // Get total users count grouped by tenant_id
+    const { data: usersData } = await supabaseAdmin
+      .from('users')
+      .select('tenant_id');
+    const totalUsers = (usersData || []).length;
+
+    // Get call_logs counts grouped by tenant_id
+    const { data: callLogsData } = await supabaseAdmin
+      .from('call_logs')
+      .select('tenant_id');
+    const callCountMap = {};
+    for (const row of (callLogsData || [])) {
+      callCountMap[row.tenant_id] = (callCountMap[row.tenant_id] || 0) + 1;
+    }
+
+    // Get appointment counts from all appointment tables
+    const appointmentCountMap = {};
+
+    const appointmentTables = ['test_drive_appointments', 'service_appointments', 'beauty_appointments'];
+    for (const table of appointmentTables) {
+      try {
+        const { data } = await supabaseAdmin.from(table).select('tenant_id');
+        for (const row of (data || [])) {
+          appointmentCountMap[row.tenant_id] = (appointmentCountMap[row.tenant_id] || 0) + 1;
+        }
+      } catch (e) {
+        // Table may not exist, skip
+      }
+    }
+
+    // Build tenantStats
+    const tenantStats = tenants.map(t => ({
+      id: t.id,
+      name: t.name,
+      industry: t.industry,
+      is_active: t.is_active,
+      callCount: callCountMap[t.id] || 0,
+      appointmentCount: appointmentCountMap[t.id] || 0,
+    }));
+
+    res.json({
+      totalTenants,
+      activeTenants,
+      totalUsers,
+      tenantStats,
+    });
+  } catch (error) {
+    console.error('[API] Dashboard stats error:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -1555,21 +1809,30 @@ router.put('/test-drives/:id', async (req, res) => {
     const { id } = req.params;
     const { appointment_date, appointment_time, status } = req.body;
 
-    const updateData = { updated_at: new Date().toISOString() };
+    const updateData = {};
     if (appointment_date) updateData.appointment_date = appointment_date;
     if (appointment_time) updateData.appointment_time = appointment_time;
     if (status) updateData.status = status;
+
+    if (Object.keys(updateData).length === 0) {
+      return res.status(400).json({ error: 'Bad Request', message: 'No fields to update' });
+    }
 
     const { data, error } = await supabaseAdmin
       .from('test_drive_appointments')
       .update(updateData)
       .eq('id', id)
       .eq('tenant_id', req.tenantId)
-      .select()
-      .single();
+      .select();
 
-    if (error) throw error;
-    res.json(data);
+    if (error) {
+      console.error('[API] Test drive update supabase error:', error);
+      throw error;
+    }
+    if (!data || data.length === 0) {
+      return res.status(404).json({ error: 'Not Found', message: 'Appointment not found' });
+    }
+    res.json(data[0]);
   } catch (error) {
     console.error('[API] Test drive update error:', error);
     res.status(500).json({ error: error.message });
@@ -1863,6 +2126,20 @@ router.get('/call-logs', async (req, res) => {
 
     const data = await supabaseService.getCallLogs(req.tenantId, 50, req.token, { useAdmin: true });
 
+    // VAPI ham end_reason değerlerini normalize et (keyword tabanlı)
+    const normalizeEndReason = (reason) => {
+      if (!reason) return 'completed';
+      // Tüm ayırıcıları (tire, alt çizgi, nokta) boşluğa çevir, sonra keyword ara
+      const normalized = reason.toLowerCase().replace(/[-_.]/g, ' ');
+      const keywordMap = [
+        { keyword: 'not receive customer audio', key: 'no-customer-audio' },
+      ];
+      for (const entry of keywordMap) {
+        if (normalized.includes(entry.keyword)) return entry.key;
+      }
+      return reason;
+    };
+
     // Frontend formatına dönüştür
     const mappedData = data.map(log => ({
       id: log.id,
@@ -1870,7 +2147,7 @@ router.get('/call-logs', async (req, res) => {
       callerName: log.customer?.name || null,
       timestamp: log.created_at,
       duration: log.duration_seconds || 0,
-      outcome: log.end_reason || 'completed',
+      outcome: normalizeEndReason(log.end_reason),
       // Ek bilgiler
       direction: log.call_type,
       transcript: log.transcript,
@@ -2054,21 +2331,30 @@ router.put('/beauty/appointments/:id', async (req, res) => {
     const { id } = req.params;
     const { appointment_date, appointment_time, status } = req.body;
 
-    const updateData = { updated_at: new Date().toISOString() };
+    const updateData = {};
     if (appointment_date) updateData.appointment_date = appointment_date;
     if (appointment_time) updateData.appointment_time = appointment_time;
     if (status) updateData.status = status;
+
+    if (Object.keys(updateData).length === 0) {
+      return res.status(400).json({ error: 'Bad Request', message: 'No fields to update' });
+    }
 
     const { data, error } = await supabaseAdmin
       .from('beauty_appointments')
       .update(updateData)
       .eq('id', id)
       .eq('tenant_id', req.tenantId)
-      .select()
-      .single();
+      .select();
 
-    if (error) throw error;
-    res.json(data);
+    if (error) {
+      console.error('[API] Beauty appointment update supabase error:', error);
+      throw error;
+    }
+    if (!data || data.length === 0) {
+      return res.status(404).json({ error: 'Not Found', message: 'Appointment not found' });
+    }
+    res.json(data[0]);
   } catch (error) {
     console.error('[API] Beauty appointment update error:', error);
     res.status(500).json({ error: error.message });
@@ -2207,6 +2493,15 @@ router.put('/admin/tenants/:id/appointments/:aid', authenticate(), requireSuperA
       return res.status(400).json({ error: 'Status is required' });
     }
 
+    if (!appointment_type) {
+      return res.status(400).json({ error: 'appointment_type is required (beauty, test_drive, or service)' });
+    }
+
+    const validTypes = ['beauty', 'test_drive', 'service'];
+    if (!validTypes.includes(appointment_type)) {
+      return res.status(400).json({ error: `Invalid appointment_type: ${appointment_type}. Must be: beauty, test_drive, or service` });
+    }
+
     // Determine which table to update based on appointment_type
     let tableName = 'beauty_appointments';
     if (appointment_type === 'test_drive') {
@@ -2217,13 +2512,19 @@ router.put('/admin/tenants/:id/appointments/:aid', authenticate(), requireSuperA
 
     const { data, error } = await supabaseAdmin
       .from(tableName)
-      .update({ status, updated_at: new Date().toISOString() })
+      .update({ status })
       .eq('id', appointmentId)
       .eq('tenant_id', tenantId)
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) {
+      console.error(`[API] Appointment update failed: table=${tableName}, id=${appointmentId}, tenant=${tenantId}`, error);
+      if (error.code === 'PGRST116') {
+        return res.status(404).json({ error: 'Randevu bulunamadı', message: `${tableName} tablosunda id=${appointmentId} bulunamadı` });
+      }
+      throw error;
+    }
 
     res.json({ ...data, appointment_type });
   } catch (error) {

@@ -29,7 +29,7 @@ api.interceptors.response.use(
   (error) => {
     // 401 hatası - ama login sayfasındayken veya login API'si çağrılıyorken redirect yapma
     if (error.response?.status === 401) {
-      const isLoginPage = window.location.pathname === '/login';
+      const isLoginPage = window.location.pathname.startsWith('/login');
       const isAuthEndpoint = error.config?.url?.includes('/auth/');
 
       if (!isLoginPage && !isAuthEndpoint) {
@@ -48,6 +48,8 @@ export const authAPI = {
   register: (data) => api.post('/api/auth/register', data),
   getMe: () => api.get('/api/auth/me'),
   logout: () => api.post('/api/auth/logout'),
+  changePassword: (data) => api.put('/api/auth/change-password', data),
+  changeEmail: (data) => api.put('/api/auth/change-email', data),
 };
 
 // Tenant APIs
@@ -130,6 +132,14 @@ export const adminAPI = {
   deleteTenant: (id) => api.delete(`/api/admin/tenants/${id}`),
   syncTenant: (id) => api.post(`/api/admin/tenants/${id}/sync`),
   initiateTestCall: (id) => api.post(`/api/admin/tenants/${id}/test-call`),
+  uploadTenantAsset: (tenantId, file, type) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('type', type);
+    return api.post(`/api/admin/tenants/${tenantId}/upload`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+  },
 
   // Tenant Use Cases (Admin)
   getTenantUseCases: (tenantId) => api.get(`/api/admin/tenants/${tenantId}/use-cases`),
@@ -148,6 +158,9 @@ export const adminAPI = {
   getTenantTemplate: (tenantId) => api.get(`/api/admin/tenants/${tenantId}/template`),
   assignTenantTemplate: (tenantId, templateId, autoSync = true) =>
     api.post(`/api/admin/tenants/${tenantId}/template`, { templateId, autoSync }),
+
+  // Dashboard Stats
+  getDashboardStats: () => api.get('/api/admin/dashboard-stats'),
 
   // Presets
   getPresets: () => api.get('/api/admin/presets'),

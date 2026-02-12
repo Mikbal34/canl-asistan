@@ -219,7 +219,7 @@ export const Dashboard = () => {
                       </td>
                       <td className="py-3 px-4">
                         <Badge variant={getStatusVariant(appointment.status)}>
-                          {appointment.status}
+                          {t(`appointments.${appointment.status}`, appointment.status)}
                         </Badge>
                       </td>
                     </tr>

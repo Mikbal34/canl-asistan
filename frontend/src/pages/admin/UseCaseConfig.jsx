@@ -74,8 +74,8 @@ export const UseCaseConfig = () => {
   const filteredUseCases = useCases.filter(uc => {
     const matchesCategory = categoryFilter === 'all' || uc.category === categoryFilter;
     const matchesSearch = !searchQuery ||
-      uc.name_tr?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      uc.id?.toLowerCase().includes(searchQuery.toLowerCase());
+      uc.name_tr?.toLocaleLowerCase('tr').includes(searchQuery.toLocaleLowerCase('tr')) ||
+      uc.id?.toLocaleLowerCase('tr').includes(searchQuery.toLocaleLowerCase('tr'));
     return matchesCategory && matchesSearch;
   });
 

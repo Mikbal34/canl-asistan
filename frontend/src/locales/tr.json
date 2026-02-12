@@ -139,7 +139,23 @@
       "appointment_booked": "Randevu Alındı",
       "information_provided": "Bilgi Verildi",
       "call_back_later": "Geri Aranacak",
-      "not_interested": "İlgilenmedi"
+      "not_interested": "İlgilenmedi",
+      "in_progress": "Devam Ediyor",
+      "customer-ended-call": "Müşteri Kapattı",
+      "assistant-ended-call": "Asistan Sonlandırdı",
+      "assistant-said-end-call-phrase": "Asistan Sonlandırdı",
+      "assistant-forwarded-call": "Arama Yönlendirildi",
+      "customer-did-not-answer": "Cevap Verilmedi",
+      "customer-busy": "Meşgul",
+      "silence-timed-out": "Sessizlik Zaman Aşımı",
+      "voicemail": "Sesli Mesaj",
+      "exceeded-max-duration": "Süre Aşımı",
+      "manually-canceled": "Manuel İptal",
+      "phone-call-provider-closed-websocket": "Bağlantı Kesildi",
+      "pipeline-error-openai-llm-failed": "Teknik Hata",
+      "assistant-error": "Asistan Hatası",
+      "no-customer-audio": "Müşteri Sesi Alınamadı",
+      "unknown-error": "Bilinmeyen Hata"
     }
   },
   "settings": {
@@ -160,7 +176,19 @@
     "smsNotifications": "SMS Bildirimleri",
     "saveChanges": "Değişiklikleri Kaydet",
     "subtitle": "Firma ve sesli asistan ayarlarınızı yapılandırın",
-    "settingsUpdated": "Ayarlar başarıyla güncellendi."
+    "settingsUpdated": "Ayarlar başarıyla güncellendi.",
+    "accountSecurity": "Hesap Güvenliği",
+    "changePassword": "Şifre Değiştir",
+    "changeEmail": "E-posta Değiştir",
+    "currentPassword": "Mevcut Şifre",
+    "newPassword": "Yeni Şifre",
+    "confirmPassword": "Yeni Şifre (Tekrar)",
+    "newEmail": "Yeni E-posta",
+    "passwordChanged": "Şifreniz başarıyla değiştirildi.",
+    "emailChanged": "E-posta adresiniz başarıyla değiştirildi.",
+    "passwordMismatch": "Yeni şifreler eşleşmiyor.",
+    "wrongPassword": "Mevcut şifre yanlış.",
+    "passwordRequired": "Şifre en az 6 karakter olmalıdır."
   },
   "useCases": {
     "business_info": "İşletme Bilgileri",
@@ -178,6 +206,22 @@
     "promo_code": "Promosyon Kodu",
     "staff_selection_hairdresser": "Kuaför Tercihi"
   },
+  "useCaseDescriptions": {
+    "business_info": "İşletme hakkında temel bilgiler (adres, telefon, çalışma saatleri)",
+    "appointments_core": "Randevu oluşturma, iptal etme ve müsaitlik sorgulama",
+    "test_drive": "Test sürüşü randevusu alma ve araç bilgisi",
+    "service_appointment": "Araç servis randevusu planlama",
+    "beauty_services": "Güzellik hizmeti seçimi ve randevu",
+    "staff_selection": "Personel/uzman tercih etme",
+    "hairdresser_services": "Kuaför hizmeti seçimi ve randevu",
+    "staff_selection_hairdresser": "Kuaför/stilist tercih etme",
+    "promotions": "Aktif kampanya ve promosyon bilgileri",
+    "loyalty": "Sadakat puanı sorgulama ve kullanma",
+    "pricing": "Hizmet fiyat bilgisi verme",
+    "customer_history": "Müşterinin geçmiş randevu ve işlem bilgileri",
+    "feedback": "Müşteri memnuniyet değerlendirmesi alma",
+    "promo_code": "Promosyon kodu sorgulama ve uygulama"
+  },
   "admin": {
     "title": "Yönetim Paneli",
     "tenants": "Müşteri Yönetimi",
@@ -190,6 +234,14 @@
     "active": "Aktif",
     "inactive": "Pasif",
     "presets": "Sektör Ayarları",
-    "industryPresets": "Sektör Özelleştirmeleri"
+    "industryPresets": "Sektör Özelleştirmeleri",
+    "subtitle": "Sistem genel görünümü ve yönetim",
+    "totalTenants": "Toplam Firma",
+    "activeTenants": "Aktif Firma",
+    "totalUsers": "Toplam Kullanıcı",
+    "tenantStats": "Firma İstatistikleri",
+    "companyName": "Firma Adı",
+    "callCount": "Arama Sayısı",
+    "appointmentCount": "Randevu Sayısı"
   }
 }

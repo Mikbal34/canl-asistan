@@ -45,6 +45,7 @@ export const AppointmentsViewer = ({ tenantId, onUpdate }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [updating, setUpdating] = useState(null);
+  const [successId, setSuccessId] = useState(null);
 
   // Filters
   const [filters, setFilters] = useState({
@@ -94,11 +95,15 @@ export const AppointmentsViewer = ({ tenantId, onUpdate }) => {
         newStatus,
         appointment.appointment_type
       );
+      // Show brief success flash
+      setSuccessId(appointment.id);
+      setTimeout(() => setSuccessId(null), 1500);
       await fetchAppointments();
       if (onUpdate) onUpdate();
     } catch (err) {
       console.error('Failed to update status:', err);
-      alert('Durum güncellenirken hata oluştu');
+      const detail = err.response?.data?.error || err.response?.data?.message || err.message;
+      alert(`Durum güncellenirken hata oluştu:\n${detail}`);
     } finally {
       setUpdating(null);
     }
@@ -314,7 +319,9 @@ export const AppointmentsViewer = ({ tenantId, onUpdate }) => {
                       return (
                         <div
                           key={`${appointment.appointment_type}-${appointment.id}`}
-                          className={`flex items-center justify-between p-4 rounded-lg border ${typeConfig.color}`}
+                          className={`flex items-center justify-between p-4 rounded-lg border transition-colors ${
+                            successId === appointment.id ? 'ring-2 ring-emerald-400 bg-emerald-50' : typeConfig.color
+                          }`}
                         >
                           <div className="flex items-center gap-4">
                             <div className="text-2xl">{typeConfig.icon}</div>
@@ -388,7 +395,7 @@ export const AppointmentsViewer = ({ tenantId, onUpdate }) => {
                                     </Button>
                                   </>
                                 )}
-                                {(appointment.status === 'completed' || appointment.status === 'cancelled') && (
+                                {(appointment.status === 'completed' || appointment.status === 'cancelled' || appointment.status === 'no_show') && (
                                   <select
                                     value={appointment.status}
                                     onChange={(e) => handleStatusChange(appointment, e.target.value)}
