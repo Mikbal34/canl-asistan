@@ -12,6 +12,7 @@ const config = require('../config/env');
 const { getFunctionDefinitions } = require('../prompts/functions');
 const useCaseService = require('./useCaseService');
 const { buildUseCasePromptSections } = require('../prompts/useCasePrompts');
+const cache = require('./cacheService');
 
 // VAPI service manages tenants and syncs to VAPI API, needs serviceRoleKey
 const supabase = createClient(config.supabase.url, config.supabase.serviceRoleKey);
@@ -302,6 +303,12 @@ function mergeConfig(presetConfig, tenantOverride, tenantInfo) {
       .replace(/{ADRES}/g, tenantInfo.address || '')
       .replace(/{TARIH}/g, dateStr)
       .replace(/{SAAT}/g, timeStr);
+
+    // Safety net: if assistant name is still missing from prompt, prepend identity
+    const aName = tenantInfo.assistant_name;
+    if (aName && aName !== 'Asistan' && !config.system_prompt.includes(aName)) {
+      config.system_prompt = `Sen ${tenantInfo.name || 'Firma'} firmasının AI asistanısın. Adın ${aName}.\n\n` + config.system_prompt;
+    }
   }
 
   if (config.first_message) {
@@ -479,6 +486,16 @@ function buildAssistantConfig(mergedConfig, tenantInfo, language, tools = []) {
   if (mergedConfig.end_call_phrases && mergedConfig.end_call_phrases.length > 0) {
     assistantConfig.endCallPhrases = mergedConfig.end_call_phrases;
   }
+
+  // Summary dilini ayarla — VAPI summary'yi bu dilde oluşturur
+  const summaryPrompts = {
+    tr: 'Bu aramanın kısa bir özetini Türkçe olarak yaz. Müşterinin talebi, sonuç ve varsa alınan aksiyonu belirt.',
+    en: 'Write a brief summary of this call in English. Mention the customer request, outcome, and any action taken.',
+    de: 'Schreibe eine kurze Zusammenfassung dieses Anrufs auf Deutsch. Nenne die Kundenanfrage, das Ergebnis und die ergriffenen Maßnahmen.',
+  };
+  assistantConfig.analysisPlan = {
+    summaryPrompt: summaryPrompts[language] || summaryPrompts.tr,
+  };
 
   return assistantConfig;
 }
@@ -1029,6 +1046,10 @@ async function createPhoneNumber(tenantId, options = {}) {
  * @param {string} assistantId - VAPI Assistant ID
  */
 async function getTenantByVapiAssistant(assistantId) {
+  const cacheKey = `tenant-by-assistant:${assistantId}`;
+  const cached = cache.get(cacheKey);
+  if (cached) return cached;
+
   console.log('[VapiService] getTenantByVapiAssistant - searching for assistantId:', assistantId);
 
   const { data, error } = await supabaseAdmin
@@ -1046,6 +1067,7 @@ async function getTenantByVapiAssistant(assistantId) {
   });
 
   if (error && error.code !== 'PGRST116') throw error;
+  if (data) cache.set(cacheKey, data, 10 * 60 * 1000); // 10 min TTL
   return data;
 }
 

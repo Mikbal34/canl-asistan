@@ -1,4 +1,4 @@
-import React, { createContext, useState, useEffect, useContext } from 'react';
+import React, { createContext, useState, useEffect, useContext, useMemo, useCallback } from 'react';
 import { authAPI } from '../services/api';
 
 export const AuthContext = createContext(null);
@@ -18,7 +18,7 @@ export const AuthProvider = ({ children }) => {
     checkAuth();
   }, []);
 
-  const checkAuth = async () => {
+  const checkAuth = useCallback(async () => {
     const token = localStorage.getItem('token');
     const savedUser = localStorage.getItem('user');
 
@@ -71,9 +71,9 @@ export const AuthProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const login = async (credentials) => {
+  const login = useCallback(async (credentials) => {
     try {
       console.log('[Auth] Login attempt:', credentials.email);
       const response = await authAPI.login(credentials);
@@ -117,9 +117,9 @@ export const AuthProvider = ({ children }) => {
         error: error.response?.data?.message || 'Login failed'
       };
     }
-  };
+  }, []);
 
-  const logout = async () => {
+  const logout = useCallback(async () => {
     try {
       await authAPI.logout();
     } catch (error) {
@@ -131,12 +131,12 @@ export const AuthProvider = ({ children }) => {
       setTenant(null);
       setIsAuthenticated(false);
     }
-  };
+  }, []);
 
   // Sektör bilgisi getter
   const industry = tenant?.industry || user?.tenant?.industry || null;
 
-  const value = {
+  const value = useMemo(() => ({
     user,
     tenant,
     industry,
@@ -145,7 +145,7 @@ export const AuthProvider = ({ children }) => {
     login,
     logout,
     checkAuth,
-  };
+  }), [user, tenant, industry, loading, isAuthenticated, login, logout, checkAuth]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

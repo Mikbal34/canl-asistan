@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Search, Filter, Calendar, X, Check, XCircle } from 'lucide-react';
 import { useTenant } from '../../hooks/useTenant';
@@ -153,14 +153,14 @@ export const Appointments = () => {
     }
   };
 
-  const filteredAppointments = appointments.filter((appointment) => {
+  const filteredAppointments = useMemo(() => appointments.filter((appointment) => {
     const displayName = getDisplayName(appointment);
     const customerName = appointment.customer?.name || '';
-    const term = searchTerm.toLowerCase();
+    const term = searchTerm.toLocaleLowerCase('tr');
     const matchesSearch =
-      customerName.toLowerCase().includes(term) ||
+      customerName.toLocaleLowerCase('tr').includes(term) ||
       (appointment.customer?.phone || '').includes(searchTerm) ||
-      displayName.toLowerCase().includes(term);
+      displayName.toLocaleLowerCase('tr').includes(term);
 
     const matchesStatus = statusFilter === 'all' || appointment.status === statusFilter;
     const matchesType = typeFilter === 'all' || appointment._type === typeFilter;
@@ -175,9 +175,9 @@ export const Appointments = () => {
     }
 
     return matchesSearch && matchesStatus && matchesType && matchesDate;
-  });
+  }), [appointments, searchTerm, statusFilter, typeFilter, dateFrom, dateTo]);
 
-  const columns = [
+  const columns = useMemo(() => [
     {
       header: t('appointments.customerName'),
       accessor: 'customer',
@@ -261,7 +261,7 @@ export const Appointments = () => {
         </div>
       ),
     },
-  ];
+  ], [t]);
 
   const statusOptions = [
     { value: 'all', label: t('appointments.all') },

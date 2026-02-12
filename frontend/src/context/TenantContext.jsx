@@ -1,4 +1,4 @@
-import { createContext, useState, useEffect } from 'react';
+import { createContext, useState, useEffect, useMemo, useCallback } from 'react';
 import { tenantAPI } from '../services/api';
 import { useAuth } from '../hooks/useAuth';
 
@@ -19,9 +19,9 @@ export const TenantProvider = ({ children }) => {
     if (isAuthenticated) {
       fetchTenantData();
     }
-  }, [isAuthenticated, user]);
+  }, [isAuthenticated, user?.id]);
 
-  const fetchTenantData = async () => {
+  const fetchTenantData = useCallback(async () => {
     // Super admin için tenant API çağırma (tenant_id null)
     if (user?.role === 'super_admin') {
       setTenantSettings(null);
@@ -47,15 +47,15 @@ export const TenantProvider = ({ children }) => {
     } catch (error) {
       console.error('Failed to fetch tenant data:', error);
       // API başarısız olursa user.tenant'ı kullan
-      if (userTenant && !tenantSettings) {
-        setTenantSettings(userTenant);
+      if (userTenant) {
+        setTenantSettings(prev => prev || userTenant);
       }
     } finally {
       setLoading(false);
     }
-  };
+  }, [user?.role, user?.tenant, authTenant]);
 
-  const updateSettings = async (data) => {
+  const updateSettings = useCallback(async (data) => {
     try {
       const response = await tenantAPI.updateSettings(data);
       setTenantSettings(response.data);
@@ -67,21 +67,21 @@ export const TenantProvider = ({ children }) => {
         error: error.response?.data?.message || 'Update failed'
       };
     }
-  };
+  }, []);
 
-  const refreshStats = async () => {
+  const refreshStats = useCallback(async () => {
     try {
       const response = await tenantAPI.getStats();
       setStats(response.data);
     } catch (error) {
       console.error('Failed to refresh stats:', error);
     }
-  };
+  }, []);
 
   // Sektör bilgisi getter - user.tenant'tan veya API'dan
   const industry = tenantSettings?.industry || authTenant?.industry || user?.tenant?.industry || null;
 
-  const value = {
+  const value = useMemo(() => ({
     tenantSettings,
     stats,
     loading,
@@ -89,7 +89,7 @@ export const TenantProvider = ({ children }) => {
     updateSettings,
     refreshStats,
     fetchTenantData,
-  };
+  }), [tenantSettings, stats, loading, industry, updateSettings, refreshStats, fetchTenantData]);
 
   return <TenantContext.Provider value={value}>{children}</TenantContext.Provider>;
 };

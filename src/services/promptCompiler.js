@@ -7,6 +7,7 @@
 const { createClient } = require('@supabase/supabase-js');
 const config = require('../config/env');
 const { buildUseCasePromptSections, getToolsFromUseCases } = require('../prompts/useCasePrompts');
+const cache = require('./cacheService');
 
 // Prompt compiler is used by VAPI webhooks (external calls), needs serviceRoleKey
 const supabase = createClient(config.supabase.url, config.supabase.serviceRoleKey);
@@ -51,6 +52,10 @@ async function getTenant(tenantId) {
  * @returns {Object} - Industry preset data
  */
 async function getIndustryPreset(industry) {
+  const cacheKey = `preset:${industry}`;
+  const cached = cache.get(cacheKey);
+  if (cached) return cached;
+
   const { data, error } = await supabase
     .from('industry_presets')
     .select('*')
@@ -61,6 +66,7 @@ async function getIndustryPreset(industry) {
     console.error('[PromptCompiler] Error fetching industry preset:', error);
   }
 
+  if (data) cache.set(cacheKey, data, 30 * 60 * 1000); // 30 min TTL
   return data;
 }
 
@@ -72,6 +78,10 @@ async function getIndustryPreset(industry) {
  * @returns {Array} - Array of use case IDs
  */
 async function getEffectiveUseCases(tenantId) {
+  const cacheKey = `effective-uc:${tenantId}`;
+  const cached = cache.get(cacheKey);
+  if (cached) return cached;
+
   // Try template-based approach first
   const { data: templateData, error: templateError } = await supabase
     .from('tenant_assistant_template')
@@ -93,6 +103,7 @@ async function getEffectiveUseCases(tenantId) {
     const allUseCases = [...new Set([...templateUseCases, ...addedUseCases])];
     const effectiveUseCases = allUseCases.filter(uc => !removedUseCases.includes(uc));
 
+    cache.set(cacheKey, effectiveUseCases, 10 * 60 * 1000); // 10 min TTL
     return effectiveUseCases;
   }
 
@@ -108,7 +119,9 @@ async function getEffectiveUseCases(tenantId) {
     return [];
   }
 
-  return (directUseCases || []).map(uc => uc.use_case_id);
+  const result = (directUseCases || []).map(uc => uc.use_case_id);
+  cache.set(cacheKey, result, 10 * 60 * 1000); // 10 min TTL
+  return result;
 }
 
 /**
@@ -121,6 +134,10 @@ async function getUseCaseObjects(useCaseIds) {
     return [];
   }
 
+  const cacheKey = `usecases:${[...useCaseIds].sort().join(',')}`;
+  const cached = cache.get(cacheKey);
+  if (cached) return cached;
+
   const { data, error } = await supabase
     .from('use_cases')
     .select('*')
@@ -131,7 +148,9 @@ async function getUseCaseObjects(useCaseIds) {
     return [];
   }
 
-  return data || [];
+  const result = data || [];
+  cache.set(cacheKey, result, 15 * 60 * 1000); // 15 min TTL
+  return result;
 }
 
 /**
@@ -235,7 +254,7 @@ async function getIndustryBase(industry, language = 'tr') {
  */
 function getDefaultPrompt(language = 'tr') {
   const prompts = {
-    tr: `Sen profesyonel bir sesli asistansın. Müşterilere yardımcı olmak için buradasın.
+    tr: `Sen {FIRMA_ADI} firmasının AI asistanısın. Adın {ASISTAN_ADI}.
 
 ## Konuşma Kuralları:
 - Kısa ve net cümleler kur
@@ -245,7 +264,7 @@ function getDefaultPrompt(language = 'tr') {
 
 {USE_CASE_SECTIONS}`,
 
-    en: `You are a professional voice assistant. You are here to help customers.
+    en: `You are the AI assistant of {FIRMA_ADI}. Your name is {ASISTAN_ADI}.
 
 ## Conversation Rules:
 - Use short and clear sentences
@@ -255,7 +274,7 @@ function getDefaultPrompt(language = 'tr') {
 
 {USE_CASE_SECTIONS}`,
 
-    de: `Sie sind ein professioneller Sprachassistent. Sie sind hier, um Kunden zu helfen.
+    de: `Sie sind der KI-Assistent von {FIRMA_ADI}. Ihr Name ist {ASISTAN_ADI}.
 
 ## Gesprächsregeln:
 - Verwenden Sie kurze und klare Sätze
@@ -298,7 +317,20 @@ async function buildFinalPrompt(tenantId, language = 'tr') {
   const toolNames = extractToolNames(useCases);
 
   // 6. Apply variables and build final prompt
-  const systemPrompt = applyVariables(basePrompt, tenant, useCaseSections, language);
+  let systemPrompt = applyVariables(basePrompt, tenant, useCaseSections, language);
+
+  // 6.5. Safety net: if assistant identity is missing from prompt, prepend it
+  const assistantName = tenant.assistant_name || 'Asistan';
+  const tenantName = tenant.name || 'Firma';
+  if (!systemPrompt.includes(assistantName) && assistantName !== 'Asistan') {
+    const identityLines = {
+      tr: `Sen ${tenantName} firmasının AI asistanısın. Adın ${assistantName}.\n\n`,
+      en: `You are the AI assistant of ${tenantName}. Your name is ${assistantName}.\n\n`,
+      de: `Sie sind der KI-Assistent von ${tenantName}. Ihr Name ist ${assistantName}.\n\n`,
+    };
+    systemPrompt = (identityLines[language] || identityLines.tr) + systemPrompt;
+    console.log(`[PromptCompiler] Identity safety net: prepended assistant name "${assistantName}" for tenant ${tenantId}`);
+  }
 
   // 7. Add VAPI-specific rules
   let finalPrompt = addVapiRules(systemPrompt, language);
@@ -526,6 +558,9 @@ function invalidate(tenantId) {
       invalidated++;
     }
   }
+
+  // Also clear sub-query caches for this tenant
+  cache.invalidate(`effective-uc:${tenantId}`);
 
   console.log(`[PromptCompiler] Invalidated ${invalidated} cache entries for tenant ${tenantId}`);
 }

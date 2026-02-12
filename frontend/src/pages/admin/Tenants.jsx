@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
@@ -68,6 +68,17 @@ export const Tenants = () => {
   const [isManualCreateOpen, setIsManualCreateOpen] = useState(false);
   const [syncingTenant, setSyncingTenant] = useState(null);
   const [sendingLink, setSendingLink] = useState(null);
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const debounceRef = useRef(null);
+
+  // Debounce search input
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      setDebouncedSearch(searchTerm);
+    }, 300);
+    return () => clearTimeout(debounceRef.current);
+  }, [searchTerm]);
 
   useEffect(() => {
     fetchTenants();
@@ -136,14 +147,15 @@ export const Tenants = () => {
     }
   };
 
-  const filteredTenants = tenants.filter((tenant) => {
-    const matchesSearch =
-      tenant.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      tenant.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      tenant.phone?.includes(searchTerm);
+  const filteredTenants = useMemo(() => tenants.filter((tenant) => {
+    const term = debouncedSearch.toLocaleLowerCase('tr');
+    const matchesSearch = !term ||
+      tenant.name?.toLocaleLowerCase('tr').includes(term) ||
+      tenant.email?.toLocaleLowerCase('tr').includes(term) ||
+      tenant.phone?.includes(debouncedSearch);
 
     return matchesSearch;
-  });
+  }), [tenants, debouncedSearch]);
 
   const formatDate = (dateString) => {
     if (!dateString) return '-';
@@ -168,7 +180,7 @@ export const Tenants = () => {
     return formatDate(dateString);
   };
 
-  const columns = [
+  const columns = useMemo(() => [
     {
       header: t('admin.tenantName'),
       accessor: 'name',
@@ -266,7 +278,7 @@ export const Tenants = () => {
         </div>
       ),
     },
-  ];
+  ], [t, syncingTenant, sendingLink]);
 
   return (
     <div className="space-y-6">

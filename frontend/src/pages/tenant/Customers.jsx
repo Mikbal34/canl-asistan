@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Search } from 'lucide-react';
 import { Card, CardContent } from '../../components/common/Card';
@@ -38,13 +38,16 @@ export const Customers = () => {
     });
   };
 
-  const filteredCustomers = customers.filter((customer) =>
-    customer.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    customer.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    customer.phone?.includes(searchTerm)
-  );
+  const filteredCustomers = useMemo(() => customers.filter((customer) => {
+    const term = searchTerm.toLocaleLowerCase('tr');
+    return (
+      customer.name?.toLocaleLowerCase('tr').includes(term) ||
+      customer.email?.toLocaleLowerCase('tr').includes(term) ||
+      customer.phone?.includes(searchTerm)
+    );
+  }), [customers, searchTerm]);
 
-  const columns = [
+  const columns = useMemo(() => [
     {
       header: t('customers.name'),
       accessor: 'name',
@@ -80,7 +83,7 @@ export const Customers = () => {
         </span>
       ),
     },
-  ];
+  ], [t]);
 
   return (
     <div className="space-y-6">

@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { HexColorPicker } from 'react-colorful';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
@@ -20,6 +21,8 @@ import {
   Image,
   Globe,
   Wrench,
+  Upload,
+  Check,
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
@@ -144,6 +147,29 @@ export const TenantDetail = () => {
   const [tenantTemplate, setTenantTemplate] = useState(null);
   const [templatesLoading, setTemplatesLoading] = useState(false);
 
+  // File upload state
+  const logoInputRef = useRef(null);
+  const faviconInputRef = useRef(null);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [uploadingFavicon, setUploadingFavicon] = useState(false);
+  const [dragOverLogo, setDragOverLogo] = useState(false);
+  const [dragOverFavicon, setDragOverFavicon] = useState(false);
+  const [showColorPicker, setShowColorPicker] = useState(false);
+  const colorPickerRef = useRef(null);
+
+  // Close color picker on outside click
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (colorPickerRef.current && !colorPickerRef.current.contains(e.target)) {
+        setShowColorPicker(false);
+      }
+    };
+    if (showColorPicker) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showColorPicker]);
+
   useEffect(() => {
     fetchTenant();
   }, [id]);
@@ -156,11 +182,13 @@ export const TenantDetail = () => {
       setTenant(tenantData);
       setEditData(tenantData);
 
-      // Tenant yüklendikten sonra use case'leri ve şablonları çek
+      // Tenant yüklendikten sonra use case'leri ve şablonları paralel çek
       if (tenantData?.industry) {
-        fetchUseCases(tenantData.industry);
-        fetchTemplates(tenantData.industry);
-        fetchTenantTemplate();
+        await Promise.all([
+          fetchUseCases(tenantData.industry),
+          fetchTemplates(tenantData.industry),
+          fetchTenantTemplate(),
+        ]);
       }
     } catch (error) {
       console.error('Failed to fetch tenant:', error);
@@ -238,8 +266,16 @@ export const TenantDetail = () => {
   const handleSave = async () => {
     try {
       setSaving(true);
-      await adminAPI.updateTenant(id, editData);
-      setTenant(editData);
+      const { name, email, phone, assistant_name, logo_url, favicon_url,
+              primary_color, login_message, welcome_message, default_language } = editData;
+      const payload = {
+        name, email, phone, assistant_name, logo_url, favicon_url,
+        primary_color, login_message, welcome_message, default_language
+      };
+      const response = await adminAPI.updateTenant(id, payload);
+      const updated = response.data.data || response.data;
+      setTenant(prev => ({ ...prev, ...updated }));
+      setEditData(prev => ({ ...prev, ...updated }));
       setHasChanges(false);
       setIsEditing(false);
       alert('Değişiklikler kaydedildi');
@@ -256,6 +292,28 @@ export const TenantDetail = () => {
     setHasChanges(false);
     setIsEditing(false);
   };
+
+  const handleFileUpload = useCallback(async (file, type) => {
+    if (!file) return;
+    const maxSize = 2 * 1024 * 1024;
+    if (file.size > maxSize) {
+      alert('Dosya boyutu 2MB\'den küçük olmalı');
+      return;
+    }
+    const setUploading = type === 'logo' ? setUploadingLogo : setUploadingFavicon;
+    try {
+      setUploading(true);
+      const response = await adminAPI.uploadTenantAsset(id, file, type);
+      const url = response.data.url;
+      const field = type === 'logo' ? 'logo_url' : 'favicon_url';
+      handleInputChange(field, url);
+    } catch (error) {
+      console.error(`Upload ${type} failed:`, error);
+      alert(`Yükleme hatası: ${error.response?.data?.error || error.message}`);
+    } finally {
+      setUploading(false);
+    }
+  }, [id]);
 
   const handleSync = async () => {
     try {
@@ -377,32 +435,6 @@ export const TenantDetail = () => {
         </div>
       </div>
 
-      {/* Additional Settings */}
-      <div className="pt-6 border-t border-slate-200">
-        <h3 className="text-lg font-semibold text-slate-900 mb-4">Ek Ayarlar</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <Input
-            label="Slug"
-            value={editData.slug || ''}
-            onChange={(e) => handleInputChange('slug', e.target.value)}
-            disabled={!isEditing}
-          />
-          <div>
-            <label className="block text-sm font-medium text-slate-600 mb-2">Plan</label>
-            <select
-              value={editData.plan || 'starter'}
-              onChange={(e) => handleInputChange('plan', e.target.value)}
-              disabled={!isEditing}
-              className="input w-full"
-            >
-              <option value="starter">Starter</option>
-              <option value="pro">Pro</option>
-              <option value="enterprise">Enterprise</option>
-            </select>
-          </div>
-        </div>
-      </div>
-
       {/* Users */}
       {tenant?.users && tenant.users.length > 0 && (
         <div className="pt-6 border-t border-slate-200">
@@ -430,23 +462,91 @@ export const TenantDetail = () => {
     </div>
   );
 
+  const PRESET_COLORS = [
+    // Row 1 - Vibrant
+    '#ef4444', '#f97316', '#f59e0b', '#eab308',
+    '#84cc16', '#22c55e', '#10b981', '#14b8a6',
+    '#06b6d4', '#0ea5e9', '#3b82f6', '#6366f1',
+    '#8b5cf6', '#a855f7', '#d946ef', '#ec4899',
+    // Row 2 - Deep
+    '#dc2626', '#ea580c', '#d97706', '#ca8a04',
+    '#65a30d', '#16a34a', '#059669', '#0d9488',
+    '#0891b2', '#0284c7', '#2563eb', '#4f46e5',
+    '#7c3aed', '#9333ea', '#c026d3', '#db2777',
+    // Row 3 - Dark
+    '#991b1b', '#9a3412', '#92400e', '#854d0e',
+    '#3f6212', '#166534', '#065f46', '#115e59',
+    '#155e75', '#075985', '#1e40af', '#4338ca',
+    '#5b21b6', '#6b21a8', '#86198f', '#9d174d',
+  ];
+
   const renderBrandingTab = () => {
+    const primaryColor = editData.primary_color || '#4f46e5';
+
+    const handleDrop = (e, type) => {
+      e.preventDefault();
+      const setDragOver = type === 'logo' ? setDragOverLogo : setDragOverFavicon;
+      setDragOver(false);
+      const file = e.dataTransfer.files[0];
+      if (file) handleFileUpload(file, type);
+    };
+
+    const handleDragOver = (e, type) => {
+      e.preventDefault();
+      const setDragOver = type === 'logo' ? setDragOverLogo : setDragOverFavicon;
+      setDragOver(true);
+    };
+
+    const handleDragLeave = (e, type) => {
+      e.preventDefault();
+      const setDragOver = type === 'logo' ? setDragOverLogo : setDragOverFavicon;
+      setDragOver(false);
+    };
+
     return (
       <div className="space-y-6">
         {/* Logo */}
         <div>
           <h3 className="text-lg font-semibold text-slate-900 mb-4">Logo</h3>
           <div className="flex items-start gap-6">
-            <div className="w-32 h-32 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-center overflow-hidden">
-              {editData.logo_url ? (
-                <img
-                  src={editData.logo_url}
-                  alt="Logo"
-                  className="w-full h-full object-contain"
-                />
+            <div
+              className={`w-32 h-32 rounded-xl border-2 border-dashed flex items-center justify-center overflow-hidden transition-all cursor-pointer group relative ${
+                dragOverLogo
+                  ? 'border-indigo-500 bg-indigo-50'
+                  : 'border-slate-200 bg-slate-50 hover:border-indigo-300 hover:bg-indigo-50/50'
+              }`}
+              onClick={() => isEditing && logoInputRef.current?.click()}
+              onDrop={(e) => isEditing && handleDrop(e, 'logo')}
+              onDragOver={(e) => isEditing && handleDragOver(e, 'logo')}
+              onDragLeave={(e) => isEditing && handleDragLeave(e, 'logo')}
+            >
+              {uploadingLogo ? (
+                <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
+              ) : editData.logo_url ? (
+                <>
+                  <img src={editData.logo_url} alt="Logo" className="w-full h-full object-contain" />
+                  {isEditing && (
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                      <Upload className="w-6 h-6 text-white" />
+                    </div>
+                  )}
+                </>
               ) : (
-                <Image className="w-12 h-12 text-slate-400" />
+                <div className="text-center p-2">
+                  <Upload className="w-8 h-8 text-slate-400 mx-auto mb-1" />
+                  <span className="text-xs text-slate-400">Yükle</span>
+                </div>
               )}
+              <input
+                ref={logoInputRef}
+                type="file"
+                accept="image/png,image/jpeg,image/svg+xml"
+                className="hidden"
+                onChange={(e) => {
+                  if (e.target.files[0]) handleFileUpload(e.target.files[0], 'logo');
+                  e.target.value = '';
+                }}
+              />
             </div>
             <div className="flex-1 space-y-3">
               <Input
@@ -457,7 +557,7 @@ export const TenantDetail = () => {
                 disabled={!isEditing}
               />
               <p className="text-sm text-slate-500">
-                Önerilen boyut: 200x200 piksel, PNG veya SVG formatı
+                Dosya yükleyin veya URL girin. Önerilen: 200x200px, PNG/SVG
               </p>
             </div>
           </div>
@@ -467,16 +567,41 @@ export const TenantDetail = () => {
         <div className="pt-6 border-t border-slate-200">
           <h3 className="text-lg font-semibold text-slate-900 mb-4">Favicon</h3>
           <div className="flex items-start gap-6">
-            <div className="w-16 h-16 rounded-lg bg-slate-50 border border-slate-200 flex items-center justify-center overflow-hidden">
-              {editData.favicon_url ? (
-                <img
-                  src={editData.favicon_url}
-                  alt="Favicon"
-                  className="w-full h-full object-contain"
-                />
+            <div
+              className={`w-16 h-16 rounded-lg border-2 border-dashed flex items-center justify-center overflow-hidden transition-all cursor-pointer group relative ${
+                dragOverFavicon
+                  ? 'border-indigo-500 bg-indigo-50'
+                  : 'border-slate-200 bg-slate-50 hover:border-indigo-300 hover:bg-indigo-50/50'
+              }`}
+              onClick={() => isEditing && faviconInputRef.current?.click()}
+              onDrop={(e) => isEditing && handleDrop(e, 'favicon')}
+              onDragOver={(e) => isEditing && handleDragOver(e, 'favicon')}
+              onDragLeave={(e) => isEditing && handleDragLeave(e, 'favicon')}
+            >
+              {uploadingFavicon ? (
+                <Loader2 className="w-5 h-5 animate-spin text-indigo-500" />
+              ) : editData.favicon_url ? (
+                <>
+                  <img src={editData.favicon_url} alt="Favicon" className="w-full h-full object-contain" />
+                  {isEditing && (
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                      <Upload className="w-4 h-4 text-white" />
+                    </div>
+                  )}
+                </>
               ) : (
-                <Globe className="w-6 h-6 text-slate-400" />
+                <Upload className="w-5 h-5 text-slate-400" />
               )}
+              <input
+                ref={faviconInputRef}
+                type="file"
+                accept="image/png,image/x-icon,image/vnd.microsoft.icon,image/svg+xml"
+                className="hidden"
+                onChange={(e) => {
+                  if (e.target.files[0]) handleFileUpload(e.target.files[0], 'favicon');
+                  e.target.value = '';
+                }}
+              />
             </div>
             <div className="flex-1">
               <Input
@@ -487,7 +612,7 @@ export const TenantDetail = () => {
                 disabled={!isEditing}
               />
               <p className="text-sm text-slate-500 mt-2">
-                Önerilen boyut: 32x32 veya 64x64 piksel, ICO veya PNG formatı
+                Dosya yükleyin veya URL girin. Önerilen: 32x32px, ICO/PNG
               </p>
             </div>
           </div>
@@ -496,99 +621,221 @@ export const TenantDetail = () => {
         {/* Primary Color */}
         <div className="pt-6 border-t border-slate-200">
           <h3 className="text-lg font-semibold text-slate-900 mb-4">Renk Şeması</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-sm font-medium text-slate-600 mb-2">Ana Renk</label>
-              <div className="flex items-center gap-3">
-                <input
-                  type="color"
-                  value={editData.primary_color || '#4f46e5'}
-                  onChange={(e) => handleInputChange('primary_color', e.target.value)}
-                  disabled={!isEditing}
-                  className="w-12 h-12 rounded-lg cursor-pointer border-2 border-slate-200"
-                />
-                <Input
-                  value={editData.primary_color || '#4f46e5'}
-                  onChange={(e) => handleInputChange('primary_color', e.target.value)}
-                  disabled={!isEditing}
-                  placeholder="#4f46e5"
-                  className="flex-1"
-                />
-              </div>
-              <p className="text-sm text-slate-500 mt-2">
-                Butonlar, linkler ve vurgulanan elementler için kullanılır
-              </p>
-            </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-600 mb-3">Ana Renk</label>
 
-            {/* Preview */}
-            <div>
-              <label className="block text-sm font-medium text-slate-600 mb-2">Önizleme</label>
-              <div className="p-4 rounded-lg bg-slate-50 border border-slate-200 space-y-3">
+            {/* Color swatch + hex input + preview row */}
+            <div className="flex items-center gap-4 mb-4">
+              {/* Clickable color swatch that opens popup */}
+              <div className="relative" ref={colorPickerRef}>
                 <button
-                  className="px-4 py-2 rounded-lg text-white font-medium"
-                  style={{ backgroundColor: editData.primary_color || '#4f46e5' }}
+                  type="button"
+                  disabled={!isEditing}
+                  onClick={() => isEditing && setShowColorPicker(!showColorPicker)}
+                  className={`w-12 h-12 rounded-xl border-2 border-slate-200 shadow-sm transition-all ${
+                    isEditing ? 'cursor-pointer hover:scale-105 hover:shadow-md' : 'cursor-not-allowed opacity-60'
+                  }`}
+                  style={{ backgroundColor: primaryColor }}
+                  title="Renk seçici aç"
+                />
+
+                {/* Color Picker Popup */}
+                {showColorPicker && isEditing && (
+                  <div className="absolute top-14 left-0 z-50 bg-white rounded-2xl shadow-2xl border border-slate-200 p-4 w-[280px]">
+                    {/* Arrow */}
+                    <div className="absolute -top-2 left-4 w-4 h-4 bg-white border-l border-t border-slate-200 rotate-45" />
+
+                    {/* Spectrum Picker */}
+                    <div className="relative rounded-xl overflow-hidden mb-4" style={{ height: '160px' }}>
+                      <HexColorPicker
+                        color={primaryColor}
+                        onChange={(color) => handleInputChange('primary_color', color)}
+                        style={{ width: '100%', height: '100%' }}
+                      />
+                    </div>
+
+                    {/* Preset Swatches */}
+                    <div className="mb-3">
+                      <label className="block text-xs font-medium text-slate-400 mb-2">Hazır Renkler</label>
+                      <div className="grid grid-cols-16 gap-1" style={{ gridTemplateColumns: 'repeat(16, 1fr)' }}>
+                        {PRESET_COLORS.map((color, idx) => (
+                          <button
+                            key={`${color}-${idx}`}
+                            type="button"
+                            onClick={() => handleInputChange('primary_color', color)}
+                            className={`w-full aspect-square rounded-sm transition-all ${
+                              primaryColor.toLowerCase() === color.toLowerCase()
+                                ? 'ring-2 ring-slate-900 ring-offset-1 scale-125 z-10'
+                                : 'hover:scale-125 hover:z-10'
+                            }`}
+                            style={{ backgroundColor: color }}
+                            title={color}
+                          />
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Hex Input inside popup */}
+                    <div className="flex items-center gap-2">
+                      <div
+                        className="w-8 h-8 rounded-lg border border-slate-200 flex-shrink-0"
+                        style={{ backgroundColor: primaryColor }}
+                      />
+                      <input
+                        type="text"
+                        value={primaryColor}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (val.match(/^#[0-9a-fA-F]{0,6}$/)) {
+                            handleInputChange('primary_color', val);
+                          }
+                        }}
+                        className="flex-1 px-3 py-1.5 text-sm rounded-lg border border-slate-200 font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        placeholder="#4f46e5"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Hex Input */}
+              <Input
+                value={primaryColor}
+                onChange={(e) => handleInputChange('primary_color', e.target.value)}
+                disabled={!isEditing}
+                placeholder="#4f46e5"
+                className="flex-1 max-w-[160px]"
+              />
+
+              {/* Inline preview */}
+              <div className="flex items-center gap-3 ml-auto">
+                <button
+                  className="px-4 py-2 rounded-lg text-white text-sm font-medium"
+                  style={{ backgroundColor: primaryColor }}
                 >
                   Örnek Buton
                 </button>
-                <p>
-                  <a
-                    href="#"
-                    className="hover:underline"
-                    style={{ color: editData.primary_color || '#4f46e5' }}
-                    onClick={(e) => e.preventDefault()}
-                  >
-                    Örnek Link
-                  </a>
-                </p>
+                <a
+                  href="#"
+                  className="text-sm hover:underline"
+                  style={{ color: primaryColor }}
+                  onClick={(e) => e.preventDefault()}
+                >
+                  Örnek Link
+                </a>
+              </div>
+            </div>
+
+            <p className="text-sm text-slate-500">
+              Butonlar, linkler ve vurgulanan elementler için kullanılır. Renk kutusuna tıklayarak seçici açabilirsiniz.
+            </p>
+          </div>
+        </div>
+
+        {/* Dashboard Welcome Message */}
+        <div className="pt-6 border-t border-slate-200">
+          <h3 className="text-lg font-semibold text-slate-900 mb-4">Dashboard Karşılama Mesajı</h3>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-600 mb-2">Karşılama Mesajı</label>
+              <textarea
+                value={editData.welcome_message || ''}
+                onChange={(e) => handleInputChange('welcome_message', e.target.value)}
+                disabled={!isEditing}
+                placeholder="Örn: Prestige Auto Yönetim Paneline Hoş Geldiniz!"
+                className="input w-full h-20 resize-none"
+              />
+              <p className="text-sm text-slate-500 mt-2">
+                Tenant panelinde header'da gösterilir. Boş bırakılırsa varsayılan "Hoş Geldiniz, Kullanıcı Adı" gösterilir.
+              </p>
+            </div>
+
+            {/* Dashboard Önizleme */}
+            <div>
+              <label className="block text-sm font-medium text-slate-600 mb-2">Önizleme</label>
+              <div className="rounded-xl border border-slate-200 overflow-hidden bg-slate-100">
+                {/* Mini browser chrome */}
+                <div className="flex items-center gap-2 px-4 py-2 bg-slate-200 border-b border-slate-300">
+                  <div className="flex gap-1.5">
+                    <div className="w-3 h-3 rounded-full bg-red-400" />
+                    <div className="w-3 h-3 rounded-full bg-yellow-400" />
+                    <div className="w-3 h-3 rounded-full bg-green-400" />
+                  </div>
+                  <div className="flex-1 flex justify-center">
+                    <div className="px-4 py-0.5 bg-white rounded text-xs text-slate-400 max-w-xs truncate">
+                      {editData.slug ? `${editData.slug}.canliasistan.com/dashboard` : 'tenant.canliasistan.com/dashboard'}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex" style={{ minHeight: '220px' }}>
+                  {/* Sidebar mockup */}
+                  <div className="w-48 bg-slate-900 flex-shrink-0 p-4">
+                    {/* Logo */}
+                    <div className="flex items-center gap-2 mb-6">
+                      {editData.logo_url ? (
+                        <img src={editData.logo_url} alt="Logo" className="h-8 w-8 rounded-lg object-contain bg-white p-0.5" />
+                      ) : (
+                        <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: primaryColor }}>
+                          <Phone className="w-4 h-4 text-white" />
+                        </div>
+                      )}
+                      <span className="text-white text-sm font-semibold truncate">{editData.name || 'Firma'}</span>
+                    </div>
+                    {/* Nav items */}
+                    <div className="space-y-1">
+                      {['Dashboard', 'Aramalar', 'Randevular', 'Müşteriler', 'Ayarlar'].map((item, i) => (
+                        <div
+                          key={item}
+                          className={`px-3 py-2 rounded-lg text-xs ${
+                            i === 0 ? 'text-white' : 'text-slate-400'
+                          }`}
+                          style={i === 0 ? { backgroundColor: primaryColor } : {}}
+                        >
+                          {item}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Main content */}
+                  <div className="flex-1">
+                    {/* Header */}
+                    <div className="bg-white border-b border-slate-200 px-5 py-3 flex items-center justify-between">
+                      <h2 className="text-base font-semibold text-slate-900 truncate">
+                        {editData.welcome_message || `Hoş Geldiniz, ${tenant?.users?.[0]?.name || 'Kullanıcı Adı'}`}
+                      </h2>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <div className="w-4 h-4 rounded bg-slate-200" />
+                        <div className="w-6 h-6 rounded-full flex items-center justify-center text-white text-xs"
+                          style={{ backgroundColor: primaryColor }}>
+                          {(tenant?.users?.[0]?.name || 'K')[0]}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Dashboard body */}
+                    <div className="p-4 bg-slate-50">
+                      <div className="grid grid-cols-3 gap-3">
+                        {[
+                          { label: 'Toplam Arama', value: '128' },
+                          { label: 'Randevular', value: '24' },
+                          { label: 'Müşteriler', value: '86' },
+                        ].map((stat) => (
+                          <div key={stat.label} className="bg-white rounded-lg p-3 border border-slate-200">
+                            <div className="text-[10px] text-slate-500">{stat.label}</div>
+                            <div className="text-lg font-bold text-slate-900 mt-0.5">{stat.value}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Login Message */}
-        <div className="pt-6 border-t border-slate-200">
-          <h3 className="text-lg font-semibold text-slate-900 mb-4">Login Sayfası</h3>
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-600 mb-2">Hoş Geldin Mesajı</label>
-              <textarea
-                value={editData.login_message || ''}
-                onChange={(e) => handleInputChange('login_message', e.target.value)}
-                disabled={!isEditing}
-                placeholder="Örn: Prestige Auto'ya Hoş Geldiniz"
-                className="input w-full h-20 resize-none"
-              />
-              <p className="text-sm text-slate-500 mt-2">
-                Login sayfasında başlığın altında gösterilir (opsiyonel)
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Branding Preview */}
-        <div className="pt-6 border-t border-slate-200">
-          <h3 className="text-lg font-semibold text-slate-900 mb-4">Branding Önizlemesi</h3>
-          <div className="p-6 rounded-xl bg-gradient-to-br from-slate-100 via-white to-slate-50 border border-slate-200">
-            <div className="text-center">
-              {editData.logo_url ? (
-                <img
-                  src={editData.logo_url}
-                  alt="Logo Preview"
-                  className="h-16 w-auto mx-auto mb-4 object-contain"
-                />
-              ) : (
-                <div
-                  className="w-16 h-16 rounded-2xl mx-auto mb-4 flex items-center justify-center"
-                  style={{ backgroundColor: editData.primary_color || '#4f46e5' }}
-                >
-                  <Phone className="w-8 h-8 text-white" />
-                </div>
-              )}
-              <h2 className="text-2xl font-bold text-slate-900 mb-2">{editData.name || 'Tenant Name'}</h2>
-              <p className="text-slate-500">{editData.login_message || 'Hoş geldiniz'}</p>
-            </div>
-          </div>
-        </div>
       </div>
     );
   };
@@ -831,55 +1078,6 @@ export const TenantDetail = () => {
                 <option value="en">English</option>
                 <option value="de">Deutsch</option>
               </select>
-            </div>
-          </div>
-        </div>
-
-        {/* Ses Ayarları */}
-        <div className="pt-6 border-t border-slate-200">
-          <h3 className="text-lg font-semibold text-slate-900 mb-4">Ses Ayarları</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-sm font-medium text-slate-600 mb-2">TTS Sağlayıcı</label>
-              <select
-                value={editData.tts_provider || 'deepgram'}
-                onChange={(e) => handleInputChange('tts_provider', e.target.value)}
-                disabled={!isEditing}
-                className="input w-full"
-              >
-                <option value="deepgram">Deepgram</option>
-                <option value="elevenlabs">ElevenLabs</option>
-                <option value="playht">PlayHT</option>
-              </select>
-            </div>
-            <Input
-              label="Voice ID"
-              value={editData.elevenlabs_voice_id || ''}
-              onChange={(e) => handleInputChange('elevenlabs_voice_id', e.target.value)}
-              disabled={!isEditing}
-              placeholder="Örn: EXAVITQu4vr4xnSDxMaL"
-            />
-          </div>
-
-          {/* VAPI Assistant IDs */}
-          <div className="mt-6">
-            <h4 className="text-md font-semibold text-slate-900 mb-4">VAPI Asistanları</h4>
-            <div className="space-y-2">
-              {['tr', 'en', 'de'].map((lang) => {
-                const assistantId = tenant?.[`vapi_assistant_id_${lang}`];
-                return (
-                  <div key={lang} className="flex items-center justify-between p-3 rounded-lg bg-slate-50">
-                    <span className="text-slate-600 uppercase">{lang}</span>
-                    {assistantId ? (
-                      <code className="text-sm text-indigo-600 bg-indigo-50 px-2 py-1 rounded">
-                        {assistantId}
-                      </code>
-                    ) : (
-                      <span className="text-slate-400">-</span>
-                    )}
-                  </div>
-                );
-              })}
             </div>
           </div>
         </div>

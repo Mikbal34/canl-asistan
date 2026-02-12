@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Phone, Clock, X, MessageSquare } from 'lucide-react';
 import { Card, CardContent } from '../../components/common/Card';
@@ -33,7 +33,7 @@ export const CallLogs = () => {
     }
   };
 
-  const formatDate = (dateString) => {
+  const formatDate = useCallback((dateString) => {
     return new Date(dateString).toLocaleDateString('tr-TR', {
       day: 'numeric',
       month: 'short',
@@ -41,35 +41,51 @@ export const CallLogs = () => {
       hour: '2-digit',
       minute: '2-digit',
     });
-  };
+  }, []);
 
-  const formatDuration = (seconds) => {
+  const formatDuration = useCallback((seconds) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
+  }, []);
 
-  const getOutcomeVariant = (outcome) => {
+  const getOutcomeVariant = useCallback((outcome) => {
     const variants = {
       completed: 'success',
       'no-answer': 'warning',
       busy: 'warning',
       failed: 'error',
       'in-progress': 'info',
+      'in_progress': 'info',
       appointment_booked: 'success',
       information_provided: 'info',
       call_back_later: 'warning',
       not_interested: 'error',
+      'customer-ended-call': 'info',
+      'assistant-ended-call': 'success',
+      'assistant-said-end-call-phrase': 'success',
+      'assistant-forwarded-call': 'info',
+      'customer-did-not-answer': 'warning',
+      'customer-busy': 'warning',
+      'silence-timed-out': 'warning',
+      'voicemail': 'warning',
+      'exceeded-max-duration': 'warning',
+      'manually-canceled': 'warning',
+      'phone-call-provider-closed-websocket': 'error',
+      'pipeline-error-openai-llm-failed': 'error',
+      'assistant-error': 'error',
+      'no-customer-audio': 'error',
+      'unknown-error': 'error',
     };
     return variants[outcome] || 'info';
-  };
+  }, []);
 
-  const getOutcomeLabel = (outcome) => {
+  const getOutcomeLabel = useCallback((outcome) => {
     if (!outcome) return '';
-    return t(`callLogs.outcomes.${outcome}`, outcome.replace(/_/g, ' '));
-  };
+    return t(`callLogs.outcomes.${outcome}`, outcome.replace(/[-_.]/g, ' '));
+  }, [t]);
 
-  const columns = [
+  const columns = useMemo(() => [
     {
       header: t('callLogs.caller'),
       accessor: 'callerPhone',
@@ -120,7 +136,7 @@ export const CallLogs = () => {
         </button>
       ),
     },
-  ];
+  ], [t, formatDate, formatDuration, getOutcomeVariant, getOutcomeLabel]);
 
   return (
     <div className="space-y-6">

@@ -189,8 +189,9 @@ server.listen(PORT, HOST, () => {
   setTimeout(async () => {
     try {
       console.log('[Startup] VAPI sync ve arama kayıtları çekme başlıyor...');
+      const startTime = Date.now();
 
-      // 1. Tüm aktif tenant'ları VAPI ile sync et (prompt güncellemesi)
+      // 1. Tüm aktif tenant'ları VAPI ile sync et (paralel, 5 concurrent)
       const vapiSyncService = require('./services/vapiSyncService');
       const { createClient } = require('@supabase/supabase-js');
       const envConfig = require('./config/env');
@@ -202,14 +203,17 @@ server.listen(PORT, HOST, () => {
         .eq('is_active', true);
 
       if (activeTenants && activeTenants.length > 0) {
-        console.log(`[Startup] ${activeTenants.length} aktif tenant sync ediliyor...`);
-        for (const tenant of activeTenants) {
-          try {
-            await vapiSyncService.syncTenant(tenant.id, 'startup_sync');
-            console.log(`[Startup] Tenant synced: ${tenant.name}`);
-          } catch (syncError) {
-            console.error(`[Startup] Tenant sync error (${tenant.name}):`, syncError.message);
-          }
+        console.log(`[Startup] ${activeTenants.length} aktif tenant paralel sync ediliyor...`);
+        const CONCURRENCY = 5;
+        for (let i = 0; i < activeTenants.length; i += CONCURRENCY) {
+          const batch = activeTenants.slice(i, i + CONCURRENCY);
+          await Promise.allSettled(
+            batch.map(tenant =>
+              vapiSyncService.syncTenant(tenant.id, 'startup_sync')
+                .then(() => console.log(`[Startup] Synced: ${tenant.name}`))
+                .catch(e => console.error(`[Startup] Error (${tenant.name}):`, e.message))
+            )
+          );
         }
       }
 
@@ -218,7 +222,8 @@ server.listen(PORT, HOST, () => {
       const callResult = await vapiService.fetchAndSaveRecentCalls();
       console.log(`[Startup] Arama kayıtları: ${callResult.saved} yeni kayıt, ${callResult.skipped || 0} mevcut`);
 
-      console.log('[Startup] VAPI sync ve arama kayıtları tamamlandı.');
+      const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+      console.log(`[Startup] VAPI sync ve arama kayıtları tamamlandı (${elapsed}s).`);
     } catch (startupError) {
       console.error('[Startup] VAPI sync hatası:', startupError.message);
     }
