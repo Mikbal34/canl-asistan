@@ -156,9 +156,11 @@ export const Appointments = () => {
   const filteredAppointments = appointments.filter((appointment) => {
     const displayName = getDisplayName(appointment);
     const customerName = appointment.customer?.name || '';
+    const term = searchTerm.toLowerCase();
     const matchesSearch =
-      customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      displayName.toLowerCase().includes(searchTerm.toLowerCase());
+      customerName.toLowerCase().includes(term) ||
+      (appointment.customer?.phone || '').includes(searchTerm) ||
+      displayName.toLowerCase().includes(term);
 
     const matchesStatus = statusFilter === 'all' || appointment.status === statusFilter;
     const matchesType = typeFilter === 'all' || appointment._type === typeFilter;
@@ -269,12 +271,29 @@ export const Appointments = () => {
     { value: 'cancelled', label: t('appointments.cancelled') },
   ];
 
-  const typeOptions = [
-    { value: 'all', label: t('appointments.allTypes') },
-    { value: 'test_drive', label: t('appointments.typeLabels.test_drive') },
-    { value: 'service', label: t('appointments.typeLabels.service') },
-    { value: 'beauty', label: t('appointments.typeLabels.beauty') },
-  ];
+  const typeOptions = (() => {
+    const all = { value: 'all', label: t('appointments.allTypes') };
+    const industry = tenantSettings?.industry;
+    if (industry === 'automotive') {
+      return [
+        all,
+        { value: 'test_drive', label: t('appointments.typeLabels.test_drive') },
+        { value: 'service', label: t('appointments.typeLabels.service') },
+      ];
+    }
+    if (industry === 'beauty' || industry === 'beauty_salon' || industry === 'hairdresser') {
+      return [
+        all,
+        { value: 'beauty', label: t('appointments.typeLabels.beauty') },
+      ];
+    }
+    return [
+      all,
+      { value: 'test_drive', label: t('appointments.typeLabels.test_drive') },
+      { value: 'service', label: t('appointments.typeLabels.service') },
+      { value: 'beauty', label: t('appointments.typeLabels.beauty') },
+    ];
+  })();
 
   return (
     <div className="space-y-6">

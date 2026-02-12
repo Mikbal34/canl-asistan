@@ -1540,6 +1540,43 @@ router.get('/test-drives', async (req, res) => {
 });
 
 /**
+ * Test Sürüşü Güncelle (tam düzenleme)
+ * PUT /api/test-drives/:id
+ */
+router.put('/test-drives/:id', async (req, res) => {
+  try {
+    if (!req.tenantId) {
+      return res.status(400).json({
+        error: 'Bad Request',
+        message: 'Tenant ID is required',
+      });
+    }
+
+    const { id } = req.params;
+    const { appointment_date, appointment_time, status } = req.body;
+
+    const updateData = { updated_at: new Date().toISOString() };
+    if (appointment_date) updateData.appointment_date = appointment_date;
+    if (appointment_time) updateData.appointment_time = appointment_time;
+    if (status) updateData.status = status;
+
+    const { data, error } = await supabaseAdmin
+      .from('test_drive_appointments')
+      .update(updateData)
+      .eq('id', id)
+      .eq('tenant_id', req.tenantId)
+      .select()
+      .single();
+
+    if (error) throw error;
+    res.json(data);
+  } catch (error) {
+    console.error('[API] Test drive update error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
  * Test Sürüşü Durumu Güncelle
  * PATCH /api/test-drives/:id
  */
@@ -1997,6 +2034,43 @@ router.post('/beauty/appointments', async (req, res) => {
     res.status(201).json(data);
   } catch (error) {
     console.error('[API] Create beauty appointment error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * Güzellik Randevusu Güncelle (tam düzenleme)
+ * PUT /api/beauty/appointments/:id
+ */
+router.put('/beauty/appointments/:id', async (req, res) => {
+  try {
+    if (!req.tenantId) {
+      return res.status(400).json({
+        error: 'Bad Request',
+        message: 'Tenant ID required',
+      });
+    }
+
+    const { id } = req.params;
+    const { appointment_date, appointment_time, status } = req.body;
+
+    const updateData = { updated_at: new Date().toISOString() };
+    if (appointment_date) updateData.appointment_date = appointment_date;
+    if (appointment_time) updateData.appointment_time = appointment_time;
+    if (status) updateData.status = status;
+
+    const { data, error } = await supabaseAdmin
+      .from('beauty_appointments')
+      .update(updateData)
+      .eq('id', id)
+      .eq('tenant_id', req.tenantId)
+      .select()
+      .single();
+
+    if (error) throw error;
+    res.json(data);
+  } catch (error) {
+    console.error('[API] Beauty appointment update error:', error);
     res.status(500).json({ error: error.message });
   }
 });
