@@ -21,6 +21,9 @@ import { Customers } from './pages/tenant/Customers';
 import { Services } from './pages/tenant/Services';
 import { CallLogs } from './pages/tenant/CallLogs';
 import { Settings } from './pages/tenant/Settings';
+import { SlotManager } from './pages/tenant/SlotManager';
+import { Vehicles } from './pages/tenant/Vehicles';
+import { Promotions } from './pages/tenant/Promotions';
 
 // Admin Pages
 import { AdminDashboard } from './pages/admin/AdminDashboard';
@@ -107,6 +110,36 @@ function App() {
                 <ProtectedRoute>
                   <Layout>
                     <Settings />
+                  </Layout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/slot-manager"
+              element={
+                <ProtectedRoute>
+                  <Layout>
+                    <SlotManager />
+                  </Layout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/vehicles"
+              element={
+                <ProtectedRoute>
+                  <Layout>
+                    <Vehicles />
+                  </Layout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/promotions"
+              element={
+                <ProtectedRoute>
+                  <Layout>
+                    <Promotions />
                   </Layout>
                 </ProtectedRoute>
               }

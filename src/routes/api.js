@@ -551,6 +551,561 @@ router.delete('/tenant/voice-config', authenticate(), resolveTenant(), requireTe
 });
 
 // ==========================================
+// TENANT SLOT MANAGEMENT ROUTES
+// ==========================================
+
+/**
+ * Get slots for a specific date (tenant)
+ * GET /api/tenant/slots?date=YYYY-MM-DD
+ */
+router.get('/tenant/slots', authenticate(), resolveTenant(), requireTenantAccess, async (req, res) => {
+  try {
+    const { date } = req.query;
+    const tenantId = req.tenantId;
+
+    if (!date) {
+      return res.status(400).json({
+        error: 'Bad Request',
+        message: 'Date parameter is required (YYYY-MM-DD)',
+      });
+    }
+
+    const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+    if (!dateRegex.test(date)) {
+      return res.status(400).json({
+        error: 'Bad Request',
+        message: 'Invalid date format. Use YYYY-MM-DD',
+      });
+    }
+
+    const tenant = await tenantService.getTenantById(tenantId);
+    if (!tenant) {
+      return res.status(404).json({ error: 'Not Found', message: 'Tenant not found' });
+    }
+
+    // Try to get existing slots
+    const { data, error } = await supabaseAdmin
+      .from('appointment_slots')
+      .select('*')
+      .eq('tenant_id', tenantId)
+      .eq('slot_date', date)
+      .order('slot_time', { ascending: true });
+
+    if (!error && data && data.length > 0) {
+      return res.json(data);
+    }
+
+    // Generate default slots based on working hours
+    const dayOfWeek = new Date(date).toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
+    const workingHours = tenant.working_hours || {};
+    const defaultWH = {
+      monday: { open: '09:00', close: '18:00', closed: false },
+      tuesday: { open: '09:00', close: '18:00', closed: false },
+      wednesday: { open: '09:00', close: '18:00', closed: false },
+      thursday: { open: '09:00', close: '18:00', closed: false },
+      friday: { open: '09:00', close: '18:00', closed: false },
+      saturday: { open: '10:00', close: '16:00', closed: false },
+      sunday: { open: '00:00', close: '00:00', closed: true },
+    };
+
+    const effectiveHours = workingHours[dayOfWeek] || defaultWH[dayOfWeek];
+    if (effectiveHours && effectiveHours.closed) {
+      return res.json([]);
+    }
+
+    const openTime = effectiveHours?.open || '09:00';
+    const closeTime = effectiveHours?.close || '18:00';
+    const [openHour] = openTime.split(':').map(Number);
+    const [closeHour] = closeTime.split(':').map(Number);
+
+    const defaultSlots = [];
+    for (let hour = openHour; hour < closeHour; hour++) {
+      const slotTime = `${hour.toString().padStart(2, '0')}:00`;
+      defaultSlots.push({
+        id: `default-${date}-${slotTime}`,
+        tenant_id: tenantId,
+        slot_date: date,
+        slot_time: slotTime,
+        is_available: true,
+        is_default: true,
+      });
+    }
+
+    res.json(defaultSlots);
+  } catch (error) {
+    console.error('[API] Tenant get slots error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * Get slot summary for a month (tenant)
+ * GET /api/tenant/slots/summary?month=YYYY-MM
+ */
+router.get('/tenant/slots/summary', authenticate(), resolveTenant(), requireTenantAccess, async (req, res) => {
+  try {
+    const tenantId = req.tenantId;
+    const { month } = req.query;
+
+    if (!month || !/^\d{4}-\d{2}$/.test(month)) {
+      return res.status(400).json({ error: 'Bad Request', message: 'Month parameter is required (YYYY-MM)' });
+    }
+
+    const [year, monthNum] = month.split('-').map(Number);
+    const startDate = `${month}-01`;
+    const lastDay = new Date(year, monthNum, 0).getDate();
+    const endDate = `${month}-${String(lastDay).padStart(2, '0')}`;
+
+    const { data: slots, error } = await supabaseAdmin
+      .from('appointment_slots')
+      .select('slot_date, is_available')
+      .eq('tenant_id', tenantId)
+      .gte('slot_date', startDate)
+      .lte('slot_date', endDate);
+
+    if (error) {
+      if (error.code === '42P01') return res.json({});
+      throw error;
+    }
+
+    const summary = {};
+    for (const slot of (slots || [])) {
+      const date = slot.slot_date;
+      if (!summary[date]) {
+        summary[date] = { hasSlots: true, availableCount: 0, totalCount: 0 };
+      }
+      summary[date].totalCount++;
+      if (slot.is_available) summary[date].availableCount++;
+    }
+
+    res.json(summary);
+  } catch (error) {
+    console.error('[API] Tenant slot summary error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * Bulk create/update slots (tenant)
+ * POST /api/tenant/slots
+ */
+router.post('/tenant/slots', authenticate(), resolveTenant(), requireTenantAccess, requireTenantAdmin, async (req, res) => {
+  try {
+    const tenantId = req.tenantId;
+    const { slots } = req.body;
+
+    if (!Array.isArray(slots) || slots.length === 0) {
+      return res.status(400).json({ error: 'Bad Request', message: 'slots must be a non-empty array' });
+    }
+
+    const slotDate = slots[0].slot_date;
+
+    // Delete existing slots for this date
+    await supabaseAdmin
+      .from('appointment_slots')
+      .delete()
+      .eq('tenant_id', tenantId)
+      .eq('slot_date', slotDate);
+
+    const slotsToInsert = slots.map(slot => ({
+      tenant_id: tenantId,
+      slot_date: slot.slot_date,
+      slot_time: slot.slot_time,
+      is_available: slot.is_available,
+    }));
+
+    const { data, error } = await supabaseAdmin
+      .from('appointment_slots')
+      .insert(slotsToInsert)
+      .select();
+
+    if (error) throw error;
+
+    res.json({ success: true, message: `${data.length} slots saved`, slots: data });
+  } catch (error) {
+    console.error('[API] Tenant bulk slots error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * Update a single slot (tenant)
+ * PUT /api/tenant/slots/:slotId
+ */
+router.put('/tenant/slots/:slotId', authenticate(), resolveTenant(), requireTenantAccess, requireTenantAdmin, async (req, res) => {
+  try {
+    const { slotId } = req.params;
+    const { is_available } = req.body;
+
+    if (typeof is_available !== 'boolean') {
+      return res.status(400).json({ error: 'Bad Request', message: 'is_available must be a boolean' });
+    }
+
+    const { data, error } = await supabaseAdmin
+      .from('appointment_slots')
+      .update({ is_available, updated_at: new Date().toISOString() })
+      .eq('id', slotId)
+      .eq('tenant_id', req.tenantId)
+      .select()
+      .single();
+
+    if (error) throw error;
+    res.json(data);
+  } catch (error) {
+    console.error('[API] Tenant update slot error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * Delete a slot (tenant)
+ * DELETE /api/tenant/slots/:slotId
+ */
+router.delete('/tenant/slots/:slotId', authenticate(), resolveTenant(), requireTenantAccess, requireTenantAdmin, async (req, res) => {
+  try {
+    const { error } = await supabaseAdmin
+      .from('appointment_slots')
+      .delete()
+      .eq('id', req.params.slotId)
+      .eq('tenant_id', req.tenantId);
+
+    if (error) throw error;
+    res.json({ success: true });
+  } catch (error) {
+    console.error('[API] Tenant delete slot error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * Generate slots for a date range (tenant)
+ * POST /api/tenant/slots/generate
+ */
+router.post('/tenant/slots/generate', authenticate(), resolveTenant(), requireTenantAccess, requireTenantAdmin, async (req, res) => {
+  try {
+    const tenantId = req.tenantId;
+    const { days = 7 } = req.body;
+    const numDays = Math.min(Math.max(1, parseInt(days) || 7), 60);
+
+    const tenant = await tenantService.getTenantById(tenantId);
+    if (!tenant) {
+      return res.status(404).json({ error: 'Tenant not found' });
+    }
+
+    const workingHours = tenant.working_hours || {};
+    const defaultWH = {
+      monday: { open: '09:00', close: '18:00', closed: false },
+      tuesday: { open: '09:00', close: '18:00', closed: false },
+      wednesday: { open: '09:00', close: '18:00', closed: false },
+      thursday: { open: '09:00', close: '18:00', closed: false },
+      friday: { open: '09:00', close: '18:00', closed: false },
+      saturday: { open: '10:00', close: '16:00', closed: false },
+      sunday: { open: '00:00', close: '00:00', closed: true },
+    };
+
+    const allSlots = [];
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    for (let i = 0; i < numDays; i++) {
+      const date = new Date(today);
+      date.setDate(date.getDate() + i);
+      const dateStr = date.toISOString().split('T')[0];
+      const dayOfWeek = date.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
+      const dayHours = workingHours[dayOfWeek] || defaultWH[dayOfWeek];
+
+      if (dayHours?.closed) continue;
+
+      const openTime = dayHours?.open || '09:00';
+      const closeTime = dayHours?.close || '18:00';
+      const [openHour] = openTime.split(':').map(Number);
+      const [closeHour] = closeTime.split(':').map(Number);
+
+      for (let hour = openHour; hour < closeHour; hour++) {
+        allSlots.push({
+          tenant_id: tenantId,
+          slot_date: dateStr,
+          slot_time: `${hour.toString().padStart(2, '0')}:00`,
+          is_available: true,
+        });
+      }
+    }
+
+    if (allSlots.length === 0) {
+      return res.json({ success: true, message: 'No slots to generate (all days closed)', count: 0 });
+    }
+
+    const dates = [...new Set(allSlots.map(s => s.slot_date))];
+    for (const dateStr of dates) {
+      await supabaseAdmin.from('appointment_slots').delete().eq('tenant_id', tenantId).eq('slot_date', dateStr);
+    }
+
+    const batchSize = 100;
+    let inserted = 0;
+    for (let i = 0; i < allSlots.length; i += batchSize) {
+      const batch = allSlots.slice(i, i + batchSize);
+      const { data, error } = await supabaseAdmin.from('appointment_slots').insert(batch).select();
+      if (error) throw error;
+      inserted += data.length;
+    }
+
+    res.json({ success: true, message: `${inserted} slots generated for ${dates.length} days`, count: inserted, days: dates.length });
+  } catch (error) {
+    console.error('[API] Tenant generate slots error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * Update working hours (tenant)
+ * PUT /api/tenant/working-hours
+ */
+router.put('/tenant/working-hours', authenticate(), resolveTenant(), requireTenantAccess, requireTenantAdmin, async (req, res) => {
+  try {
+    const { working_hours } = req.body;
+    if (!working_hours || typeof working_hours !== 'object') {
+      return res.status(400).json({ error: 'Bad Request', message: 'working_hours object is required' });
+    }
+
+    const tenant = await tenantService.updateTenant(req.tenantId, { working_hours });
+    res.json(tenant);
+  } catch (error) {
+    console.error('[API] Update working hours error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ==========================================
+// TENANT CAMPAIGNS & PROMOTIONS ROUTES
+// ==========================================
+
+/**
+ * List campaigns (tenant)
+ * GET /api/tenant/campaigns
+ */
+router.get('/tenant/campaigns', authenticate(), resolveTenant(), requireTenantAccess, async (req, res) => {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('campaigns')
+      .select('*')
+      .eq('tenant_id', req.tenantId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    // Map DB fields to frontend fields
+    const mapped = (data || []).map(c => ({
+      ...c,
+      start_date: c.valid_from,
+      end_date: c.valid_until,
+    }));
+
+    res.json({ data: mapped });
+  } catch (error) {
+    console.error('[API] Get campaigns error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * Create campaign (tenant)
+ * POST /api/tenant/campaigns
+ */
+router.post('/tenant/campaigns', authenticate(), resolveTenant(), requireTenantAccess, requireTenantAdmin, async (req, res) => {
+  try {
+    const { name, description, discount_type, discount_value, start_date, end_date, is_active } = req.body;
+
+    if (!name) {
+      return res.status(400).json({ error: 'Bad Request', message: 'Campaign name is required' });
+    }
+
+    const { data, error } = await supabaseAdmin
+      .from('campaigns')
+      .insert({
+        tenant_id: req.tenantId,
+        name,
+        description: description || null,
+        discount_type: discount_type || 'percentage',
+        discount_value: discount_value ? parseFloat(discount_value) : null,
+        valid_from: start_date || null,
+        valid_until: end_date || null,
+        is_active: is_active !== false,
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    res.status(201).json({ ...data, start_date: data.valid_from, end_date: data.valid_until });
+  } catch (error) {
+    console.error('[API] Create campaign error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * Update campaign (tenant)
+ * PUT /api/tenant/campaigns/:id
+ */
+router.put('/tenant/campaigns/:id', authenticate(), resolveTenant(), requireTenantAccess, requireTenantAdmin, async (req, res) => {
+  try {
+    const { name, description, discount_type, discount_value, start_date, end_date, is_active } = req.body;
+
+    const updates = {};
+    if (name !== undefined) updates.name = name;
+    if (description !== undefined) updates.description = description;
+    if (discount_type !== undefined) updates.discount_type = discount_type;
+    if (discount_value !== undefined) updates.discount_value = parseFloat(discount_value);
+    if (start_date !== undefined) updates.valid_from = start_date || null;
+    if (end_date !== undefined) updates.valid_until = end_date || null;
+    if (is_active !== undefined) updates.is_active = is_active;
+    updates.updated_at = new Date().toISOString();
+
+    const { data, error } = await supabaseAdmin
+      .from('campaigns')
+      .update(updates)
+      .eq('id', req.params.id)
+      .eq('tenant_id', req.tenantId)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    res.json({ ...data, start_date: data.valid_from, end_date: data.valid_until });
+  } catch (error) {
+    console.error('[API] Update campaign error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * Delete campaign (tenant)
+ * DELETE /api/tenant/campaigns/:id
+ */
+router.delete('/tenant/campaigns/:id', authenticate(), resolveTenant(), requireTenantAccess, requireTenantAdmin, async (req, res) => {
+  try {
+    const { error } = await supabaseAdmin
+      .from('campaigns')
+      .delete()
+      .eq('id', req.params.id)
+      .eq('tenant_id', req.tenantId);
+
+    if (error) throw error;
+    res.json({ success: true });
+  } catch (error) {
+    console.error('[API] Delete campaign error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * List promotion codes (tenant)
+ * GET /api/tenant/promotion-codes
+ */
+router.get('/tenant/promotion-codes', authenticate(), resolveTenant(), requireTenantAccess, async (req, res) => {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('promotion_codes')
+      .select('*')
+      .eq('tenant_id', req.tenantId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    res.json({ data: data || [] });
+  } catch (error) {
+    console.error('[API] Get promotion codes error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * Create promotion code (tenant)
+ * POST /api/tenant/promotion-codes
+ */
+router.post('/tenant/promotion-codes', authenticate(), resolveTenant(), requireTenantAccess, requireTenantAdmin, async (req, res) => {
+  try {
+    const { code, discount_type, discount_value, max_uses, expires_at, is_active } = req.body;
+
+    if (!code) {
+      return res.status(400).json({ error: 'Bad Request', message: 'Promotion code is required' });
+    }
+
+    const { data, error } = await supabaseAdmin
+      .from('promotion_codes')
+      .insert({
+        tenant_id: req.tenantId,
+        code: code.toUpperCase(),
+        discount_type: discount_type || 'percentage',
+        discount_value: discount_value ? parseFloat(discount_value) : null,
+        max_uses: max_uses ? parseInt(max_uses) : null,
+        expires_at: expires_at || null,
+        is_active: is_active !== false,
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+    res.status(201).json(data);
+  } catch (error) {
+    console.error('[API] Create promotion code error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * Update promotion code (tenant)
+ * PUT /api/tenant/promotion-codes/:id
+ */
+router.put('/tenant/promotion-codes/:id', authenticate(), resolveTenant(), requireTenantAccess, requireTenantAdmin, async (req, res) => {
+  try {
+    const { code, discount_type, discount_value, max_uses, expires_at, is_active } = req.body;
+
+    const updates = {};
+    if (code !== undefined) updates.code = code.toUpperCase();
+    if (discount_type !== undefined) updates.discount_type = discount_type;
+    if (discount_value !== undefined) updates.discount_value = parseFloat(discount_value);
+    if (max_uses !== undefined) updates.max_uses = max_uses ? parseInt(max_uses) : null;
+    if (expires_at !== undefined) updates.expires_at = expires_at || null;
+    if (is_active !== undefined) updates.is_active = is_active;
+    updates.updated_at = new Date().toISOString();
+
+    const { data, error } = await supabaseAdmin
+      .from('promotion_codes')
+      .update(updates)
+      .eq('id', req.params.id)
+      .eq('tenant_id', req.tenantId)
+      .select()
+      .single();
+
+    if (error) throw error;
+    res.json(data);
+  } catch (error) {
+    console.error('[API] Update promotion code error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * Delete promotion code (tenant)
+ * DELETE /api/tenant/promotion-codes/:id
+ */
+router.delete('/tenant/promotion-codes/:id', authenticate(), resolveTenant(), requireTenantAccess, requireTenantAdmin, async (req, res) => {
+  try {
+    const { error } = await supabaseAdmin
+      .from('promotion_codes')
+      .delete()
+      .eq('id', req.params.id)
+      .eq('tenant_id', req.tenantId);
+
+    if (error) throw error;
+    res.json({ success: true });
+  } catch (error) {
+    console.error('[API] Delete promotion code error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ==========================================
 // SUPER ADMIN ROUTES
 // ==========================================
 
@@ -614,6 +1169,7 @@ router.post('/admin/tenants', authenticate(), requireSuperAdmin, async (req, res
  */
 router.put('/admin/tenants/:id', authenticate(), requireSuperAdmin, async (req, res) => {
   try {
+    console.log(`[API] Update tenant ${req.params.id}:`, Object.keys(req.body));
     const tenant = await tenantService.updateTenant(req.params.id, req.body);
     res.json(tenant);
   } catch (error) {
@@ -1688,6 +2244,233 @@ router.post('/admin/tenants/:id/slots/generate', authenticate(), requireSuperAdm
     });
   } catch (error) {
     console.error('[API] Generate slots error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ==========================================
+// ADMIN CAMPAIGNS & PROMOTIONS ROUTES
+// ==========================================
+
+/**
+ * List campaigns for a tenant (admin)
+ * GET /api/admin/tenants/:id/campaigns
+ */
+router.get('/admin/tenants/:id/campaigns', authenticate(), requireSuperAdmin, async (req, res) => {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('campaigns')
+      .select('*')
+      .eq('tenant_id', req.params.id)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    const mapped = (data || []).map(c => ({
+      ...c,
+      start_date: c.valid_from,
+      end_date: c.valid_until,
+    }));
+
+    res.json({ data: mapped });
+  } catch (error) {
+    console.error('[API] Admin get campaigns error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * Create campaign for a tenant (admin)
+ * POST /api/admin/tenants/:id/campaigns
+ */
+router.post('/admin/tenants/:id/campaigns', authenticate(), requireSuperAdmin, async (req, res) => {
+  try {
+    const { name, description, discount_type, discount_value, start_date, end_date, is_active } = req.body;
+
+    if (!name) {
+      return res.status(400).json({ error: 'Bad Request', message: 'Campaign name is required' });
+    }
+
+    const { data, error } = await supabaseAdmin
+      .from('campaigns')
+      .insert({
+        tenant_id: req.params.id,
+        name,
+        description: description || null,
+        discount_type: discount_type || 'percentage',
+        discount_value: discount_value ? parseFloat(discount_value) : null,
+        valid_from: start_date || null,
+        valid_until: end_date || null,
+        is_active: is_active !== false,
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+    res.status(201).json({ ...data, start_date: data.valid_from, end_date: data.valid_until });
+  } catch (error) {
+    console.error('[API] Admin create campaign error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * Update campaign for a tenant (admin)
+ * PUT /api/admin/tenants/:id/campaigns/:campaignId
+ */
+router.put('/admin/tenants/:id/campaigns/:campaignId', authenticate(), requireSuperAdmin, async (req, res) => {
+  try {
+    const { name, description, discount_type, discount_value, start_date, end_date, is_active } = req.body;
+
+    const updates = {};
+    if (name !== undefined) updates.name = name;
+    if (description !== undefined) updates.description = description;
+    if (discount_type !== undefined) updates.discount_type = discount_type;
+    if (discount_value !== undefined) updates.discount_value = parseFloat(discount_value);
+    if (start_date !== undefined) updates.valid_from = start_date || null;
+    if (end_date !== undefined) updates.valid_until = end_date || null;
+    if (is_active !== undefined) updates.is_active = is_active;
+    updates.updated_at = new Date().toISOString();
+
+    const { data, error } = await supabaseAdmin
+      .from('campaigns')
+      .update(updates)
+      .eq('id', req.params.campaignId)
+      .eq('tenant_id', req.params.id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    res.json({ ...data, start_date: data.valid_from, end_date: data.valid_until });
+  } catch (error) {
+    console.error('[API] Admin update campaign error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * Delete campaign for a tenant (admin)
+ * DELETE /api/admin/tenants/:id/campaigns/:campaignId
+ */
+router.delete('/admin/tenants/:id/campaigns/:campaignId', authenticate(), requireSuperAdmin, async (req, res) => {
+  try {
+    const { error } = await supabaseAdmin
+      .from('campaigns')
+      .delete()
+      .eq('id', req.params.campaignId)
+      .eq('tenant_id', req.params.id);
+
+    if (error) throw error;
+    res.json({ success: true });
+  } catch (error) {
+    console.error('[API] Admin delete campaign error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * List promotion codes for a tenant (admin)
+ * GET /api/admin/tenants/:id/promotion-codes
+ */
+router.get('/admin/tenants/:id/promotion-codes', authenticate(), requireSuperAdmin, async (req, res) => {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('promotion_codes')
+      .select('*')
+      .eq('tenant_id', req.params.id)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    res.json({ data: data || [] });
+  } catch (error) {
+    console.error('[API] Admin get promotion codes error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * Create promotion code for a tenant (admin)
+ * POST /api/admin/tenants/:id/promotion-codes
+ */
+router.post('/admin/tenants/:id/promotion-codes', authenticate(), requireSuperAdmin, async (req, res) => {
+  try {
+    const { code, discount_type, discount_value, max_uses, expires_at, is_active } = req.body;
+
+    if (!code) {
+      return res.status(400).json({ error: 'Bad Request', message: 'Promotion code is required' });
+    }
+
+    const { data, error } = await supabaseAdmin
+      .from('promotion_codes')
+      .insert({
+        tenant_id: req.params.id,
+        code: code.toUpperCase(),
+        discount_type: discount_type || 'percentage',
+        discount_value: discount_value ? parseFloat(discount_value) : null,
+        max_uses: max_uses ? parseInt(max_uses) : null,
+        expires_at: expires_at || null,
+        is_active: is_active !== false,
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+    res.status(201).json(data);
+  } catch (error) {
+    console.error('[API] Admin create promotion code error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * Update promotion code for a tenant (admin)
+ * PUT /api/admin/tenants/:id/promotion-codes/:codeId
+ */
+router.put('/admin/tenants/:id/promotion-codes/:codeId', authenticate(), requireSuperAdmin, async (req, res) => {
+  try {
+    const { code, discount_type, discount_value, max_uses, expires_at, is_active } = req.body;
+
+    const updates = {};
+    if (code !== undefined) updates.code = code.toUpperCase();
+    if (discount_type !== undefined) updates.discount_type = discount_type;
+    if (discount_value !== undefined) updates.discount_value = parseFloat(discount_value);
+    if (max_uses !== undefined) updates.max_uses = max_uses ? parseInt(max_uses) : null;
+    if (expires_at !== undefined) updates.expires_at = expires_at || null;
+    if (is_active !== undefined) updates.is_active = is_active;
+    updates.updated_at = new Date().toISOString();
+
+    const { data, error } = await supabaseAdmin
+      .from('promotion_codes')
+      .update(updates)
+      .eq('id', req.params.codeId)
+      .eq('tenant_id', req.params.id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    res.json(data);
+  } catch (error) {
+    console.error('[API] Admin update promotion code error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * Delete promotion code for a tenant (admin)
+ * DELETE /api/admin/tenants/:id/promotion-codes/:codeId
+ */
+router.delete('/admin/tenants/:id/promotion-codes/:codeId', authenticate(), requireSuperAdmin, async (req, res) => {
+  try {
+    const { error } = await supabaseAdmin
+      .from('promotion_codes')
+      .delete()
+      .eq('id', req.params.codeId)
+      .eq('tenant_id', req.params.id);
+
+    if (error) throw error;
+    res.json({ success: true });
+  } catch (error) {
+    console.error('[API] Admin delete promotion code error:', error);
     res.status(500).json({ error: error.message });
   }
 });

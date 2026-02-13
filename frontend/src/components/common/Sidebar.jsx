@@ -9,6 +9,9 @@ import {
   Shield,
   Building2,
   Palette,
+  CalendarClock,
+  Car,
+  Tag,
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { useTenant } from '../../hooks/useTenant';
@@ -42,19 +45,22 @@ export const Sidebar = () => {
       { path: '/customers', icon: Users, label: t('navigation.customers') },
     ];
 
-    // Sektore gore ozel menuler
-    // Voice settings ve Services artik admin panelinden yonetiliyor
+    // Management items - available for all industries
+    const managementItems = [
+      { path: '/slot-manager', icon: CalendarClock, label: t('navigation.slotManager') },
+    ];
+
+    // Automotive-only: vehicle catalog
     if (industry === 'automotive') {
-      return [
-        ...baseItems,
-        { path: '/call-logs', icon: Phone, label: t('navigation.callLogs') },
-        { path: '/settings', icon: Settings, label: t('navigation.settings') },
-      ];
+      managementItems.push({ path: '/vehicles', icon: Car, label: t('navigation.vehicleCatalog') });
     }
 
-    // Default ve Beauty: Services kaldırıldı
+    // Campaigns - available for all industries
+    managementItems.push({ path: '/promotions', icon: Tag, label: t('navigation.promotions') });
+
     return [
       ...baseItems,
+      ...managementItems,
       { path: '/call-logs', icon: Phone, label: t('navigation.callLogs') },
       { path: '/settings', icon: Settings, label: t('navigation.settings') },
     ];

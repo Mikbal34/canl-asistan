@@ -18,22 +18,7 @@ import { Button } from '../common/Button';
 import { Input } from '../common/Input';
 import { Badge } from '../common/Badge';
 import { Modal, ModalFooter } from '../common/Modal';
-import api from '../../services/api';
-
-// Promotions API helper (tenant-scoped)
-const promotionsAPI = {
-  // Campaigns
-  getCampaigns: () => api.get('/api/campaigns'),
-  createCampaign: (data) => api.post('/api/campaigns', data),
-  updateCampaign: (id, data) => api.put(`/api/campaigns/${id}`, data),
-  deleteCampaign: (id) => api.delete(`/api/campaigns/${id}`),
-
-  // Promotion Codes
-  getPromoCodes: () => api.get('/api/promotion-codes'),
-  createPromoCode: (data) => api.post('/api/promotion-codes', data),
-  updatePromoCode: (id, data) => api.put(`/api/promotion-codes/${id}`, data),
-  deletePromoCode: (id) => api.delete(`/api/promotion-codes/${id}`),
-};
+import { promotionsAPI, adminPromotionsAPI } from '../../services/api';
 
 // Discount types
 const discountTypes = [
@@ -45,7 +30,30 @@ const discountTypes = [
  * PromotionsEditor - Inline editor for tenant campaigns and promo codes
  * Used in Use Cases tab when promotions use case is selected
  */
-export const PromotionsEditor = ({ tenantId, onUpdate }) => {
+export const PromotionsEditor = ({ tenantId, onUpdate, mode = 'admin' }) => {
+  const isAdmin = mode === 'admin';
+  const showCollapsible = isAdmin;
+
+  // API selection based on mode
+  const api = isAdmin ? {
+    getCampaigns: () => adminPromotionsAPI.getCampaigns(tenantId),
+    createCampaign: (data) => adminPromotionsAPI.createCampaign(tenantId, data),
+    updateCampaign: (id, data) => adminPromotionsAPI.updateCampaign(tenantId, id, data),
+    deleteCampaign: (id) => adminPromotionsAPI.deleteCampaign(tenantId, id),
+    getPromoCodes: () => adminPromotionsAPI.getPromoCodes(tenantId),
+    createPromoCode: (data) => adminPromotionsAPI.createPromoCode(tenantId, data),
+    updatePromoCode: (id, data) => adminPromotionsAPI.updatePromoCode(tenantId, id, data),
+    deletePromoCode: (id) => adminPromotionsAPI.deletePromoCode(tenantId, id),
+  } : {
+    getCampaigns: () => promotionsAPI.getCampaigns(),
+    createCampaign: (data) => promotionsAPI.createCampaign(data),
+    updateCampaign: (id, data) => promotionsAPI.updateCampaign(id, data),
+    deleteCampaign: (id) => promotionsAPI.deleteCampaign(id),
+    getPromoCodes: () => promotionsAPI.getPromoCodes(),
+    createPromoCode: (data) => promotionsAPI.createPromoCode(data),
+    updatePromoCode: (id, data) => promotionsAPI.updatePromoCode(id, data),
+    deletePromoCode: (id) => promotionsAPI.deletePromoCode(id),
+  };
   const [isExpanded, setIsExpanded] = useState(true);
   const [activeSection, setActiveSection] = useState('campaigns'); // 'campaigns' | 'codes'
 
@@ -101,7 +109,7 @@ export const PromotionsEditor = ({ tenantId, onUpdate }) => {
     try {
       setCampaignsLoading(true);
       setCampaignsError(null);
-      const response = await promotionsAPI.getCampaigns();
+      const response = await api.getCampaigns();
       setCampaigns(response.data.data || response.data || []);
     } catch (err) {
       console.error('Failed to fetch campaigns:', err);
@@ -119,7 +127,7 @@ export const PromotionsEditor = ({ tenantId, onUpdate }) => {
     try {
       setPromoCodesLoading(true);
       setPromoCodesError(null);
-      const response = await promotionsAPI.getPromoCodes();
+      const response = await api.getPromoCodes();
       setPromoCodes(response.data.data || response.data || []);
     } catch (err) {
       console.error('Failed to fetch promo codes:', err);
@@ -166,9 +174,9 @@ export const PromotionsEditor = ({ tenantId, onUpdate }) => {
     try {
       setSavingCampaign(true);
       if (editingCampaign) {
-        await promotionsAPI.updateCampaign(editingCampaign.id, campaignForm);
+        await api.updateCampaign(editingCampaign.id, campaignForm);
       } else {
-        await promotionsAPI.createCampaign(campaignForm);
+        await api.createCampaign(campaignForm);
       }
       await fetchCampaigns();
       resetCampaignForm();
@@ -211,9 +219,9 @@ export const PromotionsEditor = ({ tenantId, onUpdate }) => {
     try {
       setSavingPromo(true);
       if (editingPromo) {
-        await promotionsAPI.updatePromoCode(editingPromo.id, promoForm);
+        await api.updatePromoCode(editingPromo.id, promoForm);
       } else {
-        await promotionsAPI.createPromoCode(promoForm);
+        await api.createPromoCode(promoForm);
       }
       await fetchPromoCodes();
       resetPromoForm();
@@ -231,10 +239,10 @@ export const PromotionsEditor = ({ tenantId, onUpdate }) => {
     try {
       setDeleting(true);
       if (deleteType === 'campaign') {
-        await promotionsAPI.deleteCampaign(itemToDelete.id);
+        await api.deleteCampaign(itemToDelete.id);
         await fetchCampaigns();
       } else {
-        await promotionsAPI.deletePromoCode(itemToDelete.id);
+        await api.deletePromoCode(itemToDelete.id);
         await fetchPromoCodes();
       }
       setDeleteModal(false);
@@ -259,33 +267,35 @@ export const PromotionsEditor = ({ tenantId, onUpdate }) => {
   };
 
   return (
-    <div className="border border-slate-200 rounded-lg overflow-hidden">
-      {/* Header */}
-      <button
-        onClick={() => setIsExpanded(!isExpanded)}
-        className="w-full flex items-center justify-between p-4 bg-slate-50 hover:bg-slate-100 transition-colors"
-      >
-        <div className="flex items-center gap-3">
-          <Tag className="w-5 h-5 text-amber-600" />
-          <div className="text-left">
-            <h4 className="font-medium text-slate-900">Kampanya & Promosyon Yönetimi</h4>
-            <p className="text-sm text-slate-500">promotions use case için gerekli</p>
+    <div className={showCollapsible ? "border border-slate-200 rounded-lg overflow-hidden" : ""}>
+      {/* Header - only in admin mode */}
+      {showCollapsible && (
+        <button
+          onClick={() => setIsExpanded(!isExpanded)}
+          className="w-full flex items-center justify-between p-4 bg-slate-50 hover:bg-slate-100 transition-colors"
+        >
+          <div className="flex items-center gap-3">
+            <Tag className="w-5 h-5 text-amber-600" />
+            <div className="text-left">
+              <h4 className="font-medium text-slate-900">Kampanya & Promosyon Yönetimi</h4>
+              <p className="text-sm text-slate-500">promotions use case için gerekli</p>
+            </div>
           </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <Badge variant="info">{campaigns.length} kampanya</Badge>
-          <Badge variant="warning">{promoCodes.length} kod</Badge>
-          {isExpanded ? (
-            <ChevronUp className="w-5 h-5 text-slate-400" />
-          ) : (
-            <ChevronDown className="w-5 h-5 text-slate-400" />
-          )}
-        </div>
-      </button>
+          <div className="flex items-center gap-2">
+            <Badge variant="info">{campaigns.length} kampanya</Badge>
+            <Badge variant="warning">{promoCodes.length} kod</Badge>
+            {isExpanded ? (
+              <ChevronUp className="w-5 h-5 text-slate-400" />
+            ) : (
+              <ChevronDown className="w-5 h-5 text-slate-400" />
+            )}
+          </div>
+        </button>
+      )}
 
       {/* Content */}
-      {isExpanded && (
-        <div className="p-4">
+      {(showCollapsible ? isExpanded : true) && (
+        <div className={showCollapsible ? "p-4" : ""}>
           {/* Section Tabs */}
           <div className="flex gap-2 mb-4 border-b border-slate-200 pb-3">
             <button

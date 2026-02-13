@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Calendar, ChevronLeft, ChevronRight, Save, Loader2, ChevronDown, ChevronUp, Check, X, Clock, Settings, Plus } from 'lucide-react';
 import { Button } from '../common/Button';
 import { Badge } from '../common/Badge';
-import { slotAPI, adminAPI } from '../../services/api';
+import { slotAPI, adminAPI, tenantSlotAPI } from '../../services/api';
 
 // Turkish month names
 const monthNames = [
@@ -37,7 +37,23 @@ const defaultWorkingHours = {
 /**
  * SlotManagerEditor - All-in-one calendar for working hours and slot management
  */
-export const SlotManagerEditor = ({ tenantId, tenant, onTenantUpdate }) => {
+export const SlotManagerEditor = ({ tenantId, tenant, onTenantUpdate, mode = 'admin' }) => {
+  // API selection based on mode
+  const isAdmin = mode === 'admin';
+  const slotsApi = isAdmin ? {
+    getSlots: (date) => slotAPI.getSlots(tenantId, date),
+    getSummary: (month) => slotAPI.getSummary(tenantId, month),
+    bulkUpdate: (slots) => slotAPI.bulkUpdate(tenantId, slots),
+    generateSlots: (days) => slotAPI.generateSlots(tenantId, days),
+  } : {
+    getSlots: (date) => tenantSlotAPI.getSlots(date),
+    getSummary: (month) => tenantSlotAPI.getSummary(month),
+    bulkUpdate: (slots) => tenantSlotAPI.bulkUpdate(slots),
+    generateSlots: (days) => tenantSlotAPI.generateSlots(days),
+  };
+  const saveWorkingHoursApi = isAdmin
+    ? (hours) => adminAPI.updateTenant(tenantId, { working_hours: hours })
+    : (hours) => tenantSlotAPI.updateWorkingHours(hours);
   const [isExpanded, setIsExpanded] = useState(true);
   const [activeView, setActiveView] = useState('calendar'); // 'calendar' | 'settings'
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -78,7 +94,7 @@ export const SlotManagerEditor = ({ tenantId, tenant, onTenantUpdate }) => {
       try {
         setSummaryLoading(true);
         const monthStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}`;
-        const response = await slotAPI.getSummary(tenantId, monthStr);
+        const response = await slotsApi.getSummary(monthStr);
         setSlotSummary(response.data || {});
       } catch (error) {
         console.error('Failed to fetch slot summary:', error);
@@ -169,7 +185,7 @@ export const SlotManagerEditor = ({ tenantId, tenant, onTenantUpdate }) => {
 
     try {
       setLoading(true);
-      const response = await slotAPI.getSlots(tenantId, formatDateISO(date));
+      const response = await slotsApi.getSlots(formatDateISO(date));
       const fetchedSlots = response.data || [];
       setSlots(fetchedSlots);
       // Check if slots are default (not yet saved to DB)
@@ -196,10 +212,10 @@ export const SlotManagerEditor = ({ tenantId, tenant, onTenantUpdate }) => {
         is_available: slot.is_available,
       }));
 
-      await slotAPI.bulkUpdate(tenantId, slotsToSave);
+      await slotsApi.bulkUpdate(slotsToSave);
 
       // Refresh slots from database
-      const response = await slotAPI.getSlots(tenantId, formatDateISO(selectedDate));
+      const response = await slotsApi.getSlots(formatDateISO(selectedDate));
       setSlots(response.data || []);
       setSlotsAreDefault(false);
       setHasChanges(false);
@@ -237,10 +253,10 @@ export const SlotManagerEditor = ({ tenantId, tenant, onTenantUpdate }) => {
         is_available: slot.is_available,
       }));
 
-      await slotAPI.bulkUpdate(tenantId, slotsToSave);
+      await slotsApi.bulkUpdate(slotsToSave);
       setHasChanges(false);
 
-      const response = await slotAPI.getSlots(tenantId, formatDateISO(selectedDate));
+      const response = await slotsApi.getSlots(formatDateISO(selectedDate));
       setSlots(response.data || []);
 
       // Refresh slot summary for calendar coloring
@@ -273,14 +289,14 @@ export const SlotManagerEditor = ({ tenantId, tenant, onTenantUpdate }) => {
   const handleSaveWorkingHours = async () => {
     try {
       setSavingHours(true);
-      await adminAPI.updateTenant(tenantId, { working_hours: workingHours });
+      await saveWorkingHoursApi(workingHours);
       setHoursChanged(false);
       if (onTenantUpdate) {
         onTenantUpdate({ ...tenant, working_hours: workingHours });
       }
       // Refresh selected date slots if any
       if (selectedDate && !isDayClosed(selectedDate)) {
-        const response = await slotAPI.getSlots(tenantId, formatDateISO(selectedDate));
+        const response = await slotsApi.getSlots(formatDateISO(selectedDate));
         const fetchedSlots = response.data || [];
         setSlots(fetchedSlots);
         const areDefault = fetchedSlots.length > 0 && fetchedSlots[0]?.is_default === true;
@@ -301,7 +317,7 @@ export const SlotManagerEditor = ({ tenantId, tenant, onTenantUpdate }) => {
   const handleBulkGenerate = async () => {
     try {
       setBulkGenerating(true);
-      const response = await slotAPI.generateSlots(tenantId, bulkDays);
+      const response = await slotsApi.generateSlots(bulkDays);
       alert(`${response.data.count} slot oluşturuldu (${response.data.days} gün için)`);
 
       // Refresh slot summary for calendar coloring
@@ -309,7 +325,7 @@ export const SlotManagerEditor = ({ tenantId, tenant, onTenantUpdate }) => {
 
       // Refresh selected date if any
       if (selectedDate && !isDayClosed(selectedDate)) {
-        const slotsResponse = await slotAPI.getSlots(tenantId, formatDateISO(selectedDate));
+        const slotsResponse = await slotsApi.getSlots(formatDateISO(selectedDate));
         const fetchedSlots = slotsResponse.data || [];
         setSlots(fetchedSlots);
         const areDefault = fetchedSlots.length > 0 && fetchedSlots[0]?.is_default === true;
@@ -364,7 +380,7 @@ export const SlotManagerEditor = ({ tenantId, tenant, onTenantUpdate }) => {
   const refreshSlotSummary = async () => {
     try {
       const monthStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}`;
-      const response = await slotAPI.getSummary(tenantId, monthStr);
+      const response = await slotsApi.getSummary(monthStr);
       setSlotSummary(response.data || {});
     } catch (error) {
       console.error('Failed to refresh slot summary:', error);
@@ -373,35 +389,39 @@ export const SlotManagerEditor = ({ tenantId, tenant, onTenantUpdate }) => {
 
   const calendarDays = generateCalendarDays();
 
+  const showCollapsible = isAdmin;
+
   return (
-    <div className="border border-slate-200 rounded-lg overflow-hidden">
-      {/* Header */}
-      <button
-        onClick={() => setIsExpanded(!isExpanded)}
-        className="w-full flex items-center justify-between p-4 bg-slate-50 hover:bg-slate-100 transition-colors"
-      >
-        <div className="flex items-center gap-3">
-          <Calendar className="w-5 h-5 text-indigo-600" />
-          <div className="text-left">
-            <h4 className="font-medium text-slate-900">Takvim & Slot Yönetimi</h4>
-            <p className="text-sm text-slate-500">Çalışma saatleri ve randevu slotları</p>
+    <div className={showCollapsible ? "border border-slate-200 rounded-lg overflow-hidden" : ""}>
+      {/* Header - only in admin mode */}
+      {showCollapsible && (
+        <button
+          onClick={() => setIsExpanded(!isExpanded)}
+          className="w-full flex items-center justify-between p-4 bg-slate-50 hover:bg-slate-100 transition-colors"
+        >
+          <div className="flex items-center gap-3">
+            <Calendar className="w-5 h-5 text-indigo-600" />
+            <div className="text-left">
+              <h4 className="font-medium text-slate-900">Takvim & Slot Yönetimi</h4>
+              <p className="text-sm text-slate-500">Çalışma saatleri ve randevu slotları</p>
+            </div>
           </div>
-        </div>
-        <div className="flex items-center gap-2">
-          {(hasChanges || hoursChanged) && (
-            <Badge variant="warning">Kaydedilmemiş</Badge>
-          )}
-          {isExpanded ? (
-            <ChevronUp className="w-5 h-5 text-slate-400" />
-          ) : (
-            <ChevronDown className="w-5 h-5 text-slate-400" />
-          )}
-        </div>
-      </button>
+          <div className="flex items-center gap-2">
+            {(hasChanges || hoursChanged) && (
+              <Badge variant="warning">Kaydedilmemiş</Badge>
+            )}
+            {isExpanded ? (
+              <ChevronUp className="w-5 h-5 text-slate-400" />
+            ) : (
+              <ChevronDown className="w-5 h-5 text-slate-400" />
+            )}
+          </div>
+        </button>
+      )}
 
       {/* Content */}
-      {isExpanded && (
-        <div className="p-4">
+      {(showCollapsible ? isExpanded : true) && (
+        <div className={showCollapsible ? "p-4" : ""}>
           {/* View Toggle */}
           <div className="flex gap-2 mb-4 p-1 bg-slate-100 rounded-lg w-fit">
             <button

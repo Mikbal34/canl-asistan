@@ -193,6 +193,45 @@ export const slotAPI = {
   generateSlots: (tenantId, days) => api.post(`/api/admin/tenants/${tenantId}/slots/generate`, { days }),
 };
 
+// Tenant Slot Management APIs (Tenant panel)
+export const tenantSlotAPI = {
+  getSlots: (date) => api.get('/api/tenant/slots', { params: { date } }),
+  getSummary: (month) => api.get('/api/tenant/slots/summary', { params: { month } }),
+  bulkUpdate: (slots) => api.post('/api/tenant/slots', { slots }),
+  updateSlot: (slotId, data) => api.put(`/api/tenant/slots/${slotId}`, data),
+  deleteSlot: (slotId) => api.delete(`/api/tenant/slots/${slotId}`),
+  generateSlots: (days) => api.post('/api/tenant/slots/generate', { days }),
+  updateWorkingHours: (working_hours) => api.put('/api/tenant/working-hours', { working_hours }),
+};
+
+// Promotions APIs (Tenant panel)
+export const promotionsAPI = {
+  // Campaigns
+  getCampaigns: () => api.get('/api/tenant/campaigns'),
+  createCampaign: (data) => api.post('/api/tenant/campaigns', data),
+  updateCampaign: (id, data) => api.put(`/api/tenant/campaigns/${id}`, data),
+  deleteCampaign: (id) => api.delete(`/api/tenant/campaigns/${id}`),
+  // Promotion Codes
+  getPromoCodes: () => api.get('/api/tenant/promotion-codes'),
+  createPromoCode: (data) => api.post('/api/tenant/promotion-codes', data),
+  updatePromoCode: (id, data) => api.put(`/api/tenant/promotion-codes/${id}`, data),
+  deletePromoCode: (id) => api.delete(`/api/tenant/promotion-codes/${id}`),
+};
+
+// Admin Promotions APIs (Admin panel - tenant-scoped)
+export const adminPromotionsAPI = {
+  // Campaigns
+  getCampaigns: (tenantId) => api.get(`/api/admin/tenants/${tenantId}/campaigns`),
+  createCampaign: (tenantId, data) => api.post(`/api/admin/tenants/${tenantId}/campaigns`, data),
+  updateCampaign: (tenantId, id, data) => api.put(`/api/admin/tenants/${tenantId}/campaigns/${id}`, data),
+  deleteCampaign: (tenantId, id) => api.delete(`/api/admin/tenants/${tenantId}/campaigns/${id}`),
+  // Promotion Codes
+  getPromoCodes: (tenantId) => api.get(`/api/admin/tenants/${tenantId}/promotion-codes`),
+  createPromoCode: (tenantId, data) => api.post(`/api/admin/tenants/${tenantId}/promotion-codes`, data),
+  updatePromoCode: (tenantId, id, data) => api.put(`/api/admin/tenants/${tenantId}/promotion-codes/${id}`, data),
+  deletePromoCode: (tenantId, id) => api.delete(`/api/admin/tenants/${tenantId}/promotion-codes/${id}`),
+};
+
 // Use Case APIs
 export const useCaseAPI = {
   // Public (for onboarding)

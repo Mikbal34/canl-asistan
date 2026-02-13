@@ -40,7 +40,10 @@
     "settings": "Settings",
     "admin": "Admin",
     "tenants": "Tenants",
-    "presets": "Industry Presets"
+    "presets": "Industry Presets",
+    "slotManager": "Calendar Management",
+    "vehicleCatalog": "Vehicle Catalog",
+    "promotions": "Campaigns"
   },
   "dashboard": {
     "title": "Dashboard",
@@ -166,6 +169,12 @@
     "passwordMismatch": "New passwords do not match.",
     "wrongPassword": "Current password is incorrect.",
     "passwordRequired": "Password must be at least 6 characters."
+  },
+  "slotManager": {
+    "subtitle": "Manage working hours and appointment slots"
+  },
+  "promotions": {
+    "subtitle": "Manage campaigns and promotion codes"
   },
   "useCases": {
     "business_info": "Business Info",

@@ -40,7 +40,10 @@
     "settings": "Einstellungen",
     "admin": "Verwaltung",
     "tenants": "Mandanten",
-    "presets": "Branchenvorlagen"
+    "presets": "Branchenvorlagen",
+    "slotManager": "Kalenderverwaltung",
+    "vehicleCatalog": "Fahrzeugkatalog",
+    "promotions": "Kampagnen"
   },
   "dashboard": {
     "title": "Dashboard",
@@ -166,6 +169,12 @@
     "passwordMismatch": "Die neuen Passwörter stimmen nicht überein.",
     "wrongPassword": "Das aktuelle Passwort ist falsch.",
     "passwordRequired": "Das Passwort muss mindestens 6 Zeichen lang sein."
+  },
+  "slotManager": {
+    "subtitle": "Arbeitszeiten und Terminslots verwalten"
+  },
+  "promotions": {
+    "subtitle": "Kampagnen und Aktionscodes verwalten"
   },
   "useCases": {
     "business_info": "Geschäftsinformationen",

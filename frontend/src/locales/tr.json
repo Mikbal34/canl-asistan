@@ -40,7 +40,10 @@
     "settings": "Ayarlar",
     "admin": "Yonetim",
     "tenants": "Musteriler",
-    "presets": "Sektor Ayarlari"
+    "presets": "Sektor Ayarlari",
+    "slotManager": "Takvim Yönetimi",
+    "vehicleCatalog": "Araç Kataloğu",
+    "promotions": "Kampanyalar"
   },
   "dashboard": {
     "title": "Kontrol Paneli",
@@ -189,6 +192,12 @@
     "passwordMismatch": "Yeni şifreler eşleşmiyor.",
     "wrongPassword": "Mevcut şifre yanlış.",
     "passwordRequired": "Şifre en az 6 karakter olmalıdır."
+  },
+  "slotManager": {
+    "subtitle": "Çalışma saatleri ve randevu slotlarını yönetin"
+  },
+  "promotions": {
+    "subtitle": "Kampanya ve promosyon kodlarını yönetin"
   },
   "useCases": {
     "business_info": "İşletme Bilgileri",

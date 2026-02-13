@@ -21,7 +21,8 @@ import { vehicleAPI } from '../../services/api';
  * VehicleCatalogEditor - Inline editor for tenant vehicles
  * Used in Use Cases tab when test_drive use case is selected
  */
-export const VehicleCatalogEditor = ({ tenantId, onUpdate }) => {
+export const VehicleCatalogEditor = ({ tenantId, onUpdate, mode = 'admin' }) => {
+  const showCollapsible = mode === 'admin';
   const [isExpanded, setIsExpanded] = useState(true);
   const [vehicles, setVehicles] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -142,32 +143,34 @@ export const VehicleCatalogEditor = ({ tenantId, onUpdate }) => {
   };
 
   return (
-    <div className="border border-slate-200 rounded-lg overflow-hidden">
-      {/* Header */}
-      <button
-        onClick={() => setIsExpanded(!isExpanded)}
-        className="w-full flex items-center justify-between p-4 bg-slate-50 hover:bg-slate-100 transition-colors"
-      >
-        <div className="flex items-center gap-3">
-          <Car className="w-5 h-5 text-indigo-600" />
-          <div className="text-left">
-            <h4 className="font-medium text-slate-900">Araç Kataloğu</h4>
-            <p className="text-sm text-slate-500">test_drive use case için gerekli</p>
+    <div className={showCollapsible ? "border border-slate-200 rounded-lg overflow-hidden" : ""}>
+      {/* Header - only in admin mode */}
+      {showCollapsible && (
+        <button
+          onClick={() => setIsExpanded(!isExpanded)}
+          className="w-full flex items-center justify-between p-4 bg-slate-50 hover:bg-slate-100 transition-colors"
+        >
+          <div className="flex items-center gap-3">
+            <Car className="w-5 h-5 text-indigo-600" />
+            <div className="text-left">
+              <h4 className="font-medium text-slate-900">Araç Kataloğu</h4>
+              <p className="text-sm text-slate-500">test_drive use case için gerekli</p>
+            </div>
           </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <Badge variant="info">{vehicles.length} araç</Badge>
-          {isExpanded ? (
-            <ChevronUp className="w-5 h-5 text-slate-400" />
-          ) : (
-            <ChevronDown className="w-5 h-5 text-slate-400" />
-          )}
-        </div>
-      </button>
+          <div className="flex items-center gap-2">
+            <Badge variant="info">{vehicles.length} araç</Badge>
+            {isExpanded ? (
+              <ChevronUp className="w-5 h-5 text-slate-400" />
+            ) : (
+              <ChevronDown className="w-5 h-5 text-slate-400" />
+            )}
+          </div>
+        </button>
+      )}
 
       {/* Content */}
-      {isExpanded && (
-        <div className="p-4">
+      {(showCollapsible ? isExpanded : true) && (
+        <div className={showCollapsible ? "p-4" : ""}>
           {/* Add Button */}
           <div className="mb-4">
             <Button
