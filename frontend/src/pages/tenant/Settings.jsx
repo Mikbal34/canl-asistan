@@ -72,6 +72,7 @@ export const Settings = () => {
   const [emailForm, setEmailForm] = useState({ password: '', newEmail: '' });
   const [emailLoading, setEmailLoading] = useState(false);
   const [emailMsg, setEmailMsg] = useState({ type: '', text: '' });
+  const [emailConfirmModal, setEmailConfirmModal] = useState(false);
 
   // Assistant/Template state
   const [assistantInfo, setAssistantInfo] = useState(null);
@@ -173,7 +174,7 @@ export const Settings = () => {
     }
   };
 
-  const handleEmailChange = async (e) => {
+  const handleEmailChange = (e) => {
     e.preventDefault();
     setEmailMsg({ type: '', text: '' });
 
@@ -181,6 +182,12 @@ export const Settings = () => {
       return;
     }
 
+    // Onay popup'ı aç
+    setEmailConfirmModal(true);
+  };
+
+  const handleEmailConfirm = async () => {
+    setEmailConfirmModal(false);
     setEmailLoading(true);
     try {
       await authAPI.changeEmail({
@@ -485,6 +492,9 @@ export const Settings = () => {
                 <Mail className="w-4 h-4" />
                 {t('settings.changeEmail')}
               </h4>
+              <p className="text-xs text-slate-500">
+                Giriş e-posta adresinizi degistirmek icin once yeni e-postanizi girin, ardindan mevcut sifrenizle onaylayin.
+              </p>
 
               {emailMsg.text && (
                 <div className={`p-3 rounded-lg text-sm ${
@@ -497,17 +507,19 @@ export const Settings = () => {
               )}
 
               <Input
-                label={t('settings.currentPassword')}
-                type="password"
-                value={emailForm.password}
-                onChange={(e) => setEmailForm({ ...emailForm, password: e.target.value })}
+                label={t('settings.newEmail')}
+                type="email"
+                placeholder="yeni@email.com"
+                value={emailForm.newEmail}
+                onChange={(e) => setEmailForm({ ...emailForm, newEmail: e.target.value })}
                 required
               />
               <Input
-                label={t('settings.newEmail')}
-                type="email"
-                value={emailForm.newEmail}
-                onChange={(e) => setEmailForm({ ...emailForm, newEmail: e.target.value })}
+                label="Onay icin mevcut sifreniz"
+                type="password"
+                placeholder="Mevcut sifrenizi girin"
+                value={emailForm.password}
+                onChange={(e) => setEmailForm({ ...emailForm, password: e.target.value })}
                 required
               />
               <Button type="submit" variant="primary" disabled={emailLoading} className="w-full">
@@ -517,6 +529,45 @@ export const Settings = () => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Email Change Confirmation Modal */}
+      {emailConfirmModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setEmailConfirmModal(false)}>
+          <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-sm mx-4" onClick={(e) => e.stopPropagation()}>
+            <div className="text-center">
+              <div className="w-14 h-14 rounded-full bg-amber-100 flex items-center justify-center mx-auto mb-4">
+                <Mail className="w-7 h-7 text-amber-600" />
+              </div>
+              <h3 className="text-lg font-semibold text-slate-900 mb-2">E-posta Degisikligi Onayi</h3>
+              <p className="text-sm text-slate-600 mb-1">
+                Giris e-posta adresiniz asagidaki ile degistirilecek:
+              </p>
+              <p className="text-base font-semibold text-indigo-600 mb-4">
+                {emailForm.newEmail}
+              </p>
+              <p className="text-xs text-slate-500 mb-6">
+                Degisiklik sonrasi yeni e-posta adresinizle giris yapmaniz gerekecektir.
+              </p>
+            </div>
+            <div className="flex gap-3">
+              <Button
+                variant="ghost"
+                className="flex-1"
+                onClick={() => setEmailConfirmModal(false)}
+              >
+                Vazgec
+              </Button>
+              <Button
+                variant="primary"
+                className="flex-1"
+                onClick={handleEmailConfirm}
+              >
+                Onayla
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
