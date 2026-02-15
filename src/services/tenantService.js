@@ -259,10 +259,34 @@ async function updateTenant(tenantId, updates) {
     }
   }
 
+  // Only allow known tenant columns to prevent Supabase errors
+  const ALLOWED_FIELDS = [
+    'name', 'slug', 'industry', 'logo_url', 'primary_color', 'custom_domain',
+    'region', 'white_label', 'elevenlabs_voice_id', 'tts_provider',
+    'default_language', 'supported_languages', 'phone', 'twilio_phone_number',
+    'address', 'email', 'website', 'assistant_name', 'welcome_message',
+    'plan', 'max_calls_per_month', 'max_appointments_per_month', 'is_active',
+    'vapi_assistant_id_tr', 'vapi_assistant_id_en', 'vapi_assistant_id_de',
+    'vapi_phone_number_id', 'voice_config_override', 'sip_phone_number',
+    'vapi_credential_id', 'sip_inbound_enabled', 'onboarding_status',
+    'onboarding_completed_at', 'enabled_features', 'favicon_url',
+    'login_message', 'ssl_verified', 'working_hours',
+  ];
+  const sanitized = {};
+  for (const [key, value] of Object.entries(updates)) {
+    if (ALLOWED_FIELDS.includes(key) && value !== undefined) {
+      sanitized[key] = value;
+    }
+  }
+
+  if (Object.keys(sanitized).length === 0) {
+    throw new Error('No valid fields to update');
+  }
+
   const { data, error } = await supabase
     .from('tenants')
     .update({
-      ...updates,
+      ...sanitized,
       updated_at: new Date().toISOString(),
     })
     .eq('id', tenantId)

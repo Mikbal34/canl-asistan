@@ -31,6 +31,14 @@ module.exports = {
     serverUrl: process.env.VAPI_SERVER_URL || process.env.SERVER_URL,
   },
 
+  // Verimor SIP Trunk
+  verimor: {
+    sipUsername: process.env.VERIMOR_SIP_USERNAME,
+    sipPassword: process.env.VERIMOR_SIP_PASSWORD,
+    sipServer: process.env.VERIMOR_SIP_SERVER || 'sip.verimor.com.tr',
+    vapiCredentialId: process.env.VERIMOR_VAPI_CREDENTIAL_ID,
+  },
+
   // Supabase
   supabase: {
     url: process.env.SUPABASE_URL,

@@ -993,7 +993,7 @@ async function initiateOutboundCall(assistantId, phoneNumber, options = {}) {
 }
 
 /**
- * VAPI telefon numarasi olustur
+ * VAPI telefon numarasi olustur (legacy - Twilio)
  * @param {string} tenantId - Tenant UUID
  * @param {Object} options - Telefon numara ayarlari
  */
@@ -1039,6 +1039,162 @@ async function createPhoneNumber(tenantId, options = {}) {
 
   console.log(`[VapiService] Created phone number for ${tenant.name}: ${phoneNumber.number}`);
   return phoneNumber;
+}
+
+/**
+ * Verimor BYO SIP trunk credential olustur (tek sefer)
+ * VAPI'de paylasilmis SIP trunk credential kaydeder
+ * @returns {Object} - VAPI credential response (id dahil)
+ */
+async function createSipTrunkCredential() {
+  const body = {
+    provider: 'byo-sip-trunk',
+    name: 'Verimor Trunk',
+    gateways: [{
+      ip: config.verimor?.sipServer || 'sip.verimor.com.tr',
+      inboundEnabled: true,
+    }],
+  };
+
+  // Outbound auth sadece SIP credentials varsa eklenir (inbound icin gerekli degil)
+  if (config.verimor?.sipUsername && config.verimor?.sipPassword) {
+    body.outboundAuthenticationPlan = {
+      authUsername: config.verimor.sipUsername,
+      authPassword: config.verimor.sipPassword,
+    };
+  }
+
+  const credential = await vapiRequest('/credential', {
+    method: 'POST',
+    body,
+  });
+
+  console.log(`[VapiService] Created SIP trunk credential: ${credential.id}`);
+  return credential;
+}
+
+/**
+ * Tenant'a BYO telefon numarasi ata (Verimor SIP)
+ * @param {string} tenantId - Tenant UUID
+ * @param {string} phoneNumber - E.164 formatinda telefon numarasi (orn: +905551234567)
+ * @returns {Object} - VAPI phone number response
+ */
+async function assignPhoneNumberToTenant(tenantId, phoneNumber) {
+  // Credential ID'yi belirle (env'den veya parametre olarak)
+  const credentialId = config.verimor?.vapiCredentialId;
+  if (!credentialId) {
+    throw new Error('VERIMOR_VAPI_CREDENTIAL_ID is not configured. Create a SIP trunk credential first.');
+  }
+
+  // Tenant bilgisini al
+  const { data: tenant, error } = await supabaseAdmin
+    .from('tenants')
+    .select('*')
+    .eq('id', tenantId)
+    .single();
+
+  if (error || !tenant) {
+    throw new Error(`Tenant not found: ${tenantId}`);
+  }
+
+  // Default dildeki assistant ID'yi bul
+  const defaultLang = tenant.default_language || 'tr';
+  const assistantId = tenant[`vapi_assistant_id_${defaultLang}`];
+
+  if (!assistantId) {
+    throw new Error(`No VAPI assistant found for tenant ${tenantId} (${defaultLang}). Sync tenant first.`);
+  }
+
+  // Daha once atanmis numara varsa hata ver
+  if (tenant.vapi_phone_number_id) {
+    throw new Error(`Tenant already has a phone number assigned. Remove it first.`);
+  }
+
+  // VAPI'de BYO phone number olustur
+  const vapiPhone = await vapiRequest('/phone-number', {
+    method: 'POST',
+    body: {
+      provider: 'byo-phone-number',
+      number: phoneNumber,
+      numberE164CheckEnabled: false,
+      credentialId: credentialId,
+      assistantId: assistantId,
+      name: `${tenant.name} - ${phoneNumber}`,
+    },
+  });
+
+  // DB'yi guncelle
+  await supabaseAdmin
+    .from('tenants')
+    .update({
+      vapi_phone_number_id: vapiPhone.id,
+      sip_phone_number: phoneNumber,
+      vapi_credential_id: credentialId,
+      sip_inbound_enabled: true,
+    })
+    .eq('id', tenantId);
+
+  console.log(`[VapiService] Assigned phone ${phoneNumber} to tenant ${tenant.name}: ${vapiPhone.id}`);
+  return vapiPhone;
+}
+
+/**
+ * Tenant'tan telefon numarasini kaldir
+ * @param {string} tenantId - Tenant UUID
+ */
+async function removePhoneNumberFromTenant(tenantId) {
+  // Tenant bilgisini al
+  const { data: tenant, error } = await supabaseAdmin
+    .from('tenants')
+    .select('id, name, vapi_phone_number_id, sip_phone_number')
+    .eq('id', tenantId)
+    .single();
+
+  if (error || !tenant) {
+    throw new Error(`Tenant not found: ${tenantId}`);
+  }
+
+  if (!tenant.vapi_phone_number_id) {
+    throw new Error('Tenant has no phone number assigned.');
+  }
+
+  // VAPI'den telefon numarasini sil
+  try {
+    await vapiRequest(`/phone-number/${tenant.vapi_phone_number_id}`, {
+      method: 'DELETE',
+    });
+    console.log(`[VapiService] Deleted VAPI phone number: ${tenant.vapi_phone_number_id}`);
+  } catch (deleteError) {
+    // VAPI'de zaten yoksa devam et
+    console.warn(`[VapiService] Could not delete VAPI phone number (may not exist): ${deleteError.message}`);
+  }
+
+  // DB'yi temizle
+  await supabaseAdmin
+    .from('tenants')
+    .update({
+      vapi_phone_number_id: null,
+      sip_phone_number: null,
+      vapi_credential_id: null,
+      sip_inbound_enabled: false,
+    })
+    .eq('id', tenantId);
+
+  console.log(`[VapiService] Removed phone number from tenant ${tenant.name}`);
+  return { removed: true, phoneNumber: tenant.sip_phone_number };
+}
+
+/**
+ * VAPI'den telefon numarasi durumunu sorgula
+ * @param {string} vapiPhoneNumberId - VAPI phone number ID
+ * @returns {Object} - Phone number status from VAPI
+ */
+async function getPhoneNumberStatus(vapiPhoneNumberId) {
+  if (!vapiPhoneNumberId) {
+    throw new Error('VAPI phone number ID is required');
+  }
+
+  return vapiRequest(`/phone-number/${vapiPhoneNumberId}`);
 }
 
 /**
@@ -1685,8 +1841,14 @@ module.exports = {
   initiateOutboundCall,
   fetchAndSaveRecentCalls,
 
-  // Phone number
+  // Phone number (legacy Twilio)
   createPhoneNumber,
+
+  // SIP Trunk (Verimor BYO)
+  createSipTrunkCredential,
+  assignPhoneNumberToTenant,
+  removePhoneNumberFromTenant,
+  getPhoneNumberStatus,
 
   // Tenant operations
   getTenantByVapiAssistant,

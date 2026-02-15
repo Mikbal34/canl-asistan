@@ -1325,6 +1325,124 @@ router.post('/admin/tenants/:id/test-call', authenticate(), requireSuperAdmin, r
   }
 });
 
+// ==========================================
+// SIP TRUNK / PHONE NUMBER MANAGEMENT
+// ==========================================
+
+/**
+ * Create shared SIP trunk credential in VAPI (one-time setup)
+ * POST /api/admin/sip-credential
+ */
+router.post('/admin/sip-credential', authenticate(), requireSuperAdmin, async (req, res) => {
+  try {
+    const credential = await vapiService.createSipTrunkCredential();
+    res.json({
+      success: true,
+      message: 'SIP trunk credential created. Save the credentialId to VERIMOR_VAPI_CREDENTIAL_ID env var.',
+      credential,
+    });
+  } catch (error) {
+    console.error('[API] Create SIP credential error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * Assign phone number to tenant (BYO SIP)
+ * POST /api/admin/tenants/:id/phone-number
+ */
+router.post('/admin/tenants/:id/phone-number', authenticate(), requireSuperAdmin, async (req, res) => {
+  try {
+    const { phoneNumber } = req.body;
+
+    if (!phoneNumber) {
+      return res.status(400).json({
+        error: 'Bad Request',
+        message: 'phoneNumber is required (E.164 format, e.g. +905551234567)',
+      });
+    }
+
+    // Validate E.164 format
+    if (!/^\+[1-9]\d{1,14}$/.test(phoneNumber)) {
+      return res.status(400).json({
+        error: 'Bad Request',
+        message: 'phoneNumber must be in E.164 format (e.g. +905551234567)',
+      });
+    }
+
+    const result = await vapiService.assignPhoneNumberToTenant(req.params.id, phoneNumber);
+    res.json({
+      success: true,
+      message: 'Phone number assigned successfully',
+      data: result,
+    });
+  } catch (error) {
+    console.error('[API] Assign phone number error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * Get phone number status for tenant
+ * GET /api/admin/tenants/:id/phone-number
+ */
+router.get('/admin/tenants/:id/phone-number', authenticate(), requireSuperAdmin, async (req, res) => {
+  try {
+    const tenant = await tenantService.getTenantById(req.params.id);
+    if (!tenant) {
+      return res.status(404).json({ error: 'Tenant not found' });
+    }
+
+    if (!tenant.vapi_phone_number_id) {
+      return res.json({
+        assigned: false,
+        phoneNumber: null,
+        sipInboundEnabled: false,
+      });
+    }
+
+    let vapiStatus = null;
+    try {
+      vapiStatus = await vapiService.getPhoneNumberStatus(tenant.vapi_phone_number_id);
+    } catch (statusError) {
+      console.warn('[API] Could not fetch VAPI phone status:', statusError.message);
+    }
+
+    const credentialId = tenant.vapi_credential_id || config.verimor?.vapiCredentialId;
+
+    res.json({
+      assigned: true,
+      phoneNumber: tenant.sip_phone_number,
+      vapiPhoneNumberId: tenant.vapi_phone_number_id,
+      credentialId: credentialId,
+      sipInboundEnabled: tenant.sip_inbound_enabled,
+      sipUri: credentialId ? `${tenant.sip_phone_number}@${credentialId}.sip.vapi.ai` : null,
+      vapiStatus,
+    });
+  } catch (error) {
+    console.error('[API] Get phone number status error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * Remove phone number from tenant
+ * DELETE /api/admin/tenants/:id/phone-number
+ */
+router.delete('/admin/tenants/:id/phone-number', authenticate(), requireSuperAdmin, async (req, res) => {
+  try {
+    const result = await vapiService.removePhoneNumberFromTenant(req.params.id);
+    res.json({
+      success: true,
+      message: 'Phone number removed successfully',
+      data: result,
+    });
+  } catch (error) {
+    console.error('[API] Remove phone number error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 /**
  * Admin Dashboard Stats
  * GET /api/admin/dashboard-stats

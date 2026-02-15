@@ -141,6 +141,13 @@ export const adminAPI = {
     });
   },
 
+  // Phone Number (SIP Trunk)
+  createSipCredential: () => api.post('/api/admin/sip-credential'),
+  assignPhoneNumber: (tenantId, phoneNumber) =>
+    api.post(`/api/admin/tenants/${tenantId}/phone-number`, { phoneNumber }),
+  getPhoneNumberStatus: (tenantId) => api.get(`/api/admin/tenants/${tenantId}/phone-number`),
+  removePhoneNumber: (tenantId) => api.delete(`/api/admin/tenants/${tenantId}/phone-number`),
+
   // Tenant Use Cases (Admin)
   getTenantUseCases: (tenantId) => api.get(`/api/admin/tenants/${tenantId}/use-cases`),
   setTenantUseCases: (tenantId, useCaseIds, autoSync = false) =>

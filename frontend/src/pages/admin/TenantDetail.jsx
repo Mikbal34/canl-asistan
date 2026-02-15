@@ -68,6 +68,7 @@ const tabs = [
   { id: 'general', label: 'Genel', icon: Building2 },
   { id: 'branding', label: 'Branding', icon: Palette },
   { id: 'assistant', label: 'Asistan', icon: Settings },
+  { id: 'phone', label: 'Telefon', icon: Phone },
 ];
 
 // Default use cases per industry
@@ -146,6 +147,14 @@ export const TenantDetail = () => {
   const [templates, setTemplates] = useState([]);
   const [tenantTemplate, setTenantTemplate] = useState(null);
   const [templatesLoading, setTemplatesLoading] = useState(false);
+
+  // Phone number state
+  const [phoneStatus, setPhoneStatus] = useState(null);
+  const [phoneLoading, setPhoneLoading] = useState(false);
+  const [phoneAssigning, setPhoneAssigning] = useState(false);
+  const [phoneRemoving, setPhoneRemoving] = useState(false);
+  const [phoneInput, setPhoneInput] = useState('');
+  const [showRemovePhoneModal, setShowRemovePhoneModal] = useState(false);
 
   // File upload state
   const logoInputRef = useRef(null);
@@ -245,6 +254,57 @@ export const TenantDetail = () => {
     }
   };
 
+  const fetchPhoneStatus = useCallback(async () => {
+    try {
+      setPhoneLoading(true);
+      const response = await adminAPI.getPhoneNumberStatus(id);
+      setPhoneStatus(response.data);
+    } catch (error) {
+      console.error('Failed to fetch phone status:', error);
+      setPhoneStatus(null);
+    } finally {
+      setPhoneLoading(false);
+    }
+  }, [id]);
+
+  const handleAssignPhone = async () => {
+    const trimmed = phoneInput.trim();
+    if (!trimmed) return;
+
+    if (!/^\+[1-9]\d{1,14}$/.test(trimmed)) {
+      alert('Gecersiz telefon formati. E.164 formatinda olmali (orn: +905551234567)');
+      return;
+    }
+
+    try {
+      setPhoneAssigning(true);
+      await adminAPI.assignPhoneNumber(id, phoneInput.trim());
+      setPhoneInput('');
+      await fetchPhoneStatus();
+      await fetchTenant();
+    } catch (error) {
+      console.error('Failed to assign phone number:', error);
+      alert('Numara atama hatasi: ' + (error.response?.data?.error || error.message));
+    } finally {
+      setPhoneAssigning(false);
+    }
+  };
+
+  const handleRemovePhone = async () => {
+    try {
+      setPhoneRemoving(true);
+      await adminAPI.removePhoneNumber(id);
+      setShowRemovePhoneModal(false);
+      await fetchPhoneStatus();
+      await fetchTenant();
+    } catch (error) {
+      console.error('Failed to remove phone number:', error);
+      alert('Numara kaldirma hatasi: ' + (error.response?.data?.error || error.message));
+    } finally {
+      setPhoneRemoving(false);
+    }
+  };
+
   const handleTemplateAssigned = async (templateId) => {
     try {
       await adminAPI.assignTenantTemplate(id, templateId, true);
@@ -266,12 +326,15 @@ export const TenantDetail = () => {
   const handleSave = async () => {
     try {
       setSaving(true);
-      const { name, email, phone, assistant_name, logo_url, favicon_url,
-              primary_color, login_message, welcome_message, default_language } = editData;
-      const payload = {
-        name, email, phone, assistant_name, logo_url, favicon_url,
-        primary_color, login_message, welcome_message, default_language
-      };
+      // Only send fields that have actual values (strip undefined)
+      const fields = ['name', 'email', 'phone', 'assistant_name', 'logo_url', 'favicon_url',
+                      'primary_color', 'login_message', 'welcome_message', 'default_language'];
+      const payload = {};
+      for (const field of fields) {
+        if (editData[field] !== undefined) {
+          payload[field] = editData[field];
+        }
+      }
       const response = await adminAPI.updateTenant(id, payload);
       const updated = response.data.data || response.data;
       setTenant(prev => ({ ...prev, ...updated }));
@@ -281,7 +344,8 @@ export const TenantDetail = () => {
       alert('Değişiklikler kaydedildi');
     } catch (error) {
       console.error('Failed to save tenant:', error);
-      alert('Kaydetme hatası: ' + error.message);
+      const serverMsg = error.response?.data?.error || error.response?.data?.message;
+      alert('Kaydetme hatası: ' + (serverMsg || error.message));
     } finally {
       setSaving(false);
     }
@@ -1396,6 +1460,196 @@ export const TenantDetail = () => {
     );
   }
 
+  const renderPhoneTab = () => {
+    // Lazy load phone status when tab is opened
+    if (!phoneStatus && !phoneLoading) {
+      fetchPhoneStatus();
+    }
+
+    if (phoneLoading && !phoneStatus) {
+      return (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="w-6 h-6 animate-spin text-indigo-600 mr-2" />
+          <span className="text-slate-500">Telefon durumu yukleniyor...</span>
+        </div>
+      );
+    }
+
+    const isAssigned = phoneStatus?.assigned;
+    const credentialId = phoneStatus?.credentialId;
+
+    return (
+      <div className="space-y-6">
+        {/* Status Card */}
+        <div className={`p-4 rounded-lg border ${isAssigned ? 'bg-green-50 border-green-200' : 'bg-slate-50 border-slate-200'}`}>
+          <div className="flex items-center gap-3">
+            <div className={`w-10 h-10 rounded-full flex items-center justify-center ${isAssigned ? 'bg-green-100' : 'bg-slate-200'}`}>
+              <Phone className={`w-5 h-5 ${isAssigned ? 'text-green-600' : 'text-slate-400'}`} />
+            </div>
+            <div className="flex-1">
+              <h3 className="font-medium text-slate-900">
+                {isAssigned ? 'Telefon Numarasi Aktif' : 'Telefon Numarasi Atanmamis'}
+              </h3>
+              {isAssigned && (
+                <p className="text-sm text-green-700 font-mono">{phoneStatus.phoneNumber}</p>
+              )}
+              {!isAssigned && (
+                <p className="text-sm text-slate-500">Bu tenant'a henuz bir telefon numarasi atanmamis.</p>
+              )}
+            </div>
+            {isAssigned && (
+              <Badge variant={phoneStatus.sipInboundEnabled ? 'success' : 'warning'}>
+                {phoneStatus.sipInboundEnabled ? 'Inbound Aktif' : 'Inbound Pasif'}
+              </Badge>
+            )}
+          </div>
+        </div>
+
+        {/* Assigned Number Details */}
+        {isAssigned && (
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="p-3 bg-slate-50 rounded-lg">
+                <label className="text-xs font-medium text-slate-500 uppercase">VAPI Phone ID</label>
+                <p className="text-sm font-mono text-slate-700 mt-1 break-all">{phoneStatus.vapiPhoneNumberId}</p>
+              </div>
+              <div className="p-3 bg-slate-50 rounded-lg">
+                <label className="text-xs font-medium text-slate-500 uppercase">Credential ID</label>
+                <p className="text-sm font-mono text-slate-700 mt-1 break-all">{credentialId || '-'}</p>
+              </div>
+            </div>
+
+            {/* SIP URI for Verimor Configuration */}
+            {phoneStatus.sipUri && (
+              <div className="p-4 bg-indigo-50 border border-indigo-200 rounded-lg">
+                <label className="text-xs font-medium text-indigo-600 uppercase">Verimor Inbound SIP URI</label>
+                <p className="text-sm text-slate-500 mt-1">Bu URI'yi Verimor OIM'de numara icin inbound routing olarak ayarlayin:</p>
+                <div className="mt-2 flex items-center gap-2">
+                  <code className="flex-1 px-3 py-2 bg-white border border-indigo-200 rounded text-sm font-mono text-indigo-800 break-all">
+                    {phoneStatus.sipUri}
+                  </code>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      navigator.clipboard.writeText(phoneStatus.sipUri);
+                    }}
+                  >
+                    Kopyala
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* VAPI Status */}
+            {phoneStatus.vapiStatus && (
+              <div className="p-3 bg-slate-50 rounded-lg">
+                <label className="text-xs font-medium text-slate-500 uppercase">VAPI Durumu</label>
+                <pre className="text-xs font-mono text-slate-600 mt-1 overflow-auto max-h-32">
+                  {JSON.stringify(phoneStatus.vapiStatus, null, 2)}
+                </pre>
+              </div>
+            )}
+
+            {/* Remove Button */}
+            <div className="flex justify-between items-center pt-4 border-t border-slate-200">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={fetchPhoneStatus}
+                disabled={phoneLoading}
+              >
+                {phoneLoading ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <RefreshCw className="w-4 h-4 mr-1" />}
+                Yenile
+              </Button>
+              <Button
+                variant="danger"
+                size="sm"
+                onClick={() => setShowRemovePhoneModal(true)}
+              >
+                <Trash2 className="w-4 h-4 mr-1" />
+                Numarayi Kaldir
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Assign Phone Number Form */}
+        {!isAssigned && (
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">
+                Telefon Numarasi (E.164 Format)
+              </label>
+              <div className="flex gap-2">
+                <Input
+                  type="text"
+                  placeholder="+905551234567"
+                  value={phoneInput}
+                  onChange={(e) => setPhoneInput(e.target.value)}
+                  className="flex-1"
+                />
+                <Button
+                  onClick={handleAssignPhone}
+                  disabled={!phoneInput.trim() || phoneAssigning}
+                >
+                  {phoneAssigning ? (
+                    <><Loader2 className="w-4 h-4 animate-spin mr-1" /> Ataniyor...</>
+                  ) : (
+                    <><Phone className="w-4 h-4 mr-1" /> Ata</>
+                  )}
+                </Button>
+              </div>
+              <p className="text-xs text-slate-500 mt-1">
+                Verimor OIM'den alinan numara. Ornek: +905321234567
+              </p>
+            </div>
+
+            <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
+              <h4 className="text-sm font-medium text-amber-800">Onkoşullar</h4>
+              <ul className="text-xs text-amber-700 mt-2 space-y-1 list-disc list-inside">
+                <li>Verimor OIM'de SIP trunk olusturulmus olmali</li>
+                <li>VAPI'de SIP credential kaydedilmis olmali (VERIMOR_VAPI_CREDENTIAL_ID)</li>
+                <li>Tenant'in VAPI asistani sync edilmis olmali</li>
+                <li>Numara atadiktan sonra Verimor OIM'de inbound routing ayarlayin</li>
+              </ul>
+            </div>
+          </div>
+        )}
+
+        {/* Remove Phone Modal */}
+        <Modal
+          isOpen={showRemovePhoneModal}
+          onClose={() => setShowRemovePhoneModal(false)}
+          title="Telefon Numarasini Kaldir"
+          size="sm"
+        >
+          <div className="text-center py-4">
+            <Phone className="w-12 h-12 text-red-500 mx-auto mb-3" />
+            <p className="text-slate-600 mb-2">
+              <strong>{phoneStatus?.phoneNumber}</strong> numarasini bu tenant'tan kaldirmak istediginize emin misiniz?
+            </p>
+            <p className="text-sm text-slate-500">
+              Bu islem VAPI'deki telefon numarasini da silecektir. Verimor tarafindaki routing ayarlarini da kaldirmayi unutmayin.
+            </p>
+          </div>
+          <ModalFooter>
+            <Button variant="outline" onClick={() => setShowRemovePhoneModal(false)}>
+              Iptal
+            </Button>
+            <Button variant="danger" onClick={handleRemovePhone} disabled={phoneRemoving}>
+              {phoneRemoving ? (
+                <><Loader2 className="w-4 h-4 animate-spin mr-1" /> Kaldiriliyor...</>
+              ) : (
+                <><Trash2 className="w-4 h-4 mr-1" /> Kaldir</>
+              )}
+            </Button>
+          </ModalFooter>
+        </Modal>
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -1419,12 +1673,20 @@ export const TenantDetail = () => {
         </div>
 
         <div className="flex items-center gap-3">
-          {hasChanges ? (
+          {!isEditing ? (
+            <Button
+              variant="secondary"
+              onClick={() => setIsEditing(true)}
+            >
+              <Edit3 className="w-4 h-4 mr-2" />
+              Düzenle
+            </Button>
+          ) : (
             <>
               <Button variant="ghost" onClick={handleCancel} disabled={saving}>
                 İptal
               </Button>
-              <Button variant="primary" onClick={handleSave} disabled={saving}>
+              <Button variant="primary" onClick={handleSave} disabled={saving || !hasChanges}>
                 {saving ? (
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                 ) : (
@@ -1433,23 +1695,13 @@ export const TenantDetail = () => {
                 Kaydet
               </Button>
             </>
-          ) : (
-            <>
-              <Button
-                variant={isEditing ? 'primary' : 'secondary'}
-                onClick={() => setIsEditing(!isEditing)}
-              >
-                <Edit3 className="w-4 h-4 mr-2" />
-                {isEditing ? 'Düzenlemeyi Bitir' : 'Düzenle'}
-              </Button>
-              <Button
-                variant="ghost"
-                onClick={() => setShowDeleteModal(true)}
-              >
-                <Trash2 className="w-4 h-4 text-red-400" />
-              </Button>
-            </>
           )}
+          <Button
+            variant="ghost"
+            onClick={() => setShowDeleteModal(true)}
+          >
+            <Trash2 className="w-4 h-4 text-red-400" />
+          </Button>
         </div>
       </div>
 
@@ -1514,6 +1766,7 @@ export const TenantDetail = () => {
           {activeTab === 'general' && renderGeneralTab()}
           {activeTab === 'branding' && renderBrandingTab()}
           {activeTab === 'assistant' && renderAssistantTab()}
+          {activeTab === 'phone' && renderPhoneTab()}
         </CardContent>
       </Card>
 
