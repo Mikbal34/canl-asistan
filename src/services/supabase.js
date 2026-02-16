@@ -6,6 +6,12 @@
 const { createClient } = require('@supabase/supabase-js');
 const config = require('../config/env');
 
+let _notificationService;
+function getNotificationService() {
+  if (!_notificationService) _notificationService = require('./notificationService');
+  return _notificationService;
+}
+
 const supabase = createClient(config.supabase.url, config.supabase.anonKey);
 // Admin client for operations that need to bypass RLS (webhooks, system operations)
 const supabaseAdmin = createClient(config.supabase.url, config.supabase.serviceRoleKey);
@@ -95,6 +101,14 @@ async function getOrCreateCustomer(tenantId, phone, name = null) {
     .single();
 
   if (error) throw error;
+
+  // In-app bildirim
+  getNotificationService().notifyCustomerCreated(tenantId, {
+    id: data.id,
+    name: data.name,
+    phone: data.phone,
+  }).catch(err => console.error('[Supabase] Notification error:', err));
+
   return data;
 }
 

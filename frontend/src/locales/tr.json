@@ -43,7 +43,8 @@
     "presets": "Sektor Ayarlari",
     "slotManager": "Takvim Yönetimi",
     "vehicleCatalog": "Araç Kataloğu",
-    "promotions": "Kampanyalar"
+    "promotions": "Kampanyalar",
+    "notifications": "Bildirimler"
   },
   "dashboard": {
     "title": "Kontrol Paneli",
@@ -252,5 +253,30 @@
     "companyName": "Firma Adı",
     "callCount": "Arama Sayısı",
     "appointmentCount": "Randevu Sayısı"
+  },
+  "notifications": {
+    "title": "Bildirimler",
+    "subtitle": "Tüm bildirimlerinizi buradan takip edebilirsiniz",
+    "empty": "Henüz bildirim yok",
+    "markAllRead": "Tümünü okundu işaretle",
+    "markAsRead": "Okundu işaretle",
+    "viewAll": "Tümünü gör",
+    "justNow": "Az önce",
+    "minutesAgo": "{{count}} dk önce",
+    "hoursAgo": "{{count}} saat önce",
+    "daysAgo": "{{count}} gün önce",
+    "filterByType": "Tipe göre filtrele",
+    "filterByStatus": "Duruma göre filtrele",
+    "allTypes": "Tüm Tipler",
+    "allStatuses": "Tüm Durumlar",
+    "read": "Okundu",
+    "unread": "Okunmadı",
+    "types": {
+      "appointment_created": "Randevu Oluşturuldu",
+      "appointment_cancelled": "Randevu İptal Edildi",
+      "appointment_updated": "Randevu Güncellendi",
+      "customer_created": "Yeni Müşteri",
+      "call_completed": "Arama Tamamlandı"
+    }
   }
 }

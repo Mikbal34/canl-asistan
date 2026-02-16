@@ -9,6 +9,12 @@ const config = require('../config/env');
 
 const { processFunctionCall, getFunctionDefinitions } = require('../prompts/functions');
 const { saveCallLog } = require('../services/supabase');
+
+let _notificationService;
+function getNotificationService() {
+  if (!_notificationService) _notificationService = require('../services/notificationService');
+  return _notificationService;
+}
 const vapiService = require('../services/vapiService');
 const { handleToolCall, verifyVapiWebhook, resolveTenantFromCall } = require('../handlers/vapiToolsHandler');
 
@@ -143,6 +149,16 @@ router.post('/webhook', async (req, res) => {
           endedReason,
         });
         console.log('[Vapi] Arama kaydi Supabase\'e kaydedildi, tenant:', tenantId);
+
+        // In-app bildirim
+        getNotificationService().notifyCallCompleted(tenantId, {
+          call_id: callId,
+          caller_phone: customerPhone || 'unknown',
+          duration_seconds: body.message.call?.startedAt && body.message.call?.endedAt
+            ? Math.round((new Date(body.message.call.endedAt) - new Date(body.message.call.startedAt)) / 1000)
+            : null,
+          summary: summary?.substring(0, 200),
+        }).catch(err => console.error('[Vapi] Notification error:', err));
       } catch (saveError) {
         console.error('[Vapi] Arama kaydi kaydetme hatasi:', saveError);
         console.error('[Vapi] Call data:', JSON.stringify({

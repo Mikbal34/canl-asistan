@@ -370,4 +370,12 @@ export const onboardingAPI = {
   setUseCases: (useCaseIds) => api.post('/api/onboarding/use-cases', { useCaseIds }),
 };
 
+// Notification APIs (Tenant)
+export const notificationAPI = {
+  getAll: (params) => api.get('/api/tenant/notifications', { params }),
+  getUnreadCount: () => api.get('/api/tenant/notifications/unread-count'),
+  markAsRead: (id) => api.patch(`/api/tenant/notifications/${id}/read`),
+  markAllAsRead: () => api.patch('/api/tenant/notifications/read-all'),
+};
+
 export default api;

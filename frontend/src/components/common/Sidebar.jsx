@@ -12,6 +12,7 @@ import {
   CalendarClock,
   Car,
   Tag,
+  Bell,
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { useTenant } from '../../hooks/useTenant';
@@ -61,6 +62,7 @@ export const Sidebar = () => {
     return [
       ...baseItems,
       ...managementItems,
+      { path: '/notifications', icon: Bell, label: t('navigation.notifications') },
       { path: '/call-logs', icon: Phone, label: t('navigation.callLogs') },
       { path: '/settings', icon: Settings, label: t('navigation.settings') },
     ];

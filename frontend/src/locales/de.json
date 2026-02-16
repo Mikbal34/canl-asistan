@@ -43,7 +43,8 @@
     "presets": "Branchenvorlagen",
     "slotManager": "Kalenderverwaltung",
     "vehicleCatalog": "Fahrzeugkatalog",
-    "promotions": "Kampagnen"
+    "promotions": "Kampagnen",
+    "notifications": "Benachrichtigungen"
   },
   "dashboard": {
     "title": "Dashboard",
@@ -229,5 +230,30 @@
     "companyName": "Firmenname",
     "callCount": "Anrufanzahl",
     "appointmentCount": "Terminanzahl"
+  },
+  "notifications": {
+    "title": "Benachrichtigungen",
+    "subtitle": "Verfolgen Sie hier alle Ihre Benachrichtigungen",
+    "empty": "Noch keine Benachrichtigungen",
+    "markAllRead": "Alle als gelesen markieren",
+    "markAsRead": "Als gelesen markieren",
+    "viewAll": "Alle anzeigen",
+    "justNow": "Gerade eben",
+    "minutesAgo": "Vor {{count}} Min.",
+    "hoursAgo": "Vor {{count}} Std.",
+    "daysAgo": "Vor {{count}} Tagen",
+    "filterByType": "Nach Typ filtern",
+    "filterByStatus": "Nach Status filtern",
+    "allTypes": "Alle Typen",
+    "allStatuses": "Alle Status",
+    "read": "Gelesen",
+    "unread": "Ungelesen",
+    "types": {
+      "appointment_created": "Termin erstellt",
+      "appointment_cancelled": "Termin storniert",
+      "appointment_updated": "Termin aktualisiert",
+      "customer_created": "Neuer Kunde",
+      "call_completed": "Anruf abgeschlossen"
+    }
   }
 }

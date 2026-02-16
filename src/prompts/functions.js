@@ -5,6 +5,12 @@
 
 const supabaseService = require('../services/supabase');
 const webhookService = require('../services/webhookService');
+
+let _notificationService;
+function getNotificationService() {
+  if (!_notificationService) _notificationService = require('../services/notificationService');
+  return _notificationService;
+}
 const { beautyFunctionDefinitions, processBeautyFunctionCall } = require('./beauty/functions');
 const { hairdresserFunctionDefinitions, processHairdresserFunctionCall } = require('./hairdresser/functions');
 
@@ -589,6 +595,16 @@ async function processAutomotiveFunctionCall(tenantId, functionName, args, calle
           notes: args.notes,
         }).catch(err => console.error('[Functions] Webhook error:', err));
 
+        // In-app bildirim
+        getNotificationService().notifyAppointmentCreated(tenantId, 'test_drive', {
+          id: appointment.id,
+          customer_name: args.customer_name,
+          customer_phone: args.customer_phone || callerPhone,
+          vehicle_info: vehicle ? `${vehicle.brand} ${vehicle.model}` : null,
+          date: args.appointment_date,
+          time: args.appointment_time,
+        }).catch(err => console.error('[Functions] Notification error:', err));
+
         return {
           success: true,
           appointment_id: appointment.id,
@@ -685,6 +701,16 @@ async function processAutomotiveFunctionCall(tenantId, functionName, args, calle
           notes: args.notes,
         }).catch(err => console.error('[Functions] Webhook error:', err));
 
+        // In-app bildirim
+        getNotificationService().notifyAppointmentCreated(tenantId, 'service', {
+          id: appointment.id,
+          customer_name: args.customer_name,
+          customer_phone: args.customer_phone || callerPhone,
+          service_type: serviceTypeNames[args.service_type] || args.service_type,
+          date: args.appointment_date,
+          time: args.appointment_time,
+        }).catch(err => console.error('[Functions] Notification error:', err));
+
         return {
           success: true,
           appointment_id: appointment.id,
@@ -769,6 +795,11 @@ async function processAutomotiveFunctionCall(tenantId, functionName, args, calle
             type: args.appointment_type,
           }).catch(err => console.error('[Functions] Webhook error:', err));
 
+          // In-app bildirim
+          getNotificationService().notifyAppointmentCancelled(tenantId, args.appointment_type, {
+            id: args.appointment_id,
+          }).catch(err => console.error('[Functions] Notification error:', err));
+
           return {
             success: true,
             message: `${typeText} randevunuz başarıyla iptal edildi.`,
@@ -813,6 +844,13 @@ async function processAutomotiveFunctionCall(tenantId, functionName, args, calle
           new_date: args.new_date,
           new_time: args.new_time,
         }).catch(err => console.error('[Functions] Webhook error:', err));
+
+        // In-app bildirim
+        getNotificationService().notifyAppointmentUpdated(tenantId, args.appointment_type, {
+          id: args.appointment_id,
+          new_date: args.new_date,
+          new_time: args.new_time,
+        }).catch(err => console.error('[Functions] Notification error:', err));
 
         return {
           success: true,

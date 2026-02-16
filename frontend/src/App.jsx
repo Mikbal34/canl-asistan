@@ -2,6 +2,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { AuthProvider } from './context/AuthContext';
 import { TenantProvider } from './context/TenantContext';
 import { TenantBrandingProvider } from './context/TenantBrandingContext';
+import { NotificationProvider } from './context/NotificationContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { Layout } from './components/common/Layout';
 
@@ -24,6 +25,7 @@ import { Settings } from './pages/tenant/Settings';
 import { SlotManager } from './pages/tenant/SlotManager';
 import { Vehicles } from './pages/tenant/Vehicles';
 import { Promotions } from './pages/tenant/Promotions';
+import { Notifications } from './pages/tenant/Notifications';
 
 // Admin Pages
 import { AdminDashboard } from './pages/admin/AdminDashboard';
@@ -41,6 +43,7 @@ function App() {
       <AuthProvider>
         <TenantBrandingProvider>
           <TenantProvider>
+            <NotificationProvider>
             <Routes>
               {/* Public Routes */}
               <Route path="/login/:slug" element={<TenantLogin />} />
@@ -144,6 +147,16 @@ function App() {
                 </ProtectedRoute>
               }
             />
+            <Route
+              path="/notifications"
+              element={
+                <ProtectedRoute>
+                  <Layout>
+                    <Notifications />
+                  </Layout>
+                </ProtectedRoute>
+              }
+            />
 
             {/* Protected Admin Routes */}
             <Route
@@ -203,6 +216,7 @@ function App() {
             {/* 404 Route */}
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>
+            </NotificationProvider>
           </TenantProvider>
         </TenantBrandingProvider>
       </AuthProvider>

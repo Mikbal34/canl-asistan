@@ -7,6 +7,12 @@
 const supabaseService = require('../../services/supabase');
 const webhookService = require('../../services/webhookService');
 
+let _notificationService;
+function getNotificationService() {
+  if (!_notificationService) _notificationService = require('../../services/notificationService');
+  return _notificationService;
+}
+
 // Sahte/generic müşteri isimlerini engelle
 const INVALID_NAMES = ['müşteri', 'musteri', 'customer', 'isim', 'ad', 'misafir', 'anonim', 'bilinmiyor', 'unknown', 'test', 'deneme', 'kullanıcı', 'kullanici', 'user', 'guest', 'soyad', 'ad soyad'];
 
@@ -543,6 +549,16 @@ async function processBeautyFunctionCall(tenantId, functionName, args, callerPho
           notes: args.notes,
         }).catch(err => console.error('[BeautyFunctions] Webhook error:', err));
 
+        // In-app bildirim
+        getNotificationService().notifyAppointmentCreated(tenantId, 'beauty', {
+          id: appointment.id,
+          customer_name: args.customer_name,
+          customer_phone: args.customer_phone || callerPhone,
+          service_name: serviceInfo,
+          date: args.appointment_date,
+          time: args.appointment_time,
+        }).catch(err => console.error('[BeautyFunctions] Notification error:', err));
+
         return {
           success: true,
           appointment_id: appointment.id,
@@ -611,6 +627,11 @@ async function processBeautyFunctionCall(tenantId, functionName, args, callerPho
             id: args.appointment_id,
           }).catch(err => console.error('[BeautyFunctions] Webhook error:', err));
 
+          // In-app bildirim
+          getNotificationService().notifyAppointmentCancelled(tenantId, 'beauty', {
+            id: args.appointment_id,
+          }).catch(err => console.error('[BeautyFunctions] Notification error:', err));
+
           return {
             success: true,
             message: 'Randevunuz başarıyla iptal edildi.',
@@ -653,6 +674,13 @@ async function processBeautyFunctionCall(tenantId, functionName, args, callerPho
           new_date: args.new_date,
           new_time: args.new_time,
         }).catch(err => console.error('[BeautyFunctions] Webhook error:', err));
+
+        // In-app bildirim
+        getNotificationService().notifyAppointmentUpdated(tenantId, 'beauty', {
+          id: args.appointment_id,
+          new_date: args.new_date,
+          new_time: args.new_time,
+        }).catch(err => console.error('[BeautyFunctions] Notification error:', err));
 
         return {
           success: true,
@@ -1001,6 +1029,17 @@ async function processBeautyFunctionCall(tenantId, functionName, args, callerPho
           time: args.appointment_time,
           notes: args.notes,
         }).catch(err => console.error('[BeautyFunctions] Webhook error:', err));
+
+        // In-app bildirim
+        getNotificationService().notifyAppointmentCreated(tenantId, 'beauty', {
+          id: appointment.id,
+          customer_name: args.customer_name,
+          customer_phone: args.customer_phone || callerPhone,
+          service_name: matchedService?.name || args.service_name,
+          staff_name: staff.name,
+          date: args.appointment_date,
+          time: args.appointment_time,
+        }).catch(err => console.error('[BeautyFunctions] Notification error:', err));
 
         return {
           success: true,

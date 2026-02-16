@@ -3662,4 +3662,112 @@ router.post('/prompts', authenticate(), resolveTenant(), requireTenantAdmin, asy
   }
 });
 
+// ==========================================
+// NOTIFICATION ROUTES
+// ==========================================
+
+/**
+ * Get notifications (paginated + filtered)
+ * GET /api/tenant/notifications
+ * Query params: ?page=1&limit=20&type=appointment_created&is_read=false
+ */
+router.get('/tenant/notifications', authenticate(), resolveTenant(), requireTenantAccess, async (req, res) => {
+  try {
+    const { page = 1, limit = 20, type, is_read } = req.query;
+    const offset = (parseInt(page) - 1) * parseInt(limit);
+
+    let query = supabaseAdmin
+      .from('notifications')
+      .select('*', { count: 'exact' })
+      .eq('tenant_id', req.tenantId)
+      .order('created_at', { ascending: false })
+      .range(offset, offset + parseInt(limit) - 1);
+
+    if (type) {
+      query = query.eq('type', type);
+    }
+    if (is_read !== undefined && is_read !== '') {
+      query = query.eq('is_read', is_read === 'true');
+    }
+
+    const { data, error, count } = await query;
+    if (error) throw error;
+
+    res.json({
+      data: data || [],
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total: count || 0,
+        totalPages: Math.ceil((count || 0) / parseInt(limit)),
+      },
+    });
+  } catch (error) {
+    console.error('[API] Get notifications error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * Get unread notification count
+ * GET /api/tenant/notifications/unread-count
+ */
+router.get('/tenant/notifications/unread-count', authenticate(), resolveTenant(), requireTenantAccess, async (req, res) => {
+  try {
+    const { count, error } = await supabaseAdmin
+      .from('notifications')
+      .select('*', { count: 'exact', head: true })
+      .eq('tenant_id', req.tenantId)
+      .eq('is_read', false);
+
+    if (error) throw error;
+    res.json({ count: count || 0 });
+  } catch (error) {
+    console.error('[API] Get unread count error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * Mark single notification as read
+ * PATCH /api/tenant/notifications/:id/read
+ */
+router.patch('/tenant/notifications/:id/read', authenticate(), resolveTenant(), requireTenantAccess, async (req, res) => {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('notifications')
+      .update({ is_read: true, read_at: new Date().toISOString() })
+      .eq('id', req.params.id)
+      .eq('tenant_id', req.tenantId)
+      .select()
+      .single();
+
+    if (error) throw error;
+    res.json(data);
+  } catch (error) {
+    console.error('[API] Mark notification read error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * Mark all notifications as read
+ * PATCH /api/tenant/notifications/read-all
+ */
+router.patch('/tenant/notifications/read-all', authenticate(), resolveTenant(), requireTenantAccess, async (req, res) => {
+  try {
+    const { error } = await supabaseAdmin
+      .from('notifications')
+      .update({ is_read: true, read_at: new Date().toISOString() })
+      .eq('tenant_id', req.tenantId)
+      .eq('is_read', false);
+
+    if (error) throw error;
+    res.json({ success: true });
+  } catch (error) {
+    console.error('[API] Mark all read error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 module.exports = router;

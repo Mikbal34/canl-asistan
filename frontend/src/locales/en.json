@@ -43,7 +43,8 @@
     "presets": "Industry Presets",
     "slotManager": "Calendar Management",
     "vehicleCatalog": "Vehicle Catalog",
-    "promotions": "Campaigns"
+    "promotions": "Campaigns",
+    "notifications": "Notifications"
   },
   "dashboard": {
     "title": "Dashboard",
@@ -229,5 +230,30 @@
     "companyName": "Company Name",
     "callCount": "Call Count",
     "appointmentCount": "Appointment Count"
+  },
+  "notifications": {
+    "title": "Notifications",
+    "subtitle": "Track all your notifications here",
+    "empty": "No notifications yet",
+    "markAllRead": "Mark all as read",
+    "markAsRead": "Mark as read",
+    "viewAll": "View all",
+    "justNow": "Just now",
+    "minutesAgo": "{{count}} min ago",
+    "hoursAgo": "{{count}} hr ago",
+    "daysAgo": "{{count}} days ago",
+    "filterByType": "Filter by type",
+    "filterByStatus": "Filter by status",
+    "allTypes": "All Types",
+    "allStatuses": "All Statuses",
+    "read": "Read",
+    "unread": "Unread",
+    "types": {
+      "appointment_created": "Appointment Created",
+      "appointment_cancelled": "Appointment Cancelled",
+      "appointment_updated": "Appointment Updated",
+      "customer_created": "New Customer",
+      "call_completed": "Call Completed"
+    }
   }
 }
