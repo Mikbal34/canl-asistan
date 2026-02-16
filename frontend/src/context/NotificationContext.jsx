@@ -74,6 +74,12 @@ export const NotificationProvider = ({ children }) => {
   useEffect(() => {
     if (!isAuthenticated || isSuperAdmin || !tenantId || !supabase) return;
 
+    // RLS icin JWT token set et, yoksa auth.uid() null doner ve Realtime eventleri gelmez
+    const token = localStorage.getItem('token');
+    if (token) {
+      supabase.realtime.setAuth(token);
+    }
+
     const channel = supabase
       .channel(`notifications:${tenantId}`)
       .on(
