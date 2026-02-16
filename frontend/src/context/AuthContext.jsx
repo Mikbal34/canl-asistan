@@ -1,6 +1,5 @@
 import React, { createContext, useState, useEffect, useContext, useMemo, useCallback } from 'react';
 import { authAPI } from '../services/api';
-import { setRealtimeAuth } from '../services/supabaseClient';
 
 export const AuthContext = createContext(null);
 
@@ -27,9 +26,6 @@ export const AuthProvider = ({ children }) => {
       setLoading(false);
       return;
     }
-
-    // Supabase Realtime'a JWT token ver
-    setRealtimeAuth(token);
 
     // Önce localStorage'dan user'ı yükle (hızlı başlangıç)
     if (savedUser) {
@@ -91,7 +87,6 @@ export const AuthProvider = ({ children }) => {
 
       if (token) {
         localStorage.setItem('token', token);
-        setRealtimeAuth(token);
         console.log('[Auth] Token saved to localStorage');
       }
 

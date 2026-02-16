@@ -6,12 +6,6 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 export const supabase = (supabaseUrl && supabaseAnonKey)
   ? createClient(supabaseUrl, supabaseAnonKey, {
       realtime: { params: { eventsPerSecond: 10 } },
+      accessToken: async () => localStorage.getItem('token'),
     })
   : null;
-
-// Supabase Realtime icin JWT token set et
-export function setRealtimeAuth(token) {
-  if (supabase && token) {
-    supabase.realtime.setAuth(token);
-  }
-}
