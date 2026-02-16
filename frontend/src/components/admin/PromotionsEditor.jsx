@@ -18,6 +18,7 @@ import { Button } from '../common/Button';
 import { Input } from '../common/Input';
 import { Badge } from '../common/Badge';
 import { Modal, ModalFooter } from '../common/Modal';
+import { Skeleton } from '../common/Skeleton';
 import { promotionsAPI, adminPromotionsAPI } from '../../services/api';
 
 // Discount types
@@ -435,8 +436,17 @@ export const PromotionsEditor = ({ tenantId, onUpdate, mode = 'admin' }) => {
 
               {/* Loading */}
               {campaignsLoading && (
-                <div className="flex items-center justify-center py-8">
-                  <Loader2 className="w-6 h-6 animate-spin text-amber-600" />
+                <div className="space-y-2">
+                  {Array.from({ length: 3 }).map((_, i) => (
+                    <div key={i} className="flex items-center gap-4 p-3 rounded-lg bg-slate-50">
+                      <Skeleton width="2.5rem" height="2.5rem" rounded="rounded-lg" />
+                      <div className="flex-1 space-y-2">
+                        <Skeleton width="35%" height="1rem" />
+                        <Skeleton width="55%" height="0.75rem" />
+                      </div>
+                      <Skeleton width="4rem" height="1.5rem" rounded="rounded-full" />
+                    </div>
+                  ))}
                 </div>
               )}
 
@@ -614,8 +624,17 @@ export const PromotionsEditor = ({ tenantId, onUpdate, mode = 'admin' }) => {
 
               {/* Loading */}
               {promoCodesLoading && (
-                <div className="flex items-center justify-center py-8">
-                  <Loader2 className="w-6 h-6 animate-spin text-amber-600" />
+                <div className="space-y-2">
+                  {Array.from({ length: 3 }).map((_, i) => (
+                    <div key={i} className="flex items-center gap-4 p-3 rounded-lg bg-slate-50">
+                      <Skeleton width="2.5rem" height="2.5rem" rounded="rounded-lg" />
+                      <div className="flex-1 space-y-2">
+                        <Skeleton width="30%" height="1rem" />
+                        <Skeleton width="50%" height="0.75rem" />
+                      </div>
+                      <Skeleton width="4rem" height="1.5rem" rounded="rounded-full" />
+                    </div>
+                  ))}
                 </div>
               )}
 
