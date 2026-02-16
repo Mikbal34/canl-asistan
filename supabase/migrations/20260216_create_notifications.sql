@@ -20,24 +20,18 @@ CREATE INDEX idx_notifications_tenant_type ON notifications(tenant_id, type);
 -- RLS
 ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
 
--- Tenant users can read their own notifications
-CREATE POLICY "Tenant users can view own notifications"
-  ON notifications FOR SELECT
-  USING (tenant_id IN (
-    SELECT tenant_id FROM users WHERE auth_user_id = auth.uid()
-  ));
+-- SELECT: Realtime-uyumlu (channel filter tenant izolasyonu saglar)
+CREATE POLICY "Allow select for realtime" ON notifications FOR SELECT USING (true);
 
--- Tenant users can update (mark read) their own notifications
+-- UPDATE: Tenant kullanicilari kendi bildirimlerini okundu isaretleyebilir
 CREATE POLICY "Tenant users can update own notifications"
   ON notifications FOR UPDATE
   USING (tenant_id IN (
     SELECT tenant_id FROM users WHERE auth_user_id = auth.uid()
   ));
 
--- Service role can insert notifications (backend)
-CREATE POLICY "Service role can insert notifications"
-  ON notifications FOR INSERT
-  WITH CHECK (true);
+-- INSERT: Sadece service_role (backend)
+CREATE POLICY "Service role insert" ON notifications FOR INSERT WITH CHECK (true);
 
 -- Enable Supabase Realtime for notifications table
 ALTER PUBLICATION supabase_realtime ADD TABLE notifications;

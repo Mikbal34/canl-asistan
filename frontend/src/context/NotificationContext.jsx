@@ -5,15 +5,12 @@ import { useAuth } from '../hooks/useAuth';
 
 export const NotificationContext = createContext(null);
 
-const POLL_INTERVAL = 30000; // 30 saniye
-
 export const NotificationProvider = ({ children }) => {
   const { isAuthenticated, user } = useAuth();
   const [unreadCount, setUnreadCount] = useState(0);
   const [recentNotifications, setRecentNotifications] = useState([]);
   const [loading, setLoading] = useState(false);
   const channelRef = useRef(null);
-  const pollRef = useRef(null);
 
   const tenantId = user?.tenant?.id || user?.tenant_id;
   const isSuperAdmin = user?.role === 'super_admin';
@@ -65,36 +62,17 @@ export const NotificationProvider = ({ children }) => {
     }
   }, []);
 
-  // Initial fetch + polling (her 30 saniyede bir kontrol)
+  // Initial fetch
   useEffect(() => {
-    if (!isAuthenticated || isSuperAdmin) return;
-
-    // Ilk fetch
-    fetchUnreadCount();
-    fetchRecentNotifications();
-
-    // Polling
-    pollRef.current = setInterval(() => {
+    if (isAuthenticated && !isSuperAdmin) {
       fetchUnreadCount();
       fetchRecentNotifications();
-    }, POLL_INTERVAL);
-
-    return () => {
-      if (pollRef.current) {
-        clearInterval(pollRef.current);
-        pollRef.current = null;
-      }
-    };
+    }
   }, [isAuthenticated, isSuperAdmin, fetchUnreadCount, fetchRecentNotifications]);
 
-  // Supabase Realtime subscription (bonus - anlik bildirim icin)
+  // Supabase Realtime subscription
   useEffect(() => {
     if (!isAuthenticated || isSuperAdmin || !tenantId || !supabase) return;
-
-    const token = localStorage.getItem('token');
-    if (token) {
-      supabase.realtime.setAuth(token);
-    }
 
     const channel = supabase
       .channel(`notifications:${tenantId}`)
@@ -107,12 +85,15 @@ export const NotificationProvider = ({ children }) => {
           filter: `tenant_id=eq.${tenantId}`,
         },
         (payload) => {
+          console.log('[Realtime] Yeni bildirim:', payload.new?.title);
           const newNotification = payload.new;
           setRecentNotifications(prev => [newNotification, ...prev].slice(0, 10));
           setUnreadCount(prev => prev + 1);
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log('[Realtime] Subscription status:', status);
+      });
 
     channelRef.current = channel;
 
