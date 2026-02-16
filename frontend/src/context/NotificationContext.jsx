@@ -1,6 +1,5 @@
 import { createContext, useState, useEffect, useCallback, useRef } from 'react';
 import { notificationAPI } from '../services/api';
-import { supabase } from '../services/supabaseClient';
 import { useAuth } from '../hooks/useAuth';
 
 export const NotificationContext = createContext(null);
@@ -12,11 +11,8 @@ export const NotificationProvider = ({ children }) => {
   const [unreadCount, setUnreadCount] = useState(0);
   const [recentNotifications, setRecentNotifications] = useState([]);
   const [loading, setLoading] = useState(false);
-  const channelRef = useRef(null);
   const pollRef = useRef(null);
-  const realtimeConnected = useRef(false);
 
-  const tenantId = user?.tenant?.id || user?.tenant_id;
   const isSuperAdmin = user?.role === 'super_admin';
 
   const fetchUnreadCount = useCallback(async () => {
@@ -74,12 +70,7 @@ export const NotificationProvider = ({ children }) => {
 
     refresh();
 
-    pollRef.current = setInterval(() => {
-      // Realtime baglanirsa polling'i durdur
-      if (!realtimeConnected.current) {
-        refresh();
-      }
-    }, POLL_INTERVAL);
+    pollRef.current = setInterval(refresh, POLL_INTERVAL);
 
     return () => {
       if (pollRef.current) {
@@ -88,47 +79,6 @@ export const NotificationProvider = ({ children }) => {
       }
     };
   }, [isAuthenticated, isSuperAdmin, refresh]);
-
-  // Supabase Realtime (basarisiz olursa polling devam eder)
-  useEffect(() => {
-    if (!isAuthenticated || isSuperAdmin || !tenantId || !supabase) return;
-
-    const channel = supabase
-      .channel(`notifications:${tenantId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'notifications',
-          filter: `tenant_id=eq.${tenantId}`,
-        },
-        (payload) => {
-          const newNotification = payload.new;
-          setRecentNotifications(prev => [newNotification, ...prev].slice(0, 10));
-          setUnreadCount(prev => prev + 1);
-        }
-      )
-      .subscribe((status) => {
-        if (status === 'SUBSCRIBED') {
-          console.log('[Notifications] Realtime connected');
-          realtimeConnected.current = true;
-        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-          // Realtime calismadi, polling devam edecek - sessizce gec
-          realtimeConnected.current = false;
-        }
-      });
-
-    channelRef.current = channel;
-
-    return () => {
-      if (channelRef.current) {
-        supabase.removeChannel(channelRef.current);
-        channelRef.current = null;
-        realtimeConnected.current = false;
-      }
-    };
-  }, [isAuthenticated, isSuperAdmin, tenantId]);
 
   return (
     <NotificationContext.Provider
