@@ -5,12 +5,15 @@ import { useAuth } from '../hooks/useAuth';
 
 export const NotificationContext = createContext(null);
 
+const POLL_INTERVAL = 30000; // 30 saniye
+
 export const NotificationProvider = ({ children }) => {
   const { isAuthenticated, user } = useAuth();
   const [unreadCount, setUnreadCount] = useState(0);
   const [recentNotifications, setRecentNotifications] = useState([]);
   const [loading, setLoading] = useState(false);
   const channelRef = useRef(null);
+  const pollRef = useRef(null);
 
   const tenantId = user?.tenant?.id || user?.tenant_id;
   const isSuperAdmin = user?.role === 'super_admin';
@@ -62,19 +65,32 @@ export const NotificationProvider = ({ children }) => {
     }
   }, []);
 
-  // Initial fetch
+  // Initial fetch + polling (her 30 saniyede bir kontrol)
   useEffect(() => {
-    if (isAuthenticated && !isSuperAdmin) {
+    if (!isAuthenticated || isSuperAdmin) return;
+
+    // Ilk fetch
+    fetchUnreadCount();
+    fetchRecentNotifications();
+
+    // Polling
+    pollRef.current = setInterval(() => {
       fetchUnreadCount();
       fetchRecentNotifications();
-    }
+    }, POLL_INTERVAL);
+
+    return () => {
+      if (pollRef.current) {
+        clearInterval(pollRef.current);
+        pollRef.current = null;
+      }
+    };
   }, [isAuthenticated, isSuperAdmin, fetchUnreadCount, fetchRecentNotifications]);
 
-  // Supabase Realtime subscription
+  // Supabase Realtime subscription (bonus - anlik bildirim icin)
   useEffect(() => {
     if (!isAuthenticated || isSuperAdmin || !tenantId || !supabase) return;
 
-    // RLS icin JWT token set et, yoksa auth.uid() null doner ve Realtime eventleri gelmez
     const token = localStorage.getItem('token');
     if (token) {
       supabase.realtime.setAuth(token);
