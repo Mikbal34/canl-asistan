@@ -1,8 +1,10 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Search } from 'lucide-react';
 import { Card, CardContent } from '../../components/common/Card';
 import { Table } from '../../components/common/Table';
+import { SkeletonTableRows } from '../../components/common/Skeleton';
+import { useCachedFetch } from '../../hooks/useCachedFetch';
 import { customerAPI } from '../../services/api';
 
 /**
@@ -10,24 +12,15 @@ import { customerAPI } from '../../services/api';
  */
 export const Customers = () => {
   const { t } = useTranslation();
-  const [customers, setCustomers] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
 
-  useEffect(() => {
-    fetchCustomers();
-  }, []);
-
-  const fetchCustomers = async () => {
-    try {
-      const response = await customerAPI.getAll();
-      setCustomers(response.data.data || response.data);
-    } catch (error) {
-      console.error('Failed to fetch customers:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const {
+    data: customers,
+    loading,
+  } = useCachedFetch('customers-list', async () => {
+    const response = await customerAPI.getAll();
+    return response.data.data || response.data;
+  }, { ttl: 5 * 60 * 1000 });
 
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
@@ -38,14 +31,16 @@ export const Customers = () => {
     });
   };
 
-  const filteredCustomers = useMemo(() => customers.filter((customer) => {
+  const safeCustomers = customers || [];
+
+  const filteredCustomers = useMemo(() => safeCustomers.filter((customer) => {
     const term = searchTerm.toLocaleLowerCase('tr');
     return (
       customer.name?.toLocaleLowerCase('tr').includes(term) ||
       customer.email?.toLocaleLowerCase('tr').includes(term) ||
       customer.phone?.includes(searchTerm)
     );
-  }), [customers, searchTerm]);
+  }), [safeCustomers, searchTerm]);
 
   const columns = useMemo(() => [
     {
@@ -116,9 +111,7 @@ export const Customers = () => {
       <Card>
         <CardContent>
           {loading ? (
-            <div className="text-center py-12 text-slate-500">
-              {t('common.loading')}
-            </div>
+            <SkeletonTableRows rows={8} columns={4} />
           ) : (
             <Table
               columns={columns}

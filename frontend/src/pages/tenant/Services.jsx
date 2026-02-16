@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Plus, Edit, Trash2, Car, Scissors } from 'lucide-react';
 import { Card, CardContent } from '../../components/common/Card';
 import { Table } from '../../components/common/Table';
 import { Button } from '../../components/common/Button';
+import { SkeletonTableRows } from '../../components/common/Skeleton';
+import { useCachedFetch } from '../../hooks/useCachedFetch';
 import { serviceAPI, vehicleAPI, beautyAPI } from '../../services/api';
 import { useAuth } from '../../hooks/useAuth';
 import { useTenant } from '../../hooks/useTenant';
@@ -17,40 +18,23 @@ export const Services = () => {
   const { t } = useTranslation();
   const { user } = useAuth();
   const { tenantSettings, industry: tenantIndustry } = useTenant();
-  const [data, setData] = useState([]);
-  const [loading, setLoading] = useState(true);
-
   // Sektör bilgisini user.tenant'tan veya tenantSettings'ten al
   const industry = user?.tenant?.industry || tenantIndustry || tenantSettings?.industry;
 
-  useEffect(() => {
-    fetchData();
-  }, [industry]);
-
-  const fetchData = async () => {
-    setLoading(true);
-    try {
-      let response;
-
-      if (industry === 'automotive') {
-        // Otomotiv: Araç listesi
-        response = await vehicleAPI.getAll();
-      } else if (industry === 'beauty') {
-        // Güzellik: Hizmet listesi
-        response = await beautyAPI.getServices();
-      } else {
-        // Default: Genel servisler
-        response = await serviceAPI.getAll();
-      }
-
-      setData(response.data.data || response.data || []);
-    } catch (error) {
-      console.error('Failed to fetch data:', error);
-      setData([]);
-    } finally {
-      setLoading(false);
+  const {
+    data,
+    loading,
+  } = useCachedFetch(`services-${industry}`, async () => {
+    let response;
+    if (industry === 'automotive') {
+      response = await vehicleAPI.getAll();
+    } else if (industry === 'beauty') {
+      response = await beautyAPI.getServices();
+    } else {
+      response = await serviceAPI.getAll();
     }
-  };
+    return response.data.data || response.data || [];
+  }, { ttl: 5 * 60 * 1000, enabled: !!industry });
 
   // Otomotiv sektörü için araç kolonları
   const vehicleColumns = [
@@ -266,10 +250,8 @@ export const Services = () => {
       <Card>
         <CardContent>
           {loading ? (
-            <div className="text-center py-12 text-slate-500">
-              {t('common.loading')}
-            </div>
-          ) : data.length === 0 ? (
+            <SkeletonTableRows rows={6} columns={4} />
+          ) : !data || data.length === 0 ? (
             <div className="text-center py-12 text-slate-500">
               {industry === 'automotive'
                 ? t('vehicles.noVehicles', 'Henüz araç eklenmemiş')
@@ -278,7 +260,7 @@ export const Services = () => {
           ) : (
             <Table
               columns={pageConfig.columns}
-              data={data}
+              data={data || []}
             />
           )}
         </CardContent>

@@ -227,9 +227,15 @@ export const Settings = () => {
         </CardHeader>
         <CardContent>
           {assistantLoading ? (
-            <div className="flex items-center gap-3 text-slate-500">
-              <div className="w-5 h-5 border-2 border-slate-300 border-t-indigo-600 rounded-full animate-spin" />
-              <span>Yükleniyor...</span>
+            <div className="p-4 rounded-xl border border-slate-200">
+              <div className="flex items-start gap-4">
+                <div className="animate-pulse bg-slate-200 rounded-xl w-14 h-14 flex-shrink-0" />
+                <div className="flex-1 space-y-3">
+                  <div className="animate-pulse bg-slate-200 rounded h-5 w-48" />
+                  <div className="animate-pulse bg-slate-200 rounded h-4 w-72" />
+                  <div className="animate-pulse bg-slate-200 rounded h-3 w-32" />
+                </div>
+              </div>
             </div>
           ) : assistantInfo?.template ? (
             <div>

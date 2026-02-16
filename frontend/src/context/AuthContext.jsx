@@ -1,5 +1,6 @@
 import React, { createContext, useState, useEffect, useContext, useMemo, useCallback } from 'react';
 import { authAPI } from '../services/api';
+import { useCachedFetch } from '../hooks/useCachedFetch';
 
 export const AuthContext = createContext(null);
 
@@ -125,6 +126,7 @@ export const AuthProvider = ({ children }) => {
     } catch (error) {
       console.error('Logout error:', error);
     } finally {
+      useCachedFetch.invalidateAll();
       localStorage.removeItem('token');
       localStorage.removeItem('user');
       setUser(null);

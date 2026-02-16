@@ -1,11 +1,12 @@
-import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Calendar, Users, Phone, TrendingUp, ArrowRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useTenant } from '../../hooks/useTenant';
+import { useCachedFetch } from '../../hooks/useCachedFetch';
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/common/Card';
 import { Badge } from '../../components/common/Badge';
 import { Button } from '../../components/common/Button';
+import { SkeletonStatCard, SkeletonTableRows } from '../../components/common/Skeleton';
 import { testDriveAPI, beautyAPI, serviceAppointmentAPI } from '../../services/api';
 
 /**
@@ -14,47 +15,36 @@ import { testDriveAPI, beautyAPI, serviceAppointmentAPI } from '../../services/a
 export const Dashboard = () => {
   const { t } = useTranslation();
   const { stats, tenantSettings, loading: tenantLoading } = useTenant();
-  const [recentAppointments, setRecentAppointments] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-
-  useEffect(() => {
-    if (!tenantLoading && tenantSettings) {
-      fetchRecentAppointments();
-    } else if (!tenantLoading) {
-      setLoading(false);
-    }
-  }, [tenantSettings, tenantLoading]);
 
   const fetchRecentAppointments = async () => {
-    try {
-      setError(null);
-      let allAppointments = [];
-      if (tenantSettings?.industry === 'automotive') {
-        const [testDriveRes, serviceRes] = await Promise.allSettled([
-          testDriveAPI.getAll({ limit: 5 }),
-          serviceAppointmentAPI.getAll({ limit: 5 }),
-        ]);
-        const testDrives = (testDriveRes.status === 'fulfilled' ? testDriveRes.value.data?.data || testDriveRes.value.data || [] : [])
-          .map(a => ({ ...a, _type: 'test_drive' }));
-        const services = (serviceRes.status === 'fulfilled' ? serviceRes.value.data?.data || serviceRes.value.data || [] : [])
-          .map(a => ({ ...a, _type: 'service' }));
-        allAppointments = [...testDrives, ...services]
-          .sort((a, b) => new Date(b.appointment_date) - new Date(a.appointment_date))
-          .slice(0, 5);
-      } else {
-        const response = await beautyAPI.getAppointments({ limit: 5 });
-        allAppointments = (response.data?.data || response.data || [])
-          .map(a => ({ ...a, _type: 'beauty' }));
-      }
-      setRecentAppointments(allAppointments);
-    } catch (err) {
-      console.error('Failed to fetch appointments:', err);
-      setError(err.message);
-    } finally {
-      setLoading(false);
+    let allAppointments = [];
+    if (tenantSettings?.industry === 'automotive') {
+      const [testDriveRes, serviceRes] = await Promise.allSettled([
+        testDriveAPI.getAll({ limit: 5 }),
+        serviceAppointmentAPI.getAll({ limit: 5 }),
+      ]);
+      const testDrives = (testDriveRes.status === 'fulfilled' ? testDriveRes.value.data?.data || testDriveRes.value.data || [] : [])
+        .map(a => ({ ...a, _type: 'test_drive' }));
+      const services = (serviceRes.status === 'fulfilled' ? serviceRes.value.data?.data || serviceRes.value.data || [] : [])
+        .map(a => ({ ...a, _type: 'service' }));
+      allAppointments = [...testDrives, ...services]
+        .sort((a, b) => new Date(b.appointment_date) - new Date(a.appointment_date))
+        .slice(0, 5);
+    } else {
+      const response = await beautyAPI.getAppointments({ limit: 5 });
+      allAppointments = (response.data?.data || response.data || [])
+        .map(a => ({ ...a, _type: 'beauty' }));
     }
+    return allAppointments;
   };
+
+  const {
+    data: recentAppointments,
+    loading,
+    error,
+  } = useCachedFetch('dashboard-appointments', fetchRecentAppointments, {
+    enabled: !tenantLoading && !!tenantSettings,
+  });
 
   const statCards = [
     {
@@ -106,14 +96,27 @@ export const Dashboard = () => {
     });
   };
 
-  // Loading state
+  // Loading state - skeleton
   if (tenantLoading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>
-          <p className="text-slate-500">{t('common.loading')}</p>
+      <div className="space-y-6">
+        <div>
+          <div className="animate-pulse bg-slate-200 rounded h-8 w-48 mb-2" />
+          <div className="animate-pulse bg-slate-200 rounded h-4 w-64" />
         </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <SkeletonStatCard key={i} />
+          ))}
+        </div>
+        <Card>
+          <CardHeader>
+            <div className="animate-pulse bg-slate-200 rounded h-6 w-48" />
+          </CardHeader>
+          <CardContent>
+            <SkeletonTableRows rows={5} columns={4} />
+          </CardContent>
+        </Card>
       </div>
     );
   }
@@ -171,10 +174,8 @@ export const Dashboard = () => {
         </CardHeader>
         <CardContent>
           {loading ? (
-            <div className="text-center py-8 text-slate-500">
-              {t('common.loading')}
-            </div>
-          ) : recentAppointments.length === 0 ? (
+            <SkeletonTableRows rows={5} columns={4} showHeader={false} />
+          ) : !recentAppointments || recentAppointments.length === 0 ? (
             <div className="text-center py-8 text-slate-500">
               {t('appointments.noAppointments')}
             </div>

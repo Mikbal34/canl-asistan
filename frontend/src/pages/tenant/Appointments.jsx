@@ -1,12 +1,14 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Search, Filter, Calendar, X, Check, XCircle, Loader2, Clock } from 'lucide-react';
 import { useTenant } from '../../hooks/useTenant';
+import { useCachedFetch } from '../../hooks/useCachedFetch';
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/common/Card';
 import { Table } from '../../components/common/Table';
 import { Badge } from '../../components/common/Badge';
 import { Input } from '../../components/common/Input';
 import { Button } from '../../components/common/Button';
+import { SkeletonTableRows } from '../../components/common/Skeleton';
 import { testDriveAPI, beautyAPI, serviceAppointmentAPI } from '../../services/api';
 
 /**
@@ -15,8 +17,6 @@ import { testDriveAPI, beautyAPI, serviceAppointmentAPI } from '../../services/a
 export const Appointments = () => {
   const { t } = useTranslation();
   const { tenantSettings } = useTenant();
-  const [appointments, setAppointments] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [typeFilter, setTypeFilter] = useState('all');
@@ -29,38 +29,41 @@ export const Appointments = () => {
   const [editLoading, setEditLoading] = useState(false);
 
   // Status update states
-  const [updatingStatus, setUpdatingStatus] = useState(null); // appointment id being updated
-  const [confirmAction, setConfirmAction] = useState(null); // { appointment, newStatus }
-
-  useEffect(() => {
-    fetchAppointments();
-  }, [tenantSettings]);
+  const [updatingStatus, setUpdatingStatus] = useState(null);
+  const [confirmAction, setConfirmAction] = useState(null);
 
   const fetchAppointments = async () => {
-    try {
-      let allAppointments = [];
-      if (tenantSettings?.industry === 'automotive') {
-        const [testDriveRes, serviceRes] = await Promise.allSettled([
-          testDriveAPI.getAll(),
-          serviceAppointmentAPI.getAll(),
-        ]);
-        const testDrives = (testDriveRes.status === 'fulfilled' ? testDriveRes.value.data?.data || testDriveRes.value.data || [] : [])
-          .map(a => ({ ...a, _type: 'test_drive' }));
-        const services = (serviceRes.status === 'fulfilled' ? serviceRes.value.data?.data || serviceRes.value.data || [] : [])
-          .map(a => ({ ...a, _type: 'service' }));
-        allAppointments = [...testDrives, ...services];
-      } else {
-        const response = await beautyAPI.getAppointments();
-        allAppointments = (response.data?.data || response.data || [])
-          .map(a => ({ ...a, _type: 'beauty' }));
-      }
-      setAppointments(allAppointments);
-    } catch (error) {
-      console.error('Failed to fetch appointments:', error);
-    } finally {
-      setLoading(false);
+    let allAppointments = [];
+    if (tenantSettings?.industry === 'automotive') {
+      const [testDriveRes, serviceRes] = await Promise.allSettled([
+        testDriveAPI.getAll(),
+        serviceAppointmentAPI.getAll(),
+      ]);
+      const testDrives = (testDriveRes.status === 'fulfilled' ? testDriveRes.value.data?.data || testDriveRes.value.data || [] : [])
+        .map(a => ({ ...a, _type: 'test_drive' }));
+      const services = (serviceRes.status === 'fulfilled' ? serviceRes.value.data?.data || serviceRes.value.data || [] : [])
+        .map(a => ({ ...a, _type: 'service' }));
+      allAppointments = [...testDrives, ...services];
+    } else {
+      const response = await beautyAPI.getAppointments();
+      allAppointments = (response.data?.data || response.data || [])
+        .map(a => ({ ...a, _type: 'beauty' }));
     }
+    return allAppointments;
   };
+
+  const {
+    data: appointments,
+    loading,
+    invalidate,
+  } = useCachedFetch('appointments-list', fetchAppointments, {
+    enabled: !!tenantSettings,
+  });
+
+  const invalidateAppointments = useCallback(() => {
+    invalidate();
+    useCachedFetch.invalidateKey('dashboard-appointments');
+  }, [invalidate]);
 
   const getStatusVariant = (status) => {
     const variants = {
@@ -125,7 +128,7 @@ export const Appointments = () => {
       } else if (appointment._type === 'beauty') {
         await beautyAPI.updateAppointment(appointment.id, { status: newStatus });
       }
-      fetchAppointments();
+      invalidateAppointments();
     } catch (error) {
       console.error('Status update failed:', error);
       alert('Durum güncellenirken hata oluştu');
@@ -161,7 +164,7 @@ export const Appointments = () => {
         await beautyAPI.updateAppointment(editModal.id, data);
       }
       setEditModal(null);
-      fetchAppointments();
+      invalidateAppointments();
     } catch (error) {
       console.error('Edit failed:', error);
     } finally {
@@ -169,7 +172,9 @@ export const Appointments = () => {
     }
   };
 
-  const filteredAppointments = useMemo(() => appointments.filter((appointment) => {
+  const safeAppointments = appointments || [];
+
+  const filteredAppointments = useMemo(() => safeAppointments.filter((appointment) => {
     const displayName = getDisplayName(appointment);
     const customerName = appointment.customer?.name || '';
     const term = searchTerm.toLocaleLowerCase('tr');
@@ -191,7 +196,7 @@ export const Appointments = () => {
     }
 
     return matchesSearch && matchesStatus && matchesType && matchesDate;
-  }), [appointments, searchTerm, statusFilter, typeFilter, dateFrom, dateTo]);
+  }), [safeAppointments, searchTerm, statusFilter, typeFilter, dateFrom, dateTo]);
 
   const columns = useMemo(() => [
     {
@@ -329,8 +334,8 @@ export const Appointments = () => {
   })();
 
   const pendingCount = useMemo(() =>
-    appointments.filter(a => a.status === 'pending').length
-  , [appointments]);
+    safeAppointments.filter(a => a.status === 'pending').length
+  , [safeAppointments]);
 
   return (
     <div className="space-y-6">
@@ -439,9 +444,7 @@ export const Appointments = () => {
       <Card>
         <CardContent>
           {loading ? (
-            <div className="text-center py-12 text-slate-500">
-              {t('common.loading')}
-            </div>
+            <SkeletonTableRows rows={8} columns={6} />
           ) : (
             <Table
               columns={columns}

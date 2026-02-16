@@ -1,9 +1,11 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Phone, Clock, X, MessageSquare } from 'lucide-react';
 import { Card, CardContent } from '../../components/common/Card';
 import { Table } from '../../components/common/Table';
 import { Badge } from '../../components/common/Badge';
+import { SkeletonTableRows } from '../../components/common/Skeleton';
+import { useCachedFetch } from '../../hooks/useCachedFetch';
 import { callLogAPI } from '../../services/api';
 
 /**
@@ -11,27 +13,16 @@ import { callLogAPI } from '../../services/api';
  */
 export const CallLogs = () => {
   const { t } = useTranslation();
-  const [callLogs, setCallLogs] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
   const [selectedCall, setSelectedCall] = useState(null);
 
-  useEffect(() => {
-    fetchCallLogs();
-  }, []);
-
-  const fetchCallLogs = async () => {
-    try {
-      setError(null);
-      const response = await callLogAPI.getAll();
-      setCallLogs(response.data?.data || response.data || []);
-    } catch (err) {
-      console.error('Failed to fetch call logs:', err);
-      setError(err.message || 'Arama kayıtları yüklenirken bir hata oluştu');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const {
+    data: callLogs,
+    loading,
+    error,
+  } = useCachedFetch('call-logs', async () => {
+    const response = await callLogAPI.getAll();
+    return response.data?.data || response.data || [];
+  });
 
   const formatDate = useCallback((dateString) => {
     return new Date(dateString).toLocaleDateString('tr-TR', {
@@ -138,6 +129,8 @@ export const CallLogs = () => {
     },
   ], [t, formatDate, formatDuration, getOutcomeVariant, getOutcomeLabel]);
 
+  const safeCallLogs = callLogs || [];
+
   return (
     <div className="space-y-6">
       {/* Page Header */}
@@ -164,10 +157,8 @@ export const CallLogs = () => {
       <Card>
         <CardContent>
           {loading ? (
-            <div className="text-center py-12 text-slate-500">
-              {t('common.loading')}
-            </div>
-          ) : callLogs.length === 0 ? (
+            <SkeletonTableRows rows={8} columns={5} />
+          ) : safeCallLogs.length === 0 ? (
             <div className="text-center py-12 text-slate-500">
               <Phone className="w-12 h-12 mx-auto mb-4 text-slate-300" />
               <p className="text-lg font-medium">Henüz arama kaydı bulunmuyor</p>
@@ -176,7 +167,7 @@ export const CallLogs = () => {
           ) : (
             <Table
               columns={columns}
-              data={callLogs}
+              data={safeCallLogs}
               onRowClick={(row) => setSelectedCall(row)}
             />
           )}

@@ -232,9 +232,43 @@ export const UseCaseSettings = () => {
 
   if (loading) {
     return (
-      <div className="p-8 text-center">
-        <Loader2 className="w-8 h-8 animate-spin text-indigo-600 mx-auto mb-4" />
-        <p className="text-slate-500">Yükleniyor...</p>
+      <div className="p-6 space-y-6">
+        {/* Header skeleton */}
+        <div className="flex items-center justify-between">
+          <div className="space-y-2">
+            <div className="animate-pulse bg-slate-200 rounded h-7 w-48" />
+            <div className="animate-pulse bg-slate-200 rounded h-4 w-72" />
+          </div>
+          <div className="flex gap-3">
+            <div className="animate-pulse bg-slate-200 rounded-lg h-10 w-24" />
+            <div className="animate-pulse bg-slate-200 rounded-lg h-10 w-36" />
+          </div>
+        </div>
+        {/* Stat cards skeleton */}
+        <div className="grid grid-cols-2 gap-4">
+          {Array.from({ length: 2 }).map((_, i) => (
+            <div key={i} className="p-4 bg-white border border-slate-200 rounded-xl">
+              <div className="animate-pulse bg-slate-200 rounded h-4 w-24 mb-2" />
+              <div className="animate-pulse bg-slate-200 rounded h-8 w-16" />
+            </div>
+          ))}
+        </div>
+        {/* Use case cards skeleton */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="p-4 rounded-xl border border-slate-200 bg-white">
+              <div className="flex items-start gap-3">
+                <div className="animate-pulse bg-slate-200 rounded w-5 h-5 flex-shrink-0 mt-0.5" />
+                <div className="animate-pulse bg-slate-200 rounded-lg w-10 h-10 flex-shrink-0" />
+                <div className="flex-1 space-y-2">
+                  <div className="animate-pulse bg-slate-200 rounded h-4 w-32" />
+                  <div className="animate-pulse bg-slate-200 rounded h-3 w-full" />
+                  <div className="animate-pulse bg-slate-200 rounded h-3 w-16" />
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     );
   }

@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { Card, CardContent } from '../../components/common/Card';
 import { Badge } from '../../components/common/Badge';
+import { SkeletonTableRows } from '../../components/common/Skeleton';
 import { notificationAPI } from '../../services/api';
 
 const NOTIFICATION_TYPES = [
@@ -250,10 +251,8 @@ export const Notifications = () => {
       {/* Notifications List */}
       <Card>
         {loading ? (
-          <CardContent className="p-12">
-            <div className="flex items-center justify-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-            </div>
+          <CardContent>
+            <SkeletonTableRows rows={6} columns={5} />
           </CardContent>
         ) : notifications.length === 0 ? (
           <CardContent className="p-12">

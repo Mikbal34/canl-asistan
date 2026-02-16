@@ -161,8 +161,36 @@ export const VoiceSettings = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
+      <div className="space-y-6">
+        {/* Header skeleton */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="animate-pulse bg-slate-200 rounded-lg w-12 h-12" />
+            <div className="space-y-2">
+              <div className="animate-pulse bg-slate-200 rounded h-6 w-48" />
+              <div className="animate-pulse bg-slate-200 rounded h-4 w-72" />
+            </div>
+          </div>
+          <div className="flex gap-3">
+            <div className="animate-pulse bg-slate-200 rounded-lg h-10 w-32" />
+            <div className="animate-pulse bg-slate-200 rounded-lg h-10 w-28" />
+            <div className="animate-pulse bg-slate-200 rounded-lg h-10 w-32" />
+          </div>
+        </div>
+        {/* Card skeletons */}
+        {Array.from({ length: 3 }).map((_, i) => (
+          <Card key={i}>
+            <CardHeader>
+              <div className="animate-pulse bg-slate-200 rounded h-5 w-36" />
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                <div className="animate-pulse bg-slate-200 rounded h-4 w-full" />
+                <div className="animate-pulse bg-slate-200 rounded h-10 w-full" />
+              </div>
+            </CardContent>
+          </Card>
+        ))}
       </div>
     );
   }
