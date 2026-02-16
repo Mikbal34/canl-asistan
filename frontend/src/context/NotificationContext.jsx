@@ -4,7 +4,7 @@ import { useAuth } from '../hooks/useAuth';
 
 export const NotificationContext = createContext(null);
 
-const POLL_INTERVAL = 15000; // 15 saniye
+const POLL_INTERVAL = 10000; // 10 saniye (aktif tab)
 
 export const NotificationProvider = ({ children }) => {
   const { isAuthenticated, user } = useAuth();
@@ -12,6 +12,7 @@ export const NotificationProvider = ({ children }) => {
   const [recentNotifications, setRecentNotifications] = useState([]);
   const [loading, setLoading] = useState(false);
   const pollRef = useRef(null);
+  const fetchingRef = useRef(false);
 
   const isSuperAdmin = user?.role === 'super_admin';
   const tenantId = user?.tenant_id || user?.tenant?.id;
@@ -36,9 +37,14 @@ export const NotificationProvider = ({ children }) => {
     }
   }, [isAuthenticated, isSuperAdmin]);
 
-  const refresh = useCallback(() => {
-    fetchUnreadCount();
-    fetchRecentNotifications();
+  const refresh = useCallback(async () => {
+    if (fetchingRef.current) return;
+    fetchingRef.current = true;
+    try {
+      await Promise.all([fetchUnreadCount(), fetchRecentNotifications()]);
+    } finally {
+      fetchingRef.current = false;
+    }
   }, [fetchUnreadCount, fetchRecentNotifications]);
 
   const markAsRead = useCallback(async (id) => {
@@ -65,21 +71,53 @@ export const NotificationProvider = ({ children }) => {
     }
   }, []);
 
-  // Polling for notifications
+  const startPolling = useCallback(() => {
+    if (pollRef.current) clearInterval(pollRef.current);
+    pollRef.current = setInterval(refresh, POLL_INTERVAL);
+  }, [refresh]);
+
+  const stopPolling = useCallback(() => {
+    if (pollRef.current) {
+      clearInterval(pollRef.current);
+      pollRef.current = null;
+    }
+  }, []);
+
+  // Initial fetch + polling
   useEffect(() => {
     if (!isAuthenticated || isSuperAdmin) return;
 
     refresh();
+    startPolling();
 
-    pollRef.current = setInterval(refresh, POLL_INTERVAL);
+    return stopPolling;
+  }, [isAuthenticated, isSuperAdmin, refresh, startPolling, stopPolling]);
 
-    return () => {
-      if (pollRef.current) {
-        clearInterval(pollRef.current);
-        pollRef.current = null;
+  // Visibility-aware polling: stop when hidden, instant refresh + restart when visible
+  useEffect(() => {
+    if (!isAuthenticated || isSuperAdmin) return;
+
+    const handleVisibility = () => {
+      if (document.hidden) {
+        stopPolling();
+      } else {
+        refresh();
+        startPolling();
       }
     };
-  }, [isAuthenticated, isSuperAdmin, refresh]);
+
+    const handleFocus = () => {
+      if (!document.hidden) refresh();
+    };
+
+    document.addEventListener('visibilitychange', handleVisibility);
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibility);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [isAuthenticated, isSuperAdmin, refresh, startPolling, stopPolling]);
 
   return (
     <NotificationContext.Provider
