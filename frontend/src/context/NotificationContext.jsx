@@ -1,5 +1,6 @@
 import { createContext, useState, useEffect, useCallback, useRef } from 'react';
 import { notificationAPI } from '../services/api';
+import { supabase } from '../services/supabaseClient';
 import { useAuth } from '../hooks/useAuth';
 
 export const NotificationContext = createContext(null);
@@ -12,8 +13,10 @@ export const NotificationProvider = ({ children }) => {
   const [recentNotifications, setRecentNotifications] = useState([]);
   const [loading, setLoading] = useState(false);
   const pollRef = useRef(null);
+  const realtimeConnected = useRef(false);
 
   const isSuperAdmin = user?.role === 'super_admin';
+  const tenantId = user?.tenant_id || user?.tenant?.id;
 
   const fetchUnreadCount = useCallback(async () => {
     if (!isAuthenticated || isSuperAdmin) return;
@@ -64,13 +67,50 @@ export const NotificationProvider = ({ children }) => {
     }
   }, []);
 
-  // Initial fetch + polling
+  // Realtime subscription
+  useEffect(() => {
+    if (!isAuthenticated || isSuperAdmin || !tenantId || !supabase) return;
+
+    const channel = supabase
+      .channel(`notifications:${tenantId}`)
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'notifications',
+        filter: `tenant_id=eq.${tenantId}`,
+      }, (payload) => {
+        console.log('[Notifications] Realtime INSERT:', payload.new?.id);
+        setRecentNotifications(prev => [payload.new, ...prev].slice(0, 10));
+        setUnreadCount(prev => prev + 1);
+      })
+      .subscribe((status) => {
+        console.log('[Notifications] Realtime status:', status);
+        if (status === 'SUBSCRIBED') {
+          realtimeConnected.current = true;
+          console.log('[Notifications] Realtime connected');
+        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          realtimeConnected.current = false;
+          console.warn('[Notifications] Realtime failed, polling active');
+        }
+      });
+
+    return () => {
+      supabase.removeChannel(channel);
+      realtimeConnected.current = false;
+    };
+  }, [isAuthenticated, isSuperAdmin, tenantId]);
+
+  // Initial fetch + polling (fallback when Realtime fails)
   useEffect(() => {
     if (!isAuthenticated || isSuperAdmin) return;
 
     refresh();
 
-    pollRef.current = setInterval(refresh, POLL_INTERVAL);
+    pollRef.current = setInterval(() => {
+      if (!realtimeConnected.current) {
+        refresh();
+      }
+    }, POLL_INTERVAL);
 
     return () => {
       if (pollRef.current) {
