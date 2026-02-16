@@ -376,6 +376,7 @@ export const notificationAPI = {
   getUnreadCount: () => api.get('/api/tenant/notifications/unread-count'),
   markAsRead: (id) => api.patch(`/api/tenant/notifications/${id}/read`),
   markAllAsRead: () => api.patch('/api/tenant/notifications/read-all'),
+  delete: (id) => api.delete(`/api/tenant/notifications/${id}`),
 };
 
 export default api;

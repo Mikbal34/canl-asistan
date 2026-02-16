@@ -9,7 +9,8 @@ import {
   Phone,
   CheckCircle,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Trash2
 } from 'lucide-react';
 import { Card, CardContent } from '../../components/common/Card';
 import { Badge } from '../../components/common/Badge';
@@ -102,6 +103,15 @@ export const Notifications = () => {
       fetchNotifications();
     } catch (error) {
       console.error('Error marking all notifications as read:', error);
+    }
+  };
+
+  const handleDelete = async (id) => {
+    try {
+      await notificationAPI.delete(id);
+      fetchNotifications();
+    } catch (error) {
+      console.error('Error deleting notification:', error);
     }
   };
 
@@ -313,14 +323,23 @@ export const Notifications = () => {
                         </Badge>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        {!notification.is_read && (
+                        <div className="flex items-center gap-3">
+                          {!notification.is_read && (
+                            <button
+                              onClick={() => handleMarkAsRead(notification.id)}
+                              className="text-sm font-medium text-blue-600 hover:text-blue-700"
+                            >
+                              {t('notifications.markAsRead')}
+                            </button>
+                          )}
                           <button
-                            onClick={() => handleMarkAsRead(notification.id)}
-                            className="text-sm font-medium text-blue-600 hover:text-blue-700"
+                            onClick={() => handleDelete(notification.id)}
+                            className="text-sm font-medium text-red-500 hover:text-red-700"
+                            title={t('notifications.delete')}
                           >
-                            {t('notifications.markAsRead')}
+                            <Trash2 className="h-4 w-4" />
                           </button>
-                        )}
+                        </div>
                       </td>
                     </tr>
                   ))}

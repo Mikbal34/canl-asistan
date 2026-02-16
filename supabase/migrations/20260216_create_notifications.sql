@@ -30,6 +30,13 @@ CREATE POLICY "Tenant users can update own notifications"
     SELECT tenant_id FROM users WHERE auth_user_id = auth.uid()
   ));
 
+-- DELETE: Tenant kullanicilari kendi bildirimlerini silebilir
+CREATE POLICY "Tenant users can delete own notifications"
+  ON notifications FOR DELETE
+  USING (tenant_id IN (
+    SELECT tenant_id FROM users WHERE auth_user_id = auth.uid()
+  ));
+
 -- INSERT: Sadece service_role (backend)
 CREATE POLICY "Service role insert" ON notifications FOR INSERT WITH CHECK (true);
 

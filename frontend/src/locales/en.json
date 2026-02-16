@@ -254,6 +254,7 @@
       "appointment_updated": "Appointment Updated",
       "customer_created": "New Customer",
       "call_completed": "Call Completed"
-    }
+    },
+    "delete": "Delete"
   }
 }

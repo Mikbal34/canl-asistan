@@ -71,6 +71,19 @@ export const NotificationProvider = ({ children }) => {
     }
   }, []);
 
+  const deleteNotification = useCallback(async (id) => {
+    try {
+      await notificationAPI.delete(id);
+      const deleted = recentNotifications.find(n => n.id === id);
+      setRecentNotifications(prev => prev.filter(n => n.id !== id));
+      if (deleted && !deleted.is_read) {
+        setUnreadCount(prev => Math.max(0, prev - 1));
+      }
+    } catch (err) {
+      console.error('Failed to delete notification:', err);
+    }
+  }, [recentNotifications]);
+
   const startPolling = useCallback(() => {
     if (pollRef.current) clearInterval(pollRef.current);
     pollRef.current = setInterval(refresh, POLL_INTERVAL);
@@ -129,6 +142,7 @@ export const NotificationProvider = ({ children }) => {
         fetchRecentNotifications,
         markAsRead,
         markAllAsRead,
+        deleteNotification,
       }}
     >
       {children}

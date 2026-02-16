@@ -3770,4 +3770,26 @@ router.patch('/tenant/notifications/read-all', authenticate(), resolveTenant(), 
   }
 });
 
+/**
+ * Delete a notification
+ * DELETE /api/tenant/notifications/:id
+ */
+router.delete('/tenant/notifications/:id', authenticate(), resolveTenant(), requireTenantAccess, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const { error } = await supabaseAdmin
+      .from('notifications')
+      .delete()
+      .eq('id', id)
+      .eq('tenant_id', req.tenantId);
+
+    if (error) throw error;
+    res.json({ success: true });
+  } catch (error) {
+    console.error('[API] Delete notification error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 module.exports = router;

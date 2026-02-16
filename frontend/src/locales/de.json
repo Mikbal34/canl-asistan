@@ -254,6 +254,7 @@
       "appointment_updated": "Termin aktualisiert",
       "customer_created": "Neuer Kunde",
       "call_completed": "Anruf abgeschlossen"
-    }
+    },
+    "delete": "Löschen"
   }
 }

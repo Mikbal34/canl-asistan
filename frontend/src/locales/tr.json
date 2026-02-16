@@ -277,6 +277,7 @@
       "appointment_updated": "Randevu Güncellendi",
       "customer_created": "Yeni Müşteri",
       "call_completed": "Arama Tamamlandı"
-    }
+    },
+    "delete": "Sil"
   }
 }
