@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Search, Filter, Calendar, X, Check, XCircle } from 'lucide-react';
+import { Search, Filter, Calendar, X, Check, XCircle, Loader2, Clock } from 'lucide-react';
 import { useTenant } from '../../hooks/useTenant';
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/common/Card';
 import { Table } from '../../components/common/Table';
@@ -27,6 +27,10 @@ export const Appointments = () => {
   const [editModal, setEditModal] = useState(null);
   const [editForm, setEditForm] = useState({ appointment_date: '', appointment_time: '', status: '' });
   const [editLoading, setEditLoading] = useState(false);
+
+  // Status update states
+  const [updatingStatus, setUpdatingStatus] = useState(null); // appointment id being updated
+  const [confirmAction, setConfirmAction] = useState(null); // { appointment, newStatus }
 
   useEffect(() => {
     fetchAppointments();
@@ -102,8 +106,17 @@ export const Appointments = () => {
     return t(`appointments.typeLabels.${appointment._type}`) || '';
   };
 
-  // Status update (approve/reject)
-  const handleStatusUpdate = async (appointment, newStatus) => {
+  // Status update (approve/reject) with confirmation
+  const requestStatusUpdate = (appointment, newStatus, e) => {
+    if (e) e.stopPropagation();
+    setConfirmAction({ appointment, newStatus });
+  };
+
+  const handleStatusUpdate = async () => {
+    if (!confirmAction) return;
+    const { appointment, newStatus } = confirmAction;
+    setConfirmAction(null);
+    setUpdatingStatus(appointment.id);
     try {
       if (appointment._type === 'test_drive') {
         await testDriveAPI.update(appointment.id, { status: newStatus });
@@ -115,6 +128,9 @@ export const Appointments = () => {
       fetchAppointments();
     } catch (error) {
       console.error('Status update failed:', error);
+      alert('Durum güncellenirken hata oluştu');
+    } finally {
+      setUpdatingStatus(null);
     }
   };
 
@@ -225,31 +241,48 @@ export const Appointments = () => {
     {
       header: t('appointments.status'),
       accessor: 'status',
-      render: (row) => (
-        <div className="flex items-center gap-2">
-          <Badge variant={getStatusVariant(row.status)}>
-            {t(`appointments.${row.status}`)}
-          </Badge>
-          {row.status === 'pending' && (
-            <div className="flex items-center gap-1">
-              <button
-                onClick={(e) => { e.stopPropagation(); handleStatusUpdate(row, 'confirmed'); }}
-                className="p-1 rounded hover:bg-emerald-50 text-emerald-600"
-                title={t('appointments.approve')}
-              >
-                <Check className="w-4 h-4" />
-              </button>
-              <button
-                onClick={(e) => { e.stopPropagation(); handleStatusUpdate(row, 'cancelled'); }}
-                className="p-1 rounded hover:bg-red-50 text-red-500"
-                title={t('appointments.reject')}
-              >
-                <XCircle className="w-4 h-4" />
-              </button>
-            </div>
-          )}
-        </div>
-      ),
+      render: (row) => {
+        const isUpdating = updatingStatus === row.id;
+        return (
+          <div className="flex items-center gap-2">
+            {row.status === 'pending' ? (
+              <div className="flex items-center gap-2">
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200">
+                  <span className="relative flex h-2 w-2">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-400 opacity-75" />
+                    <span className="relative inline-flex h-2 w-2 rounded-full bg-amber-500" />
+                  </span>
+                  {t('appointments.pending')}
+                </span>
+                {isUpdating ? (
+                  <Loader2 className="w-4 h-4 animate-spin text-slate-400" />
+                ) : (
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={(e) => requestStatusUpdate(row, 'confirmed', e)}
+                      className="p-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-600 transition-colors"
+                      title={t('appointments.approve')}
+                    >
+                      <Check className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={(e) => requestStatusUpdate(row, 'cancelled', e)}
+                      className="p-1.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-500 transition-colors"
+                      title={t('appointments.reject')}
+                    >
+                      <XCircle className="w-4 h-4" />
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <Badge variant={getStatusVariant(row.status)}>
+                {t(`appointments.${row.status}`)}
+              </Badge>
+            )}
+          </div>
+        );
+      },
     },
     {
       header: t('appointments.actions'),
@@ -261,7 +294,7 @@ export const Appointments = () => {
         </div>
       ),
     },
-  ], [t]);
+  ], [t, updatingStatus]);
 
   const statusOptions = [
     { value: 'all', label: t('appointments.all') },
@@ -295,14 +328,31 @@ export const Appointments = () => {
     ];
   })();
 
+  const pendingCount = useMemo(() =>
+    appointments.filter(a => a.status === 'pending').length
+  , [appointments]);
+
   return (
     <div className="space-y-6">
       {/* Page Header */}
-      <div>
-        <h1 className="text-3xl font-bold text-slate-900">{t('appointments.title')}</h1>
-        <p className="text-slate-500 mt-1">
-          {t('appointments.subtitle')}
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-slate-900">{t('appointments.title')}</h1>
+          <p className="text-slate-500 mt-1">
+            {t('appointments.subtitle')}
+          </p>
+        </div>
+        {pendingCount > 0 && (
+          <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-50 border border-amber-200">
+            <span className="relative flex h-2.5 w-2.5">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-400 opacity-75" />
+              <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-amber-500" />
+            </span>
+            <span className="text-sm font-medium text-amber-700">
+              {pendingCount} randevu onay bekliyor
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Filters */}
@@ -400,6 +450,52 @@ export const Appointments = () => {
           )}
         </CardContent>
       </Card>
+
+      {/* Confirm Status Change Modal */}
+      {confirmAction && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setConfirmAction(null)}>
+          <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-sm mx-4 text-center" onClick={(e) => e.stopPropagation()}>
+            {confirmAction.newStatus === 'confirmed' ? (
+              <>
+                <div className="w-14 h-14 mx-auto mb-4 rounded-full bg-emerald-100 flex items-center justify-center">
+                  <Check className="w-7 h-7 text-emerald-600" />
+                </div>
+                <h3 className="text-lg font-semibold text-slate-900 mb-2">Randevuyu Onayla</h3>
+                <p className="text-slate-500 text-sm mb-1">
+                  <strong>{confirmAction.appointment.customer?.name || 'Müşteri'}</strong>
+                </p>
+                <p className="text-slate-500 text-sm mb-6">
+                  {formatDate(confirmAction.appointment.appointment_date)} - {formatTime(confirmAction.appointment.appointment_time)}
+                </p>
+              </>
+            ) : (
+              <>
+                <div className="w-14 h-14 mx-auto mb-4 rounded-full bg-red-100 flex items-center justify-center">
+                  <XCircle className="w-7 h-7 text-red-500" />
+                </div>
+                <h3 className="text-lg font-semibold text-slate-900 mb-2">Randevuyu Reddet</h3>
+                <p className="text-slate-500 text-sm mb-1">
+                  <strong>{confirmAction.appointment.customer?.name || 'Müşteri'}</strong>
+                </p>
+                <p className="text-slate-500 text-sm mb-6">
+                  {formatDate(confirmAction.appointment.appointment_date)} - {formatTime(confirmAction.appointment.appointment_time)}
+                </p>
+              </>
+            )}
+            <div className="flex gap-3 justify-center">
+              <Button variant="ghost" onClick={() => setConfirmAction(null)}>
+                {t('common.cancel')}
+              </Button>
+              <Button
+                variant={confirmAction.newStatus === 'confirmed' ? 'primary' : 'danger'}
+                onClick={handleStatusUpdate}
+              >
+                {confirmAction.newStatus === 'confirmed' ? 'Onayla' : 'Reddet'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Edit Modal */}
       {editModal && (
