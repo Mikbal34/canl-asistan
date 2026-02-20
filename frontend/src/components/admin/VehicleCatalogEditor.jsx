@@ -10,6 +10,8 @@ import {
   ChevronDown,
   ChevronUp,
   AlertCircle,
+  CheckCircle2,
+  XCircle,
 } from 'lucide-react';
 import { Button } from '../common/Button';
 import { Input } from '../common/Input';
@@ -24,7 +26,7 @@ import { vehicleAPI } from '../../services/api';
  */
 export const VehicleCatalogEditor = ({ tenantId, onUpdate, mode = 'admin' }) => {
   const showCollapsible = mode === 'admin';
-  const [isExpanded, setIsExpanded] = useState(true);
+  const [isExpanded, setIsExpanded] = useState(false);
   const [vehicles, setVehicles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -144,26 +146,26 @@ export const VehicleCatalogEditor = ({ tenantId, onUpdate, mode = 'admin' }) => 
   };
 
   return (
-    <div className={showCollapsible ? "border border-slate-200 rounded-lg overflow-hidden" : ""}>
+    <div className={showCollapsible ? "border border-border rounded-lg overflow-hidden" : ""}>
       {/* Header - only in admin mode */}
       {showCollapsible && (
         <button
           onClick={() => setIsExpanded(!isExpanded)}
-          className="w-full flex items-center justify-between p-4 bg-slate-50 hover:bg-slate-100 transition-colors"
+          className="w-full flex items-center justify-between p-4 bg-muted/40 hover:bg-muted/60 transition-colors"
         >
           <div className="flex items-center gap-3">
             <Car className="w-5 h-5 text-indigo-600" />
             <div className="text-left">
-              <h4 className="font-medium text-slate-900">Araç Kataloğu</h4>
-              <p className="text-sm text-slate-500">test_drive use case için gerekli</p>
+              <h4 className="font-medium text-foreground">Araç Kataloğu</h4>
+              <p className="text-sm text-muted-foreground">test_drive use case için gerekli</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
             <Badge variant="info">{vehicles.length} araç</Badge>
             {isExpanded ? (
-              <ChevronUp className="w-5 h-5 text-slate-400" />
+              <ChevronUp className="w-5 h-5 text-muted-foreground" />
             ) : (
-              <ChevronDown className="w-5 h-5 text-slate-400" />
+              <ChevronDown className="w-5 h-5 text-muted-foreground" />
             )}
           </div>
         </button>
@@ -172,29 +174,75 @@ export const VehicleCatalogEditor = ({ tenantId, onUpdate, mode = 'admin' }) => 
       {/* Content */}
       {(showCollapsible ? isExpanded : true) && (
         <div className={showCollapsible ? "p-4" : ""}>
-          {/* Add Button */}
-          <div className="mb-4">
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => {
-                resetForm();
-                setShowForm(true);
-              }}
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              Araç Ekle
-            </Button>
-          </div>
+          {/* Stat cards + Add Button — tenant mode only */}
+          {!showCollapsible && (
+            <div className="mb-6 space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {/* Toplam */}
+                <div className="border border-border rounded-xl p-4 flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-indigo-100 dark:bg-indigo-950/50 flex items-center justify-center shrink-0">
+                    <Car className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold text-foreground leading-none">{vehicles.length}</p>
+                    <p className="text-xs text-muted-foreground mt-1">Toplam Araç</p>
+                  </div>
+                </div>
+                {/* Müsait */}
+                <div className="border border-emerald-200 dark:border-emerald-800/50 rounded-xl p-4 flex items-center gap-3 bg-emerald-50/50 dark:bg-emerald-950/20">
+                  <div className="w-10 h-10 rounded-lg bg-emerald-100 dark:bg-emerald-950/50 flex items-center justify-center shrink-0">
+                    <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold text-emerald-700 dark:text-emerald-400 leading-none">{vehicles.filter(v => v.is_available).length}</p>
+                    <p className="text-xs text-muted-foreground mt-1">Müsait</p>
+                  </div>
+                </div>
+                {/* Dolu */}
+                <div className="border border-red-200 dark:border-red-800/50 rounded-xl p-4 flex items-center gap-3 bg-red-50/50 dark:bg-red-950/20">
+                  <div className="w-10 h-10 rounded-lg bg-red-100 dark:bg-red-950/50 flex items-center justify-center shrink-0">
+                    <XCircle className="w-5 h-5 text-red-500 dark:text-red-400" />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold text-red-600 dark:text-red-400 leading-none">{vehicles.filter(v => !v.is_available).length}</p>
+                    <p className="text-xs text-muted-foreground mt-1">Dolu</p>
+                  </div>
+                </div>
+              </div>
+              <div className="flex justify-end">
+                <Button variant="secondary" size="sm" onClick={() => { resetForm(); setShowForm(true); }}>
+                  <Plus className="w-4 h-4 mr-2" />
+                  Araç Ekle
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Add Button — admin mode only */}
+          {showCollapsible && (
+            <div className="mb-4">
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => {
+                  resetForm();
+                  setShowForm(true);
+                }}
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Araç Ekle
+              </Button>
+            </div>
+          )}
 
           {/* Form */}
           {showForm && (
-            <div className="mb-4 p-4 border border-indigo-200 bg-indigo-50 rounded-lg">
+            <div className="mb-4 p-4 border border-indigo-200 dark:border-indigo-800/50 bg-indigo-50 dark:bg-indigo-950/30 rounded-lg">
               <div className="flex items-center justify-between mb-4">
-                <h5 className="font-medium text-slate-900">
+                <h5 className="font-medium text-foreground">
                   {editingVehicle ? 'Araç Düzenle' : 'Yeni Araç Ekle'}
                 </h5>
-                <button onClick={resetForm} className="text-slate-400 hover:text-slate-600">
+                <button onClick={resetForm} className="text-muted-foreground hover:text-foreground">
                   <X className="w-5 h-5" />
                 </button>
               </div>
@@ -232,7 +280,7 @@ export const VehicleCatalogEditor = ({ tenantId, onUpdate, mode = 'admin' }) => 
                   onChange={(e) => setFormData({ ...formData, color: e.target.value })}
                 />
                 <div>
-                  <label className="block text-sm font-medium text-slate-600 mb-2">Yakıt</label>
+                  <label className="block text-sm font-medium text-muted-foreground mb-2">Yakıt</label>
                   <select
                     value={formData.fuel_type}
                     onChange={(e) => setFormData({ ...formData, fuel_type: e.target.value })}
@@ -246,7 +294,7 @@ export const VehicleCatalogEditor = ({ tenantId, onUpdate, mode = 'admin' }) => 
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-600 mb-2">Vites</label>
+                  <label className="block text-sm font-medium text-muted-foreground mb-2">Vites</label>
                   <select
                     value={formData.transmission}
                     onChange={(e) => setFormData({ ...formData, transmission: e.target.value })}
@@ -262,9 +310,9 @@ export const VehicleCatalogEditor = ({ tenantId, onUpdate, mode = 'admin' }) => 
                       type="checkbox"
                       checked={formData.is_available}
                       onChange={(e) => setFormData({ ...formData, is_available: e.target.checked })}
-                      className="w-4 h-4 rounded border-slate-300"
+                      className="w-4 h-4 rounded border-border"
                     />
-                    <span className="text-sm text-slate-700">Müsait</span>
+                    <span className="text-sm text-foreground">Müsait</span>
                   </label>
                 </div>
               </div>
@@ -290,10 +338,36 @@ export const VehicleCatalogEditor = ({ tenantId, onUpdate, mode = 'admin' }) => 
           )}
 
           {/* Loading */}
-          {loading && (
+          {loading && !showCollapsible && (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="border border-border rounded-xl p-4 flex flex-col gap-3">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-3">
+                      <Skeleton width="2.5rem" height="2.5rem" rounded="rounded-lg" />
+                      <div className="space-y-1">
+                        <Skeleton width="7rem" height="1rem" />
+                        <Skeleton width="3rem" height="0.75rem" />
+                      </div>
+                    </div>
+                    <Skeleton width="3.5rem" height="1.25rem" rounded="rounded-full" />
+                  </div>
+                  <div className="flex gap-1.5">
+                    <Skeleton width="3.5rem" height="1.25rem" rounded="rounded-md" />
+                    <Skeleton width="4rem" height="1.25rem" rounded="rounded-md" />
+                  </div>
+                  <div className="border-t border-border pt-3 flex items-center justify-between">
+                    <Skeleton width="5rem" height="1.25rem" />
+                    <Skeleton width="4rem" height="1.75rem" rounded="rounded-lg" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          {loading && showCollapsible && (
             <div className="space-y-2">
               {Array.from({ length: 4 }).map((_, i) => (
-                <div key={i} className="flex items-center gap-4 p-3 rounded-lg bg-slate-50">
+                <div key={i} className="flex items-center gap-4 p-3 rounded-lg bg-muted/40">
                   <Skeleton width="2.5rem" height="2.5rem" rounded="rounded-lg" />
                   <div className="flex-1 space-y-2">
                     <Skeleton width="40%" height="1rem" />
@@ -307,7 +381,7 @@ export const VehicleCatalogEditor = ({ tenantId, onUpdate, mode = 'admin' }) => 
 
           {/* Error */}
           {error && (
-            <div className="flex items-center gap-2 p-4 bg-red-50 text-red-700 rounded-lg">
+            <div className="flex items-center gap-2 p-4 bg-destructive/10 border border-destructive/20 text-destructive rounded-lg">
               <AlertCircle className="w-5 h-5" />
               <span>{error}</span>
             </div>
@@ -315,44 +389,90 @@ export const VehicleCatalogEditor = ({ tenantId, onUpdate, mode = 'admin' }) => 
 
           {/* Vehicle List */}
           {!loading && !error && vehicles.length === 0 && (
-            <div className="text-center py-8 text-slate-500">
-              <Car className="w-12 h-12 mx-auto mb-3 text-slate-300" />
+            <div className="text-center py-8 text-muted-foreground">
+              <Car className="w-12 h-12 mx-auto mb-3 text-muted-foreground/30" />
               <p>Henüz araç eklenmemiş</p>
             </div>
           )}
 
-          {!loading && !error && vehicles.length > 0 && (
+          {/* Tenant mode — grid cards */}
+          {!loading && !error && vehicles.length > 0 && !showCollapsible && (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+              {vehicles.map((vehicle) => (
+                <div key={vehicle.id} className="border border-border rounded-xl p-4 flex flex-col gap-3 hover:border-indigo-200 dark:hover:border-indigo-800/50 transition-colors">
+                  {/* Header: icon + name + badge */}
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-lg bg-indigo-100 dark:bg-indigo-950/50 flex items-center justify-center shrink-0">
+                        <Car className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                      </div>
+                      <div>
+                        <p className="font-semibold text-foreground leading-tight">{vehicle.brand} {vehicle.model}</p>
+                        <p className="text-sm text-muted-foreground">{vehicle.year}</p>
+                      </div>
+                    </div>
+                    <Badge variant={vehicle.is_available ? 'success' : 'error'}>
+                      {vehicle.is_available ? 'Müsait' : 'Dolu'}
+                    </Badge>
+                  </div>
+
+                  {/* Feature pills */}
+                  <div className="flex flex-wrap gap-1.5">
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-muted text-muted-foreground capitalize">{vehicle.fuel_type}</span>
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-muted text-muted-foreground capitalize">{vehicle.transmission}</span>
+                    {vehicle.color && <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-muted text-muted-foreground">{vehicle.color}</span>}
+                  </div>
+
+                  {/* Price + actions */}
+                  <div className="border-t border-border pt-3 flex items-center justify-between">
+                    <span className="font-semibold text-foreground text-lg">{formatPrice(vehicle.price)}</span>
+                    <div className="flex gap-1">
+                      <button onClick={() => handleEdit(vehicle)} className="p-2 hover:bg-muted rounded-lg transition-colors">
+                        <Edit3 className="w-4 h-4 text-muted-foreground" />
+                      </button>
+                      <button onClick={() => { setVehicleToDelete(vehicle); setDeleteModal(true); }} className="p-2 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-lg transition-colors">
+                        <Trash2 className="w-4 h-4 text-red-500" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Admin mode — flat list */}
+          {!loading && !error && vehicles.length > 0 && showCollapsible && (
             <div className="space-y-2">
               {vehicles.map((vehicle) => (
                 <div
                   key={vehicle.id}
-                  className="flex items-center justify-between p-3 rounded-lg bg-slate-50 hover:bg-slate-100"
+                  className="flex items-center justify-between p-3 rounded-lg bg-muted/40 hover:bg-muted/60"
                 >
                   <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 rounded-lg bg-indigo-100 flex items-center justify-center">
+                    <div className="w-10 h-10 rounded-lg bg-indigo-100 dark:bg-indigo-950/50 flex items-center justify-center">
                       <Car className="w-5 h-5 text-indigo-600" />
                     </div>
                     <div>
-                      <p className="font-medium text-slate-900">
+                      <p className="font-medium text-foreground">
                         {vehicle.brand} {vehicle.model}
                       </p>
-                      <p className="text-sm text-slate-500">
+                      <p className="text-sm text-muted-foreground">
                         {vehicle.year} • {vehicle.fuel_type} • {vehicle.transmission}
                         {vehicle.color && ` • ${vehicle.color}`}
                       </p>
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
-                    <span className="font-medium text-slate-900">{formatPrice(vehicle.price)}</span>
+                    <span className="font-medium text-foreground">{formatPrice(vehicle.price)}</span>
                     <Badge variant={vehicle.is_available ? 'success' : 'error'}>
                       {vehicle.is_available ? 'Müsait' : 'Dolu'}
                     </Badge>
                     <div className="flex gap-1">
                       <button
                         onClick={() => handleEdit(vehicle)}
-                        className="p-2 hover:bg-slate-200 rounded-lg transition-colors"
+                        className="p-2 hover:bg-muted rounded-lg transition-colors"
                       >
-                        <Edit3 className="w-4 h-4 text-slate-600" />
+                        <Edit3 className="w-4 h-4 text-muted-foreground" />
                       </button>
                       <button
                         onClick={() => {
@@ -383,8 +503,8 @@ export const VehicleCatalogEditor = ({ tenantId, onUpdate, mode = 'admin' }) => 
         size="sm"
       >
         <div className="text-center py-4">
-          <p className="text-slate-600">
-            <span className="font-semibold text-slate-900">
+          <p className="text-muted-foreground">
+            <span className="font-semibold text-foreground">
               {vehicleToDelete?.brand} {vehicleToDelete?.model}
             </span>{' '}
             aracını silmek istediğinize emin misiniz?

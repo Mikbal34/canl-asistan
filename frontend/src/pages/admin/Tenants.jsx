@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
@@ -9,36 +9,34 @@ import {
   RefreshCw,
   Eye,
   Loader2,
-  MessageSquare,
   Sparkles,
   Plus,
+  Activity,
+  Clock,
+  XCircle,
 } from 'lucide-react';
-import { Card, CardContent } from '../../components/common/Card';
 import { Table } from '../../components/common/Table';
 import { Badge } from '../../components/common/Badge';
+import { SkeletonTableRows } from '../../components/common/Skeleton';
+import { Button } from '../../components/common/Button';
 import { adminAPI } from '../../services/api';
 import { OnboardingChat } from '../../components/admin/OnboardingChat';
 import { TenantCreateModal } from './TenantCreateModal';
 
-// Industry icons mapping
 const industryIcons = {
   automotive: '🚗',
-  beauty: '💅', // Legacy - will be migrated to beauty_salon
+  beauty: '💅',
   beauty_salon: '💅',
   hairdresser: '✂️',
 };
 
-// Industry labels mapping
 const industryLabels = {
   automotive: 'Otomotiv',
-  beauty: 'Güzellik Salonu', // Legacy - will be migrated to beauty_salon
+  beauty: 'Güzellik Salonu',
   beauty_salon: 'Güzellik Salonu',
   hairdresser: 'Kuaför',
 };
 
-/**
- * Get status badge variant and label
- */
 const getStatusInfo = (tenant) => {
   if (tenant.is_active) {
     return { variant: 'success', label: 'Aktif', icon: '●' };
@@ -47,15 +45,12 @@ const getStatusInfo = (tenant) => {
     return {
       variant: 'warning',
       label: `Onboarding (${tenant.onboarding_step}/4)`,
-      icon: '○'
+      icon: '○',
     };
   }
   return { variant: 'error', label: 'Pasif', icon: '○' };
 };
 
-/**
- * Admin Tenants page component
- */
 export const Tenants = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -71,7 +66,6 @@ export const Tenants = () => {
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const debounceRef = useRef(null);
 
-  // Debounce search input
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
@@ -149,36 +143,65 @@ export const Tenants = () => {
 
   const filteredTenants = useMemo(() => tenants.filter((tenant) => {
     const term = debouncedSearch.toLocaleLowerCase('tr');
-    const matchesSearch = !term ||
+    return !term ||
       tenant.name?.toLocaleLowerCase('tr').includes(term) ||
       tenant.email?.toLocaleLowerCase('tr').includes(term) ||
       tenant.phone?.includes(debouncedSearch);
-
-    return matchesSearch;
   }), [tenants, debouncedSearch]);
 
   const formatDate = (dateString) => {
     if (!dateString) return '-';
     return new Date(dateString).toLocaleDateString('tr-TR', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
+      day: 'numeric', month: 'short', year: 'numeric',
     });
   };
 
   const formatLastActivity = (dateString) => {
     if (!dateString) return '-';
     const date = new Date(dateString);
-    const now = new Date();
-    const diffMs = now - date;
+    const diffMs = Date.now() - date;
     const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
     const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-
     if (diffHours < 1) return 'Az önce';
     if (diffHours < 24) return `${diffHours} saat önce`;
     if (diffDays < 7) return `${diffDays} gün önce`;
     return formatDate(dateString);
   };
+
+  const statCards = [
+    {
+      label: 'Toplam Tenant',
+      value: tenants.length,
+      icon: Building2,
+      bgColor: 'bg-blue-100 dark:bg-blue-950/50',
+      iconColor: 'text-blue-600 dark:text-blue-400',
+      valueColor: 'text-foreground',
+    },
+    {
+      label: 'Aktif',
+      value: tenants.filter(t => t.is_active).length,
+      icon: Activity,
+      bgColor: 'bg-emerald-100 dark:bg-emerald-950/50',
+      iconColor: 'text-emerald-600 dark:text-emerald-400',
+      valueColor: 'text-emerald-600 dark:text-emerald-400',
+    },
+    {
+      label: 'Onboarding',
+      value: tenants.filter(t => !t.is_active && t.onboarding_step).length,
+      icon: Clock,
+      bgColor: 'bg-amber-100 dark:bg-amber-950/50',
+      iconColor: 'text-amber-600 dark:text-amber-400',
+      valueColor: 'text-amber-600 dark:text-amber-400',
+    },
+    {
+      label: 'Pasif',
+      value: tenants.filter(t => !t.is_active && !t.onboarding_step).length,
+      icon: XCircle,
+      bgColor: 'bg-muted',
+      iconColor: 'text-muted-foreground',
+      valueColor: 'text-muted-foreground',
+    },
+  ];
 
   const columns = useMemo(() => [
     {
@@ -186,12 +209,12 @@ export const Tenants = () => {
       accessor: 'name',
       render: (row) => (
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center text-xl">
+          <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center text-xl flex-shrink-0">
             {industryIcons[row.industry] || '🏢'}
           </div>
           <div>
-            <p className="font-medium text-slate-900">{row.name}</p>
-            <p className="text-sm text-slate-500">{row.email}</p>
+            <p className="font-medium text-foreground">{row.name}</p>
+            <p className="text-xs text-muted-foreground">{row.email}</p>
           </div>
         </div>
       ),
@@ -200,7 +223,7 @@ export const Tenants = () => {
       header: t('admin.tenantIndustry'),
       accessor: 'industry',
       render: (row) => (
-        <span className="text-slate-600">
+        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-muted text-muted-foreground capitalize">
           {industryLabels[row.industry] || row.industry}
         </span>
       ),
@@ -209,7 +232,7 @@ export const Tenants = () => {
       header: t('admin.tenantPhone'),
       accessor: 'phone',
       render: (row) => (
-        <span className="text-slate-600">{row.phone || '-'}</span>
+        <span className="text-sm text-muted-foreground">{row.phone || '-'}</span>
       ),
     },
     {
@@ -218,11 +241,9 @@ export const Tenants = () => {
       render: (row) => {
         const statusInfo = getStatusInfo(row);
         return (
-          <div className="flex items-center gap-2">
-            <Badge variant={statusInfo.variant}>
-              {statusInfo.icon} {statusInfo.label}
-            </Badge>
-          </div>
+          <Badge variant={statusInfo.variant}>
+            {statusInfo.icon} {statusInfo.label}
+          </Badge>
         );
       },
     },
@@ -230,7 +251,7 @@ export const Tenants = () => {
       header: 'Son Aktivite',
       accessor: 'updated_at',
       render: (row) => (
-        <span className="text-slate-500 text-sm">
+        <span className="text-sm text-muted-foreground">
           {formatLastActivity(row.updated_at || row.created_at)}
         </span>
       ),
@@ -240,11 +261,8 @@ export const Tenants = () => {
       render: (row) => (
         <div className="flex items-center gap-2">
           <button
-            onClick={(e) => {
-              e.stopPropagation();
-              handleViewTenant(row);
-            }}
-            className="p-2 rounded-lg bg-blue-100 hover:bg-blue-200 text-blue-600 transition-colors"
+            onClick={(e) => { e.stopPropagation(); handleViewTenant(row); }}
+            className="p-2 rounded-lg bg-blue-100 dark:bg-blue-950/50 hover:bg-blue-200 dark:hover:bg-blue-900/50 text-blue-600 dark:text-blue-400 transition-colors"
             title="Detay görüntüle"
           >
             <Eye className="w-4 h-4" />
@@ -253,27 +271,25 @@ export const Tenants = () => {
             <button
               onClick={(e) => handleSendOnboardingLink(row, e)}
               disabled={sendingLink === row.id}
-              className="p-2 rounded-lg bg-emerald-100 hover:bg-emerald-200 text-emerald-600 transition-colors disabled:opacity-50"
+              className="p-2 rounded-lg bg-emerald-100 dark:bg-emerald-950/50 hover:bg-emerald-200 dark:hover:bg-emerald-900/50 text-emerald-600 dark:text-emerald-400 transition-colors disabled:opacity-50"
               title="Onboarding linki gönder"
             >
-              {sendingLink === row.id ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <Send className="w-4 h-4" />
-              )}
+              {sendingLink === row.id
+                ? <Loader2 className="w-4 h-4 animate-spin" />
+                : <Send className="w-4 h-4" />
+              }
             </button>
           )}
           <button
             onClick={(e) => handleSyncTenant(row, e)}
             disabled={syncingTenant === row.id}
-            className="p-2 rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-600 transition-colors disabled:opacity-50"
+            className="p-2 rounded-lg bg-amber-100 dark:bg-amber-950/50 hover:bg-amber-200 dark:hover:bg-amber-900/50 text-amber-600 dark:text-amber-400 transition-colors disabled:opacity-50"
             title="VAPI Sync"
           >
-            {syncingTenant === row.id ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <RefreshCw className="w-4 h-4" />
-            )}
+            {syncingTenant === row.id
+              ? <Loader2 className="w-4 h-4 animate-spin" />
+              : <RefreshCw className="w-4 h-4" />
+            }
           </button>
         </div>
       ),
@@ -283,169 +299,132 @@ export const Tenants = () => {
   return (
     <div className="space-y-6">
       {/* Page Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="p-3 rounded-lg bg-indigo-100">
-            <Building2 className="w-6 h-6 text-indigo-600" />
-          </div>
-          <div>
-            <h1 className="text-3xl font-bold text-slate-900">{t('admin.tenants')}</h1>
-            <p className="text-slate-500 mt-1">
-              Tüm tenant hesaplarını yönetin
-            </p>
-          </div>
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">{t('admin.tenants')}</h1>
+          <p className="text-muted-foreground mt-1 text-sm">Tüm tenant hesaplarını yönetin</p>
         </div>
         <div className="flex items-center gap-3">
-          <button
-            onClick={() => setIsManualCreateOpen(true)}
-            className="inline-flex items-center px-4 py-2.5 rounded-xl bg-white border-2 border-slate-200 hover:border-slate-300 text-slate-700 font-medium transition-all hover:shadow-md"
-          >
-            <Plus className="w-5 h-5 mr-2" />
+          <Button variant="secondary" size="sm" onClick={() => setIsManualCreateOpen(true)}>
+            <Plus className="w-4 h-4 mr-2" />
             Manuel Ekle
-          </button>
+          </Button>
           <button
             onClick={() => setIsOnboardingChatOpen(true)}
-            className="inline-flex items-center px-5 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 via-indigo-600 to-blue-600 hover:from-purple-700 hover:via-indigo-700 hover:to-blue-700 text-white font-semibold transition-all shadow-lg shadow-indigo-300 hover:shadow-xl hover:shadow-indigo-400 hover:scale-105"
+            className="inline-flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg bg-gradient-to-r from-purple-600 via-indigo-600 to-blue-600 hover:opacity-90 text-white font-medium transition-opacity"
           >
-            <Sparkles className="w-5 h-5 mr-2" />
+            <Sparkles className="w-3.5 h-3.5" />
             AI ile Ekle
           </button>
         </div>
       </div>
 
       {/* Filters */}
-      <Card>
-        <CardContent>
-          <div className="flex flex-col md:flex-row gap-4">
-            {/* Search */}
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400" />
-              <input
-                type="text"
-                placeholder="Ara... (isim, email, telefon)"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="input pl-10 w-full"
-              />
-            </div>
-
-            {/* Industry Filter */}
-            <div className="relative">
-              <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400" />
-              <select
-                value={industryFilter}
-                onChange={(e) => setIndustryFilter(e.target.value)}
-                className="input pl-10 pr-8 min-w-[160px] appearance-none cursor-pointer"
-              >
-                <option value="">Tüm Sektörler</option>
-                <option value="automotive">🚗 Otomotiv</option>
-                <option value="beauty_salon">💅 Güzellik Salonu</option>
-                <option value="hairdresser">✂️ Kuaför</option>
-              </select>
-            </div>
-
-            {/* Status Filter */}
-            <div className="relative">
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="input pr-8 min-w-[140px] appearance-none cursor-pointer"
-              >
-                <option value="">Tüm Durumlar</option>
-                <option value="active">● Aktif</option>
-                <option value="inactive">○ Pasif/Onboarding</option>
-              </select>
-            </div>
+      <div className="flex flex-col md:flex-row gap-3">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <input
+              type="text"
+              placeholder="Ara... (isim, email, telefon)"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="input pl-9 w-full"
+            />
           </div>
-        </CardContent>
-      </Card>
+          <div className="relative">
+            <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+            <select
+              value={industryFilter}
+              onChange={(e) => setIndustryFilter(e.target.value)}
+              className="input pl-9 pr-8 min-w-[160px] appearance-none cursor-pointer"
+            >
+              <option value="">Tüm Sektörler</option>
+              <option value="automotive">🚗 Otomotiv</option>
+              <option value="beauty_salon">💅 Güzellik Salonu</option>
+              <option value="hairdresser">✂️ Kuaför</option>
+            </select>
+          </div>
+          <div className="relative">
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="input pr-8 min-w-[150px] appearance-none cursor-pointer"
+            >
+              <option value="">Tüm Durumlar</option>
+              <option value="active">● Aktif</option>
+              <option value="inactive">○ Pasif/Onboarding</option>
+            </select>
+          </div>
+      </div>
 
-      {/* Stats Summary */}
+      {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="p-4">
-            <div className="text-2xl font-bold text-slate-900">{tenants.length}</div>
-            <div className="text-sm text-slate-500">Toplam Tenant</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="text-2xl font-bold text-emerald-600">
-              {tenants.filter(t => t.is_active).length}
+        {statCards.map((stat) => {
+          const Icon = stat.icon;
+          return (
+            <div key={stat.label} className="border border-border rounded-xl p-4 flex items-center gap-3">
+              <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${stat.bgColor}`}>
+                <Icon className={`w-5 h-5 ${stat.iconColor}`} />
+              </div>
+              <div>
+                {loading
+                  ? <div className="animate-pulse bg-muted rounded h-7 w-8 mb-0.5" />
+                  : <p className={`text-2xl font-bold leading-none ${stat.valueColor}`}>{stat.value}</p>
+                }
+                <p className="text-xs text-muted-foreground mt-0.5">{stat.label}</p>
+              </div>
             </div>
-            <div className="text-sm text-slate-500">Aktif</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="text-2xl font-bold text-amber-600">
-              {tenants.filter(t => !t.is_active && t.onboarding_step).length}
-            </div>
-            <div className="text-sm text-slate-500">Onboarding</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="text-2xl font-bold text-slate-400">
-              {tenants.filter(t => !t.is_active && !t.onboarding_step).length}
-            </div>
-            <div className="text-sm text-slate-500">Pasif</div>
-          </CardContent>
-        </Card>
+          );
+        })}
       </div>
 
       {/* Tenants Table */}
-      <Card>
-        <CardContent>
-          {loading ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
-            </div>
-          ) : filteredTenants.length === 0 ? (
-            <div className="text-center py-12">
-              <Building2 className="w-12 h-12 mx-auto text-slate-300 mb-4" />
-              <p className="text-slate-500">
-                {searchTerm || industryFilter || statusFilter
-                  ? 'Filtrelere uygun tenant bulunamadı'
-                  : 'Henüz tenant bulunmuyor'}
-              </p>
-              {!searchTerm && !industryFilter && !statusFilter && (
-                <div className="mt-4 flex items-center justify-center gap-3">
-                  <button
-                    onClick={() => setIsManualCreateOpen(true)}
-                    className="inline-flex items-center px-4 py-2.5 rounded-xl bg-white border-2 border-slate-200 hover:border-slate-300 text-slate-700 font-medium transition-all hover:shadow-md"
-                  >
-                    <Plus className="w-4 h-4 mr-2" />
-                    Manuel Ekle
-                  </button>
-                  <button
-                    onClick={() => setIsOnboardingChatOpen(true)}
-                    className="inline-flex items-center px-5 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 via-indigo-600 to-blue-600 hover:from-purple-700 hover:via-indigo-700 hover:to-blue-700 text-white font-semibold transition-all shadow-lg shadow-indigo-300"
-                  >
-                    <Sparkles className="w-4 h-4 mr-2" />
-                    AI ile Ekle
-                  </button>
-                </div>
-              )}
-            </div>
-          ) : (
-            <Table
-              columns={columns}
-              data={filteredTenants}
-              onRowClick={handleViewTenant}
-            />
-          )}
-        </CardContent>
-      </Card>
+      <div className="border border-border rounded-xl overflow-hidden">
+        <div className="px-6 py-4 border-b border-border bg-muted/20">
+          <h2 className="text-sm font-semibold text-foreground">{t('admin.tenants')}</h2>
+        </div>
 
-      {/* AI Onboarding Chat Modal */}
+        {loading ? (
+          <div className="p-6"><SkeletonTableRows rows={5} columns={6} /></div>
+        ) : filteredTenants.length === 0 ? (
+          <div className="py-16 text-center">
+            <Building2 className="w-12 h-12 mx-auto mb-4 text-muted-foreground/30" />
+            <p className="text-muted-foreground">
+              {searchTerm || industryFilter || statusFilter
+                ? 'Filtrelere uygun tenant bulunamadı'
+                : 'Henüz tenant bulunmuyor'}
+            </p>
+            {!searchTerm && !industryFilter && !statusFilter && (
+              <div className="mt-4 flex items-center justify-center gap-3">
+                <Button variant="secondary" size="sm" onClick={() => setIsManualCreateOpen(true)}>
+                  <Plus className="w-4 h-4 mr-2" />
+                  Manuel Ekle
+                </Button>
+                <button
+                  onClick={() => setIsOnboardingChatOpen(true)}
+                  className="inline-flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg bg-gradient-to-r from-purple-600 via-indigo-600 to-blue-600 hover:opacity-90 text-white font-medium transition-opacity"
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  AI ile Ekle
+                </button>
+              </div>
+            )}
+          </div>
+        ) : (
+          <Table
+            columns={columns}
+            data={filteredTenants}
+            onRowClick={handleViewTenant}
+          />
+        )}
+      </div>
+
       <OnboardingChat
         isOpen={isOnboardingChatOpen}
         onClose={() => setIsOnboardingChatOpen(false)}
         onSuccess={handleOnboardingSuccess}
       />
 
-      {/* Manuel Tenant Ekleme Modal */}
       <TenantCreateModal
         isOpen={isManualCreateOpen}
         onClose={() => setIsManualCreateOpen(false)}

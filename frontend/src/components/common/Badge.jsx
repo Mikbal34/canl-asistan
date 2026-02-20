@@ -1,20 +1,22 @@
-/**
- * Badge component for status indicators
- * @param {Object} props
- * @param {React.ReactNode} props.children - Badge content
- * @param {string} props.variant - Badge variant (success, warning, error, info)
- * @param {string} props.className - Additional classes
- */
-export const Badge = ({ children, variant = 'info', className = '' }) => {
-  const variants = {
-    success: 'badge-success',
-    warning: 'badge-warning',
-    error: 'badge-error',
-    info: 'badge-info',
-  };
+import { cn } from '@/lib/utils';
 
+const variantClasses = {
+  success: 'badge-success',
+  warning: 'badge-warning',
+  error: 'badge-error',
+  info: 'badge-info',
+  default: 'badge-info',
+};
+
+export const Badge = ({ children, variant = 'info', className = '' }) => {
   return (
-    <span className={`${variants[variant]} ${className}`}>
+    <span
+      className={cn(
+        'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium',
+        variantClasses[variant] ?? variantClasses.default,
+        className
+      )}
+    >
       {children}
     </span>
   );

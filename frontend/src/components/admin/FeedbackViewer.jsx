@@ -39,7 +39,7 @@ const STATUS_CONFIG = {
  * Shows complaints, suggestions, and praises from customers
  */
 export const FeedbackViewer = ({ tenantId, onUpdate }) => {
-  const [isExpanded, setIsExpanded] = useState(true);
+  const [isExpanded, setIsExpanded] = useState(false);
   const [feedbacks, setFeedbacks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);

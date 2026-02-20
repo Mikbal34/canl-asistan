@@ -40,7 +40,7 @@ const TYPE_CONFIG = {
  * Shows all appointment types (beauty, test_drive, service) in one place
  */
 export const AppointmentsViewer = ({ tenantId, onUpdate }) => {
-  const [isExpanded, setIsExpanded] = useState(true);
+  const [isExpanded, setIsExpanded] = useState(false);
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);

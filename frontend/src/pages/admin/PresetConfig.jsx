@@ -1,6 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useTranslation } from 'react-i18next';
 import {
   ArrowLeft,
   Settings,
@@ -11,7 +10,6 @@ import {
   RefreshCw,
   Save,
   Loader2,
-  Check,
   Play,
   Info,
   ChevronDown,
@@ -26,13 +24,21 @@ import {
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
+import { Modal, ModalFooter } from '../../components/common/Modal';
+import { Badge } from '../../components/common/Badge';
 import { adminAPI } from '../../services/api';
 
 const LANGUAGES = [
-  { code: 'tr', name: 'Turkce', flag: 'TR' },
+  { code: 'tr', name: 'Türkçe', flag: 'TR' },
   { code: 'en', name: 'English', flag: 'EN' },
   { code: 'de', name: 'Deutsch', flag: 'DE' },
 ];
+
+const INDUSTRY_NAMES = {
+  automotive: 'Otomotiv',
+  beauty_salon: 'Güzellik Salonu',
+  hairdresser: 'Kuaför',
+};
 
 const VOICE_PROVIDERS = [
   { id: '11labs', name: 'ElevenLabs' },
@@ -225,7 +231,6 @@ const TOOL_DESCRIPTIONS = {
 export const PresetConfig = () => {
   const { industry } = useParams();
   const navigate = useNavigate();
-  const { t } = useTranslation();
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -238,6 +243,16 @@ export const PresetConfig = () => {
   const [expandedTool, setExpandedTool] = useState(null);
   const [enabledTools, setEnabledTools] = useState({});
   const [masterAssistants, setMasterAssistants] = useState({ tr: null, en: null, de: null });
+
+  const notifTimerRef = useRef(null);
+  const [notification, setNotification] = useState(null); // { type: 'success'|'error', message }
+  const [actionModal, setActionModal] = useState({ open: false, type: null }); // type: 'sync' | 'createAll'
+
+  const showNotification = (notif) => {
+    setNotification(notif);
+    if (notifTimerRef.current) clearTimeout(notifTimerRef.current);
+    notifTimerRef.current = setTimeout(() => setNotification(null), 4000);
+  };
 
   useEffect(() => {
     if (industry) {
@@ -381,48 +396,20 @@ export const PresetConfig = () => {
 
       await adminAPI.updatePreset(industry, updates);
       setHasChanges(false);
-      alert('Preset saved successfully!');
+      showNotification({ type: 'success', message: 'Değişiklikler kaydedildi.' });
     } catch (error) {
       console.error('Failed to save preset:', error);
-      alert('Failed to save preset: ' + error.message);
+      showNotification({ type: 'error', message: 'Kaydetme başarısız: ' + error.message });
     } finally {
       setSaving(false);
     }
   };
 
-  const handleSync = async () => {
-    const langNames = { tr: 'Turkish', en: 'English', de: 'German' };
-    if (!confirm(`This will create/update ${langNames[activeTab]} assistant for all tenants using this preset. Continue?`)) {
-      return;
-    }
-
-    try {
-      setSyncing(true);
-
-      // Önce değişiklikleri kaydet (varsa)
-      if (hasChanges) {
-        const updates = {};
-        LANGUAGES.forEach((lang) => {
-          updates[`config_${lang.code}`] = formData[lang.code];
-        });
-        await adminAPI.updatePreset(industry, updates);
-        setHasChanges(false);
-      }
-
-      // Sonra tenant'ları sync et
-      const response = await adminAPI.syncPreset(industry, activeTab);
-      alert(`Synced ${response.data.results?.length || 0} tenants for ${langNames[activeTab]} successfully!`);
-    } catch (error) {
-      console.error('Failed to sync preset:', error);
-      alert('Failed to sync: ' + (error.response?.data?.message || error.message));
-    } finally {
-      setSyncing(false);
-    }
+  const handleSync = () => {
+    setActionModal({ open: true, type: 'sync' });
   };
 
   const handleCreateMasterAssistant = async () => {
-    const langNames = { tr: 'Turkce', en: 'English', de: 'Deutsch' };
-
     try {
       setCreatingMaster(true);
 
@@ -437,33 +424,66 @@ export const PresetConfig = () => {
       }
 
       // Sonra master asistanı oluştur/güncelle
-      const response = await adminAPI.createMasterAssistant(industry, activeTab);
-      alert(`Master assistant created for ${langNames[activeTab]}!`);
+      await adminAPI.createMasterAssistant(industry, activeTab);
+      showNotification({ type: 'success', message: `${activeTab.toUpperCase()} için master asistan oluşturuldu.` });
       fetchMasterAssistants();
     } catch (error) {
       console.error('Failed to create master assistant:', error);
-      alert('Failed to create master assistant: ' + (error.response?.data?.error || error.message));
+      showNotification({ type: 'error', message: 'Master asistan oluşturulamadı: ' + (error.response?.data?.error || error.message) });
     } finally {
       setCreatingMaster(false);
     }
   };
 
-  const handleCreateAllMasterAssistants = async () => {
-    if (!confirm('This will create master assistants for all languages (TR, EN, DE). Continue?')) {
-      return;
+  const handleCreateAllMasterAssistants = () => {
+    setActionModal({ open: true, type: 'createAll' });
+  };
+
+  const confirmAction = async () => {
+    const type = actionModal.type;
+    setActionModal({ open: false, type: null });
+
+    if (type === 'sync') {
+      try {
+        setSyncing(true);
+
+        // Önce değişiklikleri kaydet (varsa)
+        if (hasChanges) {
+          const updates = {};
+          LANGUAGES.forEach((lang) => {
+            updates[`config_${lang.code}`] = formData[lang.code];
+          });
+          await adminAPI.updatePreset(industry, updates);
+          setHasChanges(false);
+        }
+
+        // Sonra tenant'ları sync et
+        const response = await adminAPI.syncPreset(industry, activeTab);
+        showNotification({
+          type: 'success',
+          message: `${response.data.results?.length || 0} tenant için ${activeTab.toUpperCase()} asistanı senkronize edildi.`,
+        });
+      } catch (error) {
+        console.error('Failed to sync preset:', error);
+        showNotification({ type: 'error', message: 'Senkronizasyon başarısız: ' + (error.response?.data?.message || error.message) });
+      } finally {
+        setSyncing(false);
+      }
     }
 
-    try {
-      setCreatingMaster(true);
-      const response = await adminAPI.createAllMasterAssistants(industry);
-      const successCount = response.data.results?.filter(r => r.success).length || 0;
-      alert(`Created ${successCount}/3 master assistants!`);
-      fetchMasterAssistants();
-    } catch (error) {
-      console.error('Failed to create master assistants:', error);
-      alert('Failed: ' + (error.response?.data?.error || error.message));
-    } finally {
-      setCreatingMaster(false);
+    if (type === 'createAll') {
+      try {
+        setCreatingMaster(true);
+        const response = await adminAPI.createAllMasterAssistants(industry);
+        const successCount = response.data.results?.filter((r) => r.success).length || 0;
+        showNotification({ type: 'success', message: `${successCount}/3 master asistan oluşturuldu.` });
+        fetchMasterAssistants();
+      } catch (error) {
+        console.error('Failed to create master assistants:', error);
+        showNotification({ type: 'error', message: 'Oluşturma başarısız: ' + (error.response?.data?.error || error.message) });
+      } finally {
+        setCreatingMaster(false);
+      }
     }
   };
 
@@ -472,7 +492,7 @@ export const PresetConfig = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
       </div>
     );
   }
@@ -480,10 +500,10 @@ export const PresetConfig = () => {
   if (!preset) {
     return (
       <div className="text-center py-12">
-        <p className="text-slate-500">Preset not found: {industry}</p>
+        <p className="text-muted-foreground">Preset bulunamadı: {industry}</p>
         <Button variant="ghost" onClick={() => navigate('/admin/presets')} className="mt-4">
           <ArrowLeft className="w-4 h-4 mr-2" />
-          Back to Presets
+          Şablonlara Dön
         </Button>
       </div>
     );
@@ -500,30 +520,23 @@ export const PresetConfig = () => {
           <div className="flex items-center gap-3">
             <span className="text-3xl">{preset.icon}</span>
             <div>
-              <h1 className="text-2xl font-bold text-slate-900">
-                {preset[`name_${activeTab}`] || preset.industry} Configuration
+              <h1 className="text-2xl font-bold text-foreground">
+                {INDUSTRY_NAMES[industry] || preset.industry} Yapılandırması
               </h1>
-              <p className="text-slate-500 text-sm">
-                {preset[`description_${activeTab}`] || `Configure VAPI settings for ${preset.industry}`}
+              <p className="text-sm text-muted-foreground">
+                {preset[`description_${activeTab}`] || `${industry} sektörü VAPI ayarları`}
               </p>
             </div>
           </div>
         </div>
         <div className="flex items-center gap-3">
           {/* Master Assistant Status */}
-          <div className="flex items-center gap-1 text-xs text-slate-500 mr-2">
+          <div className="flex items-center gap-1 text-xs text-muted-foreground mr-2">
             <span>Master:</span>
             {['tr', 'en', 'de'].map((lang) => (
-              <span
-                key={lang}
-                className={`px-1.5 py-0.5 rounded ${
-                  masterAssistants[lang]
-                    ? 'bg-emerald-100 text-emerald-600'
-                    : 'bg-slate-100 text-slate-400'
-                }`}
-              >
+              <Badge key={lang} variant={masterAssistants[lang] ? 'success' : 'default'}>
                 {lang.toUpperCase()}
-              </span>
+              </Badge>
             ))}
           </div>
 
@@ -531,27 +544,27 @@ export const PresetConfig = () => {
             variant="secondary"
             onClick={handleCreateMasterAssistant}
             disabled={creatingMaster}
-            title={`Create master assistant for ${activeTab.toUpperCase()}`}
+            title={`${activeTab.toUpperCase()} için master asistan oluştur`}
           >
             {creatingMaster ? (
               <Loader2 className="w-4 h-4 mr-2 animate-spin" />
             ) : (
               <Play className="w-4 h-4 mr-2" />
             )}
-            Create Master ({activeTab.toUpperCase()})
+            Master Oluştur ({activeTab.toUpperCase()})
           </Button>
           <Button
             variant="secondary"
             onClick={handleSync}
             disabled={syncing}
-            title="Sync changes to all tenants using this preset"
+            title="Tüm tenant'ları bu preset ile senkronize et"
           >
             {syncing ? (
               <Loader2 className="w-4 h-4 mr-2 animate-spin" />
             ) : (
               <RefreshCw className="w-4 h-4 mr-2" />
             )}
-            Sync Tenants
+            Tenant&apos;ları Senkronize Et
           </Button>
           <Button
             variant="primary"
@@ -563,21 +576,34 @@ export const PresetConfig = () => {
             ) : (
               <Save className="w-4 h-4 mr-2" />
             )}
-            Save Changes
+            Kaydet
           </Button>
         </div>
       </div>
 
+      {/* Notification Banner */}
+      {notification && (
+        <div
+          className={`px-4 py-3 rounded-lg text-sm font-medium ${
+            notification.type === 'success'
+              ? 'bg-green-50 text-green-800 border border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800'
+              : 'bg-red-50 text-red-800 border border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800'
+          }`}
+        >
+          {notification.message}
+        </div>
+      )}
+
       {/* Language Tabs */}
-      <div className="flex border-b border-slate-200">
+      <div className="flex border-b border-border">
         {LANGUAGES.map((lang) => (
           <button
             key={lang.code}
             onClick={() => setActiveTab(lang.code)}
             className={`px-6 py-3 text-sm font-medium transition-colors relative ${
               activeTab === lang.code
-                ? 'text-indigo-600 border-b-2 border-indigo-600'
-                : 'text-slate-500 hover:text-slate-900'
+                ? 'text-primary border-b-2 border-primary'
+                : 'text-muted-foreground hover:text-foreground'
             }`}
           >
             <span className="mr-2">{lang.flag}</span>
@@ -591,19 +617,19 @@ export const PresetConfig = () => {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Volume2 className="w-5 h-5 text-indigo-600" />
-              Voice Settings
+              <Volume2 className="w-5 h-5 text-primary" />
+              Ses Ayarları
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-slate-600 mb-2">
-                Voice Provider
+              <label className="block text-sm font-medium text-muted-foreground mb-2">
+                Ses Sağlayıcı
               </label>
               <select
                 value={currentConfig.voice_provider || 'elevenlabs'}
                 onChange={(e) => handleInputChange('voice_provider', e.target.value)}
-                className="w-full px-4 py-2 rounded-lg bg-white border border-slate-200 text-slate-900 focus:border-indigo-500 focus:outline-none"
+                className="w-full px-4 py-2 rounded-lg bg-background border border-border text-foreground focus:border-primary focus:outline-none"
               >
                 {VOICE_PROVIDERS.map((provider) => (
                   <option key={provider.id} value={provider.id}>
@@ -614,8 +640,8 @@ export const PresetConfig = () => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-600 mb-2">
-                Voice ID
+              <label className="block text-sm font-medium text-muted-foreground mb-2">
+                Ses ID
               </label>
               <div className="flex gap-2">
                 <input
@@ -623,7 +649,7 @@ export const PresetConfig = () => {
                   value={currentConfig.voice_id || ''}
                   onChange={(e) => handleInputChange('voice_id', e.target.value)}
                   placeholder="e.g., EXAVITQu4vr4xnSDxMaL"
-                  className="flex-1 px-4 py-2 rounded-lg bg-white border border-slate-200 text-slate-900 focus:border-indigo-500 focus:outline-none"
+                  className="flex-1 px-4 py-2 rounded-lg bg-background border border-border text-foreground focus:border-primary focus:outline-none"
                 />
                 <Button variant="secondary" size="sm">
                   <Play className="w-4 h-4" />
@@ -633,13 +659,13 @@ export const PresetConfig = () => {
 
             {(currentConfig.voice_provider === '11labs' || currentConfig.voice_provider === 'elevenlabs') && (
               <div>
-                <label className="block text-sm font-medium text-slate-600 mb-2">
-                  ElevenLabs Model
+                <label className="block text-sm font-medium text-muted-foreground mb-2">
+                  ElevenLabs Modeli
                 </label>
                 <select
                   value={currentConfig.voice_model || 'eleven_multilingual_v2'}
                   onChange={(e) => handleInputChange('voice_model', e.target.value)}
-                  className="w-full px-4 py-2 rounded-lg bg-white border border-slate-200 text-slate-900 focus:border-indigo-500 focus:outline-none"
+                  className="w-full px-4 py-2 rounded-lg bg-background border border-border text-foreground focus:border-primary focus:outline-none"
                 >
                   {ELEVENLABS_MODELS.map((model) => (
                     <option key={model.id} value={model.id}>
@@ -651,8 +677,8 @@ export const PresetConfig = () => {
             )}
 
             <div>
-              <label className="block text-sm font-medium text-slate-600 mb-2">
-                Voice Speed: {currentConfig.voice_speed || 1.0}x
+              <label className="block text-sm font-medium text-muted-foreground mb-2">
+                Ses Hızı: {currentConfig.voice_speed || 1.0}x
               </label>
               <input
                 type="range"
@@ -661,9 +687,9 @@ export const PresetConfig = () => {
                 step="0.1"
                 value={currentConfig.voice_speed || 1.0}
                 onChange={(e) => handleInputChange('voice_speed', parseFloat(e.target.value))}
-                className="w-full h-2 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-indigo-600"
+                className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer accent-primary"
               />
-              <div className="flex justify-between text-xs text-slate-400 mt-1">
+              <div className="flex justify-between text-xs text-muted-foreground mt-1">
                 <span>0.5x</span>
                 <span>1.0x</span>
                 <span>2.0x</span>
@@ -673,13 +699,13 @@ export const PresetConfig = () => {
             {/* ElevenLabs Advanced Settings */}
             {(currentConfig.voice_provider === '11labs' || currentConfig.voice_provider === 'elevenlabs') && (
               <>
-                <div className="border-t border-slate-200 pt-4">
-                  <p className="text-xs text-slate-400 mb-3">ElevenLabs Advanced</p>
+                <div className="border-t border-border pt-4">
+                  <p className="text-xs text-muted-foreground mb-3">ElevenLabs Gelişmiş</p>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-600 mb-2">
-                    Stability: {currentConfig.voice_stability ?? 0.5}
+                  <label className="block text-sm font-medium text-muted-foreground mb-2">
+                    Kararlılık: {currentConfig.voice_stability ?? 0.5}
                   </label>
                   <input
                     type="range"
@@ -688,17 +714,17 @@ export const PresetConfig = () => {
                     step="0.05"
                     value={currentConfig.voice_stability ?? 0.5}
                     onChange={(e) => handleInputChange('voice_stability', parseFloat(e.target.value))}
-                    className="w-full h-2 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-indigo-600"
+                    className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer accent-primary"
                   />
-                  <div className="flex justify-between text-xs text-slate-400 mt-1">
+                  <div className="flex justify-between text-xs text-muted-foreground mt-1">
                     <span>Variable</span>
                     <span>Stable</span>
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-600 mb-2">
-                    Similarity Boost: {currentConfig.voice_similarity_boost ?? 0.75}
+                  <label className="block text-sm font-medium text-muted-foreground mb-2">
+                    Benzerlik Artırımı: {currentConfig.voice_similarity_boost ?? 0.75}
                   </label>
                   <input
                     type="range"
@@ -707,17 +733,17 @@ export const PresetConfig = () => {
                     step="0.05"
                     value={currentConfig.voice_similarity_boost ?? 0.75}
                     onChange={(e) => handleInputChange('voice_similarity_boost', parseFloat(e.target.value))}
-                    className="w-full h-2 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-indigo-600"
+                    className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer accent-primary"
                   />
-                  <div className="flex justify-between text-xs text-slate-400 mt-1">
+                  <div className="flex justify-between text-xs text-muted-foreground mt-1">
                     <span>Low</span>
                     <span>High</span>
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-600 mb-2">
-                    Style: {currentConfig.voice_style ?? 0.0}
+                  <label className="block text-sm font-medium text-muted-foreground mb-2">
+                    Stil: {currentConfig.voice_style ?? 0.0}
                   </label>
                   <input
                     type="range"
@@ -726,22 +752,22 @@ export const PresetConfig = () => {
                     step="0.05"
                     value={currentConfig.voice_style ?? 0.0}
                     onChange={(e) => handleInputChange('voice_style', parseFloat(e.target.value))}
-                    className="w-full h-2 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-indigo-600"
+                    className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer accent-primary"
                   />
-                  <div className="flex justify-between text-xs text-slate-400 mt-1">
+                  <div className="flex justify-between text-xs text-muted-foreground mt-1">
                     <span>None</span>
                     <span>Expressive</span>
                   </div>
                 </div>
 
                 <div className="flex items-center justify-between">
-                  <label className="text-sm font-medium text-slate-600">
-                    Speaker Boost
+                  <label className="text-sm font-medium text-muted-foreground">
+                    Konuşmacı Artırımı
                   </label>
                   <button
                     onClick={() => handleInputChange('voice_use_speaker_boost', !currentConfig.voice_use_speaker_boost)}
                     className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                      currentConfig.voice_use_speaker_boost ? 'bg-indigo-600' : 'bg-slate-200'
+                      currentConfig.voice_use_speaker_boost ? 'bg-primary' : 'bg-muted'
                     }`}
                   >
                     <span
@@ -760,19 +786,19 @@ export const PresetConfig = () => {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Brain className="w-5 h-5 text-indigo-600" />
-              AI Settings
+              <Brain className="w-5 h-5 text-primary" />
+              Yapay Zeka Ayarları
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-slate-600 mb-2">
+              <label className="block text-sm font-medium text-muted-foreground mb-2">
                 Model
               </label>
               <select
                 value={currentConfig.model || 'gpt-4o-mini'}
                 onChange={(e) => handleInputChange('model', e.target.value)}
-                className="w-full px-4 py-2 rounded-lg bg-white border border-slate-200 text-slate-900 focus:border-indigo-500 focus:outline-none"
+                className="w-full px-4 py-2 rounded-lg bg-background border border-border text-foreground focus:border-primary focus:outline-none"
               >
                 {AI_MODELS.map((model) => (
                   <option key={model.id} value={model.id}>
@@ -783,8 +809,8 @@ export const PresetConfig = () => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-600 mb-2">
-                Temperature: {currentConfig.temperature || 0.7}
+              <label className="block text-sm font-medium text-muted-foreground mb-2">
+                Yaratıcılık: {currentConfig.temperature || 0.7}
               </label>
               <input
                 type="range"
@@ -793,9 +819,9 @@ export const PresetConfig = () => {
                 step="0.1"
                 value={currentConfig.temperature || 0.7}
                 onChange={(e) => handleInputChange('temperature', parseFloat(e.target.value))}
-                className="w-full h-2 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-indigo-600"
+                className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer accent-primary"
               />
-              <div className="flex justify-between text-xs text-slate-400 mt-1">
+              <div className="flex justify-between text-xs text-muted-foreground mt-1">
                 <span>Precise</span>
                 <span>Balanced</span>
                 <span>Creative</span>
@@ -803,8 +829,8 @@ export const PresetConfig = () => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-600 mb-2">
-                Max Tokens
+              <label className="block text-sm font-medium text-muted-foreground mb-2">
+                Maksimum Token
               </label>
               <input
                 type="number"
@@ -812,17 +838,17 @@ export const PresetConfig = () => {
                 onChange={(e) => handleInputChange('max_tokens', parseInt(e.target.value))}
                 min="100"
                 max="2000"
-                className="w-full px-4 py-2 rounded-lg bg-white border border-slate-200 text-slate-900 focus:border-indigo-500 focus:outline-none"
+                className="w-full px-4 py-2 rounded-lg bg-background border border-border text-foreground focus:border-primary focus:outline-none"
               />
             </div>
 
             {/* Advanced Model Settings */}
-            <div className="border-t border-slate-200 pt-4">
-              <p className="text-xs text-slate-400 mb-3">Advanced</p>
+            <div className="border-t border-border pt-4">
+              <p className="text-xs text-muted-foreground mb-3">Gelişmiş</p>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-600 mb-2">
+              <label className="block text-sm font-medium text-muted-foreground mb-2">
                 Top P: {currentConfig.top_p ?? 0.95}
               </label>
               <input
@@ -832,9 +858,9 @@ export const PresetConfig = () => {
                 step="0.05"
                 value={currentConfig.top_p ?? 0.95}
                 onChange={(e) => handleInputChange('top_p', parseFloat(e.target.value))}
-                className="w-full h-2 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-indigo-600"
+                className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer accent-primary"
               />
-              <div className="flex justify-between text-xs text-slate-400 mt-1">
+              <div className="flex justify-between text-xs text-muted-foreground mt-1">
                 <span>Focused</span>
                 <span>Diverse</span>
               </div>
@@ -842,8 +868,8 @@ export const PresetConfig = () => {
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-slate-600 mb-2">
-                  Presence Penalty
+                <label className="block text-sm font-medium text-muted-foreground mb-2">
+                  Varlık Cezası
                 </label>
                 <input
                   type="number"
@@ -852,12 +878,12 @@ export const PresetConfig = () => {
                   min="-2"
                   max="2"
                   step="0.1"
-                  className="w-full px-4 py-2 rounded-lg bg-white border border-slate-200 text-slate-900 focus:border-indigo-500 focus:outline-none"
+                  className="w-full px-4 py-2 rounded-lg bg-background border border-border text-foreground focus:border-primary focus:outline-none"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-600 mb-2">
-                  Frequency Penalty
+                <label className="block text-sm font-medium text-muted-foreground mb-2">
+                  Sıklık Cezası
                 </label>
                 <input
                   type="number"
@@ -866,19 +892,19 @@ export const PresetConfig = () => {
                   min="-2"
                   max="2"
                   step="0.1"
-                  className="w-full px-4 py-2 rounded-lg bg-white border border-slate-200 text-slate-900 focus:border-indigo-500 focus:outline-none"
+                  className="w-full px-4 py-2 rounded-lg bg-background border border-border text-foreground focus:border-primary focus:outline-none"
                 />
               </div>
             </div>
 
             <div className="flex items-center justify-between">
-              <label className="text-sm font-medium text-slate-600">
-                Emotion Recognition
+              <label className="text-sm font-medium text-muted-foreground">
+                Duygu Tanıma
               </label>
               <button
                 onClick={() => handleInputChange('emotion_recognition_enabled', !currentConfig.emotion_recognition_enabled)}
                 className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                  currentConfig.emotion_recognition_enabled ? 'bg-indigo-600' : 'bg-slate-200'
+                  currentConfig.emotion_recognition_enabled ? 'bg-primary' : 'bg-muted'
                 }`}
               >
                 <span
@@ -895,19 +921,19 @@ export const PresetConfig = () => {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <AudioLines className="w-5 h-5 text-indigo-600" />
-              Transcriber (Speech-to-Text)
+              <AudioLines className="w-5 h-5 text-primary" />
+              Transkripsiyon (Konuşma→Metin)
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-slate-600 mb-2">
-                Provider
+              <label className="block text-sm font-medium text-muted-foreground mb-2">
+                Sağlayıcı
               </label>
               <select
                 value={currentConfig.transcriber_provider || 'deepgram'}
                 onChange={(e) => handleInputChange('transcriber_provider', e.target.value)}
-                className="w-full px-4 py-2 rounded-lg bg-white border border-slate-200 text-slate-900 focus:border-indigo-500 focus:outline-none"
+                className="w-full px-4 py-2 rounded-lg bg-background border border-border text-foreground focus:border-primary focus:outline-none"
               >
                 {TRANSCRIBER_PROVIDERS.map((provider) => (
                   <option key={provider.id} value={provider.id}>
@@ -918,13 +944,13 @@ export const PresetConfig = () => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-600 mb-2">
+              <label className="block text-sm font-medium text-muted-foreground mb-2">
                 Model
               </label>
               <select
                 value={currentConfig.transcriber_model || 'nova-2'}
                 onChange={(e) => handleInputChange('transcriber_model', e.target.value)}
-                className="w-full px-4 py-2 rounded-lg bg-white border border-slate-200 text-slate-900 focus:border-indigo-500 focus:outline-none"
+                className="w-full px-4 py-2 rounded-lg bg-background border border-border text-foreground focus:border-primary focus:outline-none"
               >
                 {(TRANSCRIBER_MODELS[currentConfig.transcriber_provider] || TRANSCRIBER_MODELS.deepgram).map((model) => (
                   <option key={model.id} value={model.id}>
@@ -935,13 +961,13 @@ export const PresetConfig = () => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-600 mb-2">
-                Language
+              <label className="block text-sm font-medium text-muted-foreground mb-2">
+                Dil
               </label>
               <select
                 value={currentConfig.transcriber_language || ''}
                 onChange={(e) => handleInputChange('transcriber_language', e.target.value)}
-                className="w-full px-4 py-2 rounded-lg bg-white border border-slate-200 text-slate-900 focus:border-indigo-500 focus:outline-none"
+                className="w-full px-4 py-2 rounded-lg bg-background border border-border text-foreground focus:border-primary focus:outline-none"
               >
                 {TRANSCRIBER_LANGUAGES.map((lang) => (
                   <option key={lang.id} value={lang.id}>
@@ -949,12 +975,12 @@ export const PresetConfig = () => {
                   </option>
                 ))}
               </select>
-              <p className="text-xs text-slate-400 mt-1">Auto uses TR/EN/DE based on selected tab</p>
+              <p className="text-xs text-muted-foreground mt-1">Auto uses TR/EN/DE based on selected tab</p>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-600 mb-2">
-                Endpointing (ms): {currentConfig.transcriber_endpointing ?? 255}
+              <label className="block text-sm font-medium text-muted-foreground mb-2">
+                Endpoint Gecikmesi (ms): {currentConfig.transcriber_endpointing ?? 255}
               </label>
               <input
                 type="range"
@@ -963,24 +989,24 @@ export const PresetConfig = () => {
                 step="50"
                 value={currentConfig.transcriber_endpointing ?? 255}
                 onChange={(e) => handleInputChange('transcriber_endpointing', parseInt(e.target.value))}
-                className="w-full h-2 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-indigo-600"
+                className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer accent-primary"
               />
-              <div className="flex justify-between text-xs text-slate-400 mt-1">
+              <div className="flex justify-between text-xs text-muted-foreground mt-1">
                 <span>Fast (100ms)</span>
                 <span>Slow (1000ms)</span>
               </div>
-              <p className="text-xs text-slate-400 mt-1">How long to wait before considering speech ended</p>
+              <p className="text-xs text-muted-foreground mt-1">How long to wait before considering speech ended</p>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-600 mb-2">
-                Keywords (Boost Recognition)
+              <label className="block text-sm font-medium text-muted-foreground mb-2">
+                Anahtar Kelimeler
               </label>
               <div className="flex flex-wrap gap-2 mb-2">
                 {(currentConfig.transcriber_keywords || []).map((keyword, index) => (
                   <span
                     key={index}
-                    className="inline-flex items-center gap-1 px-2 py-1 rounded bg-blue-100 text-blue-600 text-sm"
+                    className="inline-flex items-center gap-1 px-2 py-1 rounded bg-primary/10 text-primary text-sm"
                   >
                     {keyword}
                     <button
@@ -989,7 +1015,7 @@ export const PresetConfig = () => {
                         newKeywords.splice(index, 1);
                         handleInputChange('transcriber_keywords', newKeywords);
                       }}
-                      className="hover:text-slate-900"
+                      className="hover:text-foreground"
                     >
                       <X className="w-3 h-3" />
                     </button>
@@ -1000,8 +1026,8 @@ export const PresetConfig = () => {
                 <input
                   type="text"
                   id="new-keyword"
-                  placeholder="e.g., BMW, Mercedes, randevu..."
-                  className="flex-1 px-3 py-1 rounded-lg bg-white border border-slate-200 text-slate-900 text-sm focus:border-indigo-500 focus:outline-none"
+                  placeholder="Kelime ekle..."
+                  className="flex-1 px-3 py-1 rounded-lg bg-background border border-border text-foreground text-sm focus:border-primary focus:outline-none"
                   onKeyPress={(e) => {
                     if (e.key === 'Enter' && e.target.value.trim()) {
                       handleInputChange('transcriber_keywords', [
@@ -1029,7 +1055,7 @@ export const PresetConfig = () => {
                   <Plus className="w-4 h-4" />
                 </Button>
               </div>
-              <p className="text-xs text-slate-400 mt-1">Words that should be recognized more accurately</p>
+              <p className="text-xs text-muted-foreground mt-1">Words that should be recognized more accurately</p>
             </div>
           </CardContent>
         </Card>
@@ -1038,14 +1064,14 @@ export const PresetConfig = () => {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Clock className="w-5 h-5 text-indigo-600" />
-              Conversation Settings
+              <Clock className="w-5 h-5 text-primary" />
+              Konuşma Ayarları
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-slate-600 mb-2">
-                Silence Timeout (seconds)
+              <label className="block text-sm font-medium text-muted-foreground mb-2">
+                Sessizlik Zaman Aşımı (sn)
               </label>
               <input
                 type="number"
@@ -1053,14 +1079,14 @@ export const PresetConfig = () => {
                 onChange={(e) => handleInputChange('silence_timeout_seconds', Math.max(10, parseInt(e.target.value) || 10))}
                 min="10"
                 max="60"
-                className="w-full px-4 py-2 rounded-lg bg-white border border-slate-200 text-slate-900 focus:border-indigo-500 focus:outline-none"
+                className="w-full px-4 py-2 rounded-lg bg-background border border-border text-foreground focus:border-primary focus:outline-none"
               />
-              <p className="text-xs text-slate-400 mt-1">How long to wait for user response (min: 10s)</p>
+              <p className="text-xs text-muted-foreground mt-1">How long to wait for user response (min: 10s)</p>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-600 mb-2">
-                Max Call Duration (seconds)
+              <label className="block text-sm font-medium text-muted-foreground mb-2">
+                Maksimum Görüşme Süresi (sn)
               </label>
               <input
                 type="number"
@@ -1069,14 +1095,14 @@ export const PresetConfig = () => {
                 min="60"
                 max="7200"
                 step="60"
-                className="w-full px-4 py-2 rounded-lg bg-white border border-slate-200 text-slate-900 focus:border-indigo-500 focus:outline-none"
+                className="w-full px-4 py-2 rounded-lg bg-background border border-border text-foreground focus:border-primary focus:outline-none"
               />
-              <p className="text-xs text-slate-400 mt-1">{Math.floor((currentConfig.max_duration_seconds ?? 1800) / 60)} minutes</p>
+              <p className="text-xs text-muted-foreground mt-1">{Math.floor((currentConfig.max_duration_seconds ?? 1800) / 60)} minutes</p>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-600 mb-2">
-                Response Delay: {currentConfig.response_delay_seconds ?? 0.4}s
+              <label className="block text-sm font-medium text-muted-foreground mb-2">
+                Cevap Gecikmesi: {currentConfig.response_delay_seconds ?? 0.4}s
               </label>
               <input
                 type="range"
@@ -1085,9 +1111,9 @@ export const PresetConfig = () => {
                 step="0.1"
                 value={currentConfig.response_delay_seconds ?? 0.4}
                 onChange={(e) => handleInputChange('response_delay_seconds', parseFloat(e.target.value))}
-                className="w-full h-2 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-indigo-600"
+                className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer accent-primary"
               />
-              <div className="flex justify-between text-xs text-slate-400 mt-1">
+              <div className="flex justify-between text-xs text-muted-foreground mt-1">
                 <span>Instant</span>
                 <span>Natural</span>
               </div>
@@ -1095,15 +1121,15 @@ export const PresetConfig = () => {
 
             <div className="flex items-center justify-between">
               <div>
-                <label className="text-sm font-medium text-slate-600">
-                  Allow Interruptions
+                <label className="text-sm font-medium text-muted-foreground">
+                  Kesintiye İzin Ver
                 </label>
-                <p className="text-xs text-slate-400">User can interrupt assistant</p>
+                <p className="text-xs text-muted-foreground">Kullanıcı asistanı kesebilir</p>
               </div>
               <button
                 onClick={() => handleInputChange('interruptions_enabled', !currentConfig.interruptions_enabled)}
                 className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                  currentConfig.interruptions_enabled ? 'bg-indigo-600' : 'bg-slate-200'
+                  currentConfig.interruptions_enabled ? 'bg-primary' : 'bg-muted'
                 }`}
               >
                 <span
@@ -1116,8 +1142,8 @@ export const PresetConfig = () => {
 
             {currentConfig.interruptions_enabled && (
               <div>
-                <label className="block text-sm font-medium text-slate-600 mb-2">
-                  Words to Interrupt
+                <label className="block text-sm font-medium text-muted-foreground mb-2">
+                  Kesme Kelime Sayısı
                 </label>
                 <input
                   type="number"
@@ -1125,9 +1151,9 @@ export const PresetConfig = () => {
                   onChange={(e) => handleInputChange('num_words_to_interrupt', parseInt(e.target.value))}
                   min="1"
                   max="10"
-                  className="w-full px-4 py-2 rounded-lg bg-white border border-slate-200 text-slate-900 focus:border-indigo-500 focus:outline-none"
+                  className="w-full px-4 py-2 rounded-lg bg-background border border-border text-foreground focus:border-primary focus:outline-none"
                 />
-                <p className="text-xs text-slate-400 mt-1">Number of words needed to interrupt</p>
+                <p className="text-xs text-muted-foreground mt-1">Number of words needed to interrupt</p>
               </div>
             )}
           </CardContent>
@@ -1137,23 +1163,23 @@ export const PresetConfig = () => {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Zap className="w-5 h-5 text-indigo-600" />
-              Natural Conversation
+              <Zap className="w-5 h-5 text-primary" />
+              Doğal Konuşma
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             {/* Backchannel */}
             <div className="flex items-center justify-between">
               <div>
-                <label className="text-sm font-medium text-slate-600">
-                  Backchannel Sounds
+                <label className="text-sm font-medium text-muted-foreground">
+                  Arka Kanal Sesleri
                 </label>
-                <p className="text-xs text-slate-400">"hmm", "evet", "anlıyorum" etc.</p>
+                <p className="text-xs text-muted-foreground">&quot;hmm&quot;, &quot;evet&quot;, &quot;anlıyorum&quot; etc.</p>
               </div>
               <button
                 onClick={() => handleInputChange('backchannel_enabled', !currentConfig.backchannel_enabled)}
                 className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                  currentConfig.backchannel_enabled ? 'bg-indigo-600' : 'bg-slate-200'
+                  currentConfig.backchannel_enabled ? 'bg-primary' : 'bg-muted'
                 }`}
               >
                 <span
@@ -1166,14 +1192,14 @@ export const PresetConfig = () => {
 
             {currentConfig.backchannel_enabled && (
               <div>
-                <label className="block text-sm font-medium text-slate-600 mb-2">
-                  Backchannel Words
+                <label className="block text-sm font-medium text-muted-foreground mb-2">
+                  Arka Kanal Kelimeleri
                 </label>
                 <div className="flex flex-wrap gap-2 mb-2">
                   {(currentConfig.backchannel_words || []).map((word, index) => (
                     <span
                       key={index}
-                      className="inline-flex items-center gap-1 px-2 py-1 rounded bg-indigo-600/20 text-indigo-600 text-sm"
+                      className="inline-flex items-center gap-1 px-2 py-1 rounded bg-primary/10 text-primary text-sm"
                     >
                       {word}
                       <button
@@ -1182,7 +1208,7 @@ export const PresetConfig = () => {
                           newWords.splice(index, 1);
                           handleInputChange('backchannel_words', newWords);
                         }}
-                        className="hover:text-slate-900"
+                        className="hover:text-foreground"
                       >
                         <X className="w-3 h-3" />
                       </button>
@@ -1193,8 +1219,8 @@ export const PresetConfig = () => {
                   <input
                     type="text"
                     id="new-backchannel-word"
-                    placeholder="Add word..."
-                    className="flex-1 px-3 py-1 rounded-lg bg-white border border-slate-200 text-slate-900 text-sm focus:border-indigo-500 focus:outline-none"
+                    placeholder="Kelime ekle..."
+                    className="flex-1 px-3 py-1 rounded-lg bg-background border border-border text-foreground text-sm focus:border-primary focus:outline-none"
                     onKeyPress={(e) => {
                       if (e.key === 'Enter' && e.target.value.trim()) {
                         handleInputChange('backchannel_words', [
@@ -1226,24 +1252,24 @@ export const PresetConfig = () => {
             )}
 
             {/* Recording Settings */}
-            <div className="border-t border-slate-200 pt-4">
-              <p className="text-xs text-slate-400 mb-3 flex items-center gap-1">
+            <div className="border-t border-border pt-4">
+              <p className="text-xs text-muted-foreground mb-3 flex items-center gap-1">
                 <Shield className="w-3 h-3" />
-                Recording & Compliance
+                Kayıt ve Uyumluluk
               </p>
             </div>
 
             <div className="flex items-center justify-between">
               <div>
-                <label className="text-sm font-medium text-slate-600">
-                  Record Calls
+                <label className="text-sm font-medium text-muted-foreground">
+                  Aramaları Kaydet
                 </label>
-                <p className="text-xs text-slate-400">Save call recordings</p>
+                <p className="text-xs text-muted-foreground">Görüşmeleri kaydet</p>
               </div>
               <button
                 onClick={() => handleInputChange('recording_enabled', !currentConfig.recording_enabled)}
                 className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                  currentConfig.recording_enabled ? 'bg-indigo-600' : 'bg-slate-200'
+                  currentConfig.recording_enabled ? 'bg-primary' : 'bg-muted'
                 }`}
               >
                 <span
@@ -1256,15 +1282,15 @@ export const PresetConfig = () => {
 
             <div className="flex items-center justify-between">
               <div>
-                <label className="text-sm font-medium text-slate-600">
-                  HIPAA Compliant
+                <label className="text-sm font-medium text-muted-foreground">
+                  HIPAA Uyumlu
                 </label>
-                <p className="text-xs text-slate-400">Healthcare data protection</p>
+                <p className="text-xs text-muted-foreground">Sağlık verisi koruması</p>
               </div>
               <button
                 onClick={() => handleInputChange('hipaa_enabled', !currentConfig.hipaa_enabled)}
                 className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                  currentConfig.hipaa_enabled ? 'bg-indigo-600' : 'bg-slate-200'
+                  currentConfig.hipaa_enabled ? 'bg-primary' : 'bg-muted'
                 }`}
               >
                 <span
@@ -1281,13 +1307,13 @@ export const PresetConfig = () => {
         <Card className="lg:col-span-2">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <MessageSquare className="w-5 h-5 text-indigo-600" />
-              System Prompt
+              <MessageSquare className="w-5 h-5 text-primary" />
+              Sistem Promptu
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="mb-2">
-              <p className="text-xs text-slate-400">
+              <p className="text-xs text-muted-foreground">
                 Available placeholders: {'{FIRMA_ADI}'}, {'{ASISTAN_ADI}'}, {'{TELEFON}'}, {'{EMAIL}'}, {'{TARIH}'}, {'{SAAT}'}
               </p>
             </div>
@@ -1295,8 +1321,8 @@ export const PresetConfig = () => {
               value={currentConfig.system_prompt || ''}
               onChange={(e) => handleInputChange('system_prompt', e.target.value)}
               rows={12}
-              className="w-full px-4 py-3 rounded-lg bg-white border border-slate-200 text-slate-900 font-mono text-sm focus:border-indigo-500 focus:outline-none resize-none"
-              placeholder="Enter the system prompt for the AI assistant..."
+              className="w-full px-4 py-3 rounded-lg bg-background border border-border text-foreground font-mono text-sm focus:border-primary focus:outline-none resize-none"
+              placeholder="Sistem promptunu girin..."
             />
           </CardContent>
         </Card>
@@ -1305,8 +1331,8 @@ export const PresetConfig = () => {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Mic className="w-5 h-5 text-indigo-600" />
-              First Message (Greeting)
+              <Mic className="w-5 h-5 text-primary" />
+              İlk Mesaj (Karşılama)
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -1314,8 +1340,8 @@ export const PresetConfig = () => {
               value={currentConfig.first_message || ''}
               onChange={(e) => handleInputChange('first_message', e.target.value)}
               rows={3}
-              className="w-full px-4 py-3 rounded-lg bg-white border border-slate-200 text-slate-900 focus:border-indigo-500 focus:outline-none resize-none"
-              placeholder="Enter the greeting message when the call starts..."
+              className="w-full px-4 py-3 rounded-lg bg-background border border-border text-foreground focus:border-primary focus:outline-none resize-none"
+              placeholder="Karşılama mesajını girin..."
             />
           </CardContent>
         </Card>
@@ -1324,27 +1350,27 @@ export const PresetConfig = () => {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Phone className="w-5 h-5 text-indigo-600" />
-              End Call Settings
+              <Phone className="w-5 h-5 text-primary" />
+              Arama Bitişi Ayarları
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-slate-600 mb-2">
-                Goodbye Message
+              <label className="block text-sm font-medium text-muted-foreground mb-2">
+                Veda Mesajı
               </label>
               <input
                 type="text"
                 value={currentConfig.end_call_message || ''}
                 onChange={(e) => handleInputChange('end_call_message', e.target.value)}
-                placeholder="e.g., Goodbye, have a nice day!"
-                className="w-full px-4 py-2 rounded-lg bg-white border border-slate-200 text-slate-900 focus:border-indigo-500 focus:outline-none"
+                placeholder="Örn: İyi günler, görüşürüz!"
+                className="w-full px-4 py-2 rounded-lg bg-background border border-border text-foreground focus:border-primary focus:outline-none"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-600 mb-2">
-                End Call Trigger Phrases
+              <label className="block text-sm font-medium text-muted-foreground mb-2">
+                Aramayı Bitiren İfadeler
               </label>
               <div className="flex flex-wrap gap-2 mb-2">
                 {(currentConfig.end_call_phrases || []).map((phrase, index) => (
@@ -1359,7 +1385,7 @@ export const PresetConfig = () => {
                         newPhrases.splice(index, 1);
                         handleInputChange('end_call_phrases', newPhrases);
                       }}
-                      className="hover:text-slate-900"
+                      className="hover:text-foreground"
                     >
                       <X className="w-3 h-3" />
                     </button>
@@ -1370,8 +1396,8 @@ export const PresetConfig = () => {
                 <input
                   type="text"
                   id="new-end-phrase"
-                  placeholder="Add phrase..."
-                  className="flex-1 px-3 py-1 rounded-lg bg-white border border-slate-200 text-slate-900 text-sm focus:border-indigo-500 focus:outline-none"
+                  placeholder="İfade ekle..."
+                  className="flex-1 px-3 py-1 rounded-lg bg-background border border-border text-foreground text-sm focus:border-primary focus:outline-none"
                   onKeyPress={(e) => {
                     if (e.key === 'Enter' && e.target.value.trim()) {
                       handleInputChange('end_call_phrases', [
@@ -1399,8 +1425,8 @@ export const PresetConfig = () => {
                   <Plus className="w-4 h-4" />
                 </Button>
               </div>
-              <p className="text-xs text-slate-400 mt-2">
-                When user says these phrases, the call will end
+              <p className="text-xs text-muted-foreground mt-2">
+                Kullanıcı bu ifadeleri söylediğinde arama sonlanır
               </p>
             </div>
           </CardContent>
@@ -1410,9 +1436,9 @@ export const PresetConfig = () => {
         <Card className="lg:col-span-2">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Settings className="w-5 h-5 text-indigo-600" />
-              Available Tools
-              <span className="text-xs text-slate-400 font-normal ml-2">
+              <Settings className="w-5 h-5 text-primary" />
+              Mevcut Araçlar
+              <span className="text-xs text-muted-foreground font-normal ml-2">
                 (Tıklayarak detayları görüntüleyin)
               </span>
             </CardTitle>
@@ -1429,13 +1455,13 @@ export const PresetConfig = () => {
                     key={index}
                     className={`rounded-lg border transition-all ${
                       isEnabled
-                        ? 'bg-white border-slate-200'
-                        : 'bg-slate-50 border-slate-100 opacity-60'
+                        ? 'bg-background border-border'
+                        : 'bg-muted/50 border-border opacity-60'
                     }`}
                   >
                     {/* Tool Header */}
                     <div
-                      className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-white"
+                      className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-muted/30"
                       onClick={() => setExpandedTool(isExpanded ? null : tool.name)}
                     >
                       <input
@@ -1446,59 +1472,59 @@ export const PresetConfig = () => {
                           setEnabledTools({ ...enabledTools, [tool.name]: e.target.checked });
                           setHasChanges(true);
                         }}
-                        className="w-4 h-4 rounded border-gray-600 text-indigo-600 focus:ring-primary cursor-pointer"
+                        className="w-4 h-4 rounded border-gray-600 text-primary focus:ring-primary cursor-pointer"
                       />
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
-                          <span className="text-sm font-medium text-slate-900">
+                          <span className="text-sm font-medium text-foreground">
                             {toolInfo.name || tool.name}
                           </span>
-                          <code className="text-xs px-2 py-0.5 rounded bg-indigo-600/20 text-indigo-600">
+                          <code className="text-xs px-2 py-0.5 rounded bg-primary/10 text-primary">
                             {tool.name}
                           </code>
                         </div>
-                        <p className="text-xs text-slate-500 mt-0.5">
+                        <p className="text-xs text-muted-foreground mt-0.5">
                           {toolInfo.description || tool.description}
                         </p>
                       </div>
                       {isExpanded ? (
-                        <ChevronUp className="w-4 h-4 text-slate-500" />
+                        <ChevronUp className="w-4 h-4 text-muted-foreground" />
                       ) : (
-                        <ChevronDown className="w-4 h-4 text-slate-500" />
+                        <ChevronDown className="w-4 h-4 text-muted-foreground" />
                       )}
                     </div>
 
                     {/* Expanded Details */}
                     {isExpanded && toolInfo.details && (
-                      <div className="px-4 pb-4 pt-1 border-t border-slate-100">
+                      <div className="px-4 pb-4 pt-1 border-t border-border">
                         <div className="ml-7 space-y-3">
                           <div>
-                            <h4 className="text-xs font-semibold text-slate-600 mb-1 flex items-center gap-1">
+                            <h4 className="text-xs font-semibold text-muted-foreground mb-1 flex items-center gap-1">
                               <Info className="w-3 h-3" />
                               Ne İşe Yarar?
                             </h4>
-                            <p className="text-sm text-slate-500">{toolInfo.details}</p>
+                            <p className="text-sm text-muted-foreground">{toolInfo.details}</p>
                           </div>
                           {toolInfo.example && (
                             <div>
-                              <h4 className="text-xs font-semibold text-slate-600 mb-1">
+                              <h4 className="text-xs font-semibold text-muted-foreground mb-1">
                                 💬 Örnek Kullanım
                               </h4>
-                              <p className="text-sm text-indigo-600/80 italic">
+                              <p className="text-sm text-primary/80 italic">
                                 {toolInfo.example}
                               </p>
                             </div>
                           )}
                           {tool.parameters?.properties && (
                             <div>
-                              <h4 className="text-xs font-semibold text-slate-600 mb-1">
+                              <h4 className="text-xs font-semibold text-muted-foreground mb-1">
                                 📋 Parametreler
                               </h4>
                               <div className="flex flex-wrap gap-1">
                                 {Object.keys(tool.parameters.properties).map((param) => (
                                   <span
                                     key={param}
-                                    className="text-xs px-2 py-0.5 rounded bg-slate-100 text-slate-600"
+                                    className="text-xs px-2 py-0.5 rounded bg-muted text-muted-foreground"
                                   >
                                     {param}
                                   </span>
@@ -1517,15 +1543,44 @@ export const PresetConfig = () => {
         </Card>
       </div>
 
-      {/* Unsaved Changes Warning */}
+      {/* Unsaved Changes Bar */}
       {hasChanges && (
-        <div className="fixed bottom-6 right-6 bg-indigo-600/90 text-slate-900 px-4 py-2 rounded-lg shadow-lg flex items-center gap-2">
-          <span className="text-sm">You have unsaved changes</span>
-          <Button size="sm" variant="ghost" onClick={handleSave}>
-            Save Now
+        <div className="fixed bottom-6 right-6 bg-background border border-border rounded-lg shadow-lg px-4 py-3 flex items-center gap-3">
+          <span className="text-sm text-foreground">Kaydedilmemiş değişiklikler var</span>
+          <Button size="sm" variant="primary" onClick={handleSave} disabled={saving}>
+            {saving ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <Save className="w-3.5 h-3.5 mr-1" />
+            )}
+            Şimdi Kaydet
           </Button>
         </div>
       )}
+
+      {/* Action Confirm Modal */}
+      <Modal
+        isOpen={actionModal.open}
+        onClose={() => setActionModal({ open: false, type: null })}
+        title={actionModal.type === 'sync' ? 'Senkronizasyonu Onayla' : 'Master Asistanları Oluştur'}
+        size="sm"
+      >
+        <p className="text-sm text-muted-foreground">
+          {actionModal.type === 'sync'
+            ? `Tüm tenant'lar için ${activeTab.toUpperCase()} asistanı güncellenecek. Devam etmek istiyor musunuz?`
+            : 'TR, EN ve DE için tüm master asistanlar oluşturulacak/güncellenecek. Devam etmek istiyor musunuz?'
+          }
+        </p>
+        <ModalFooter>
+          <Button variant="ghost" onClick={() => setActionModal({ open: false, type: null })}>
+            İptal
+          </Button>
+          <Button variant="primary" onClick={confirmAction}>
+            <RefreshCw className="w-4 h-4 mr-2" />
+            Devam Et
+          </Button>
+        </ModalFooter>
+      </Modal>
     </div>
   );
 };

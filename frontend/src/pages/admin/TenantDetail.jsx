@@ -24,7 +24,6 @@ import {
   Upload,
   Check,
 } from 'lucide-react';
-import { Card, CardHeader, CardTitle, CardContent } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
 import { Badge } from '../../components/common/Badge';
 import { Input } from '../../components/common/Input';
@@ -68,6 +67,7 @@ const tabs = [
   { id: 'general', label: 'Genel', icon: Building2 },
   { id: 'branding', label: 'Branding', icon: Palette },
   { id: 'assistant', label: 'Asistan', icon: Settings },
+  { id: 'data', label: 'Paneller', icon: Users },
   { id: 'phone', label: 'Telefon', icon: Phone },
 ];
 
@@ -476,14 +476,14 @@ export const TenantDetail = () => {
 
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-slate-600 mb-2">Sektör</label>
-            <div className="input bg-slate-50 flex items-center gap-2">
+            <label className="block text-sm font-medium text-muted-foreground mb-2">Sektör</label>
+            <div className="input bg-muted flex items-center gap-2">
               <span className="text-xl">{industry.icon}</span>
               <span>{industry.name || tenant?.industry}</span>
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-600 mb-2">Durum</label>
+            <label className="block text-sm font-medium text-muted-foreground mb-2">Durum</label>
             <div className="flex items-center gap-2">
               <Badge variant={getStatusInfo().variant}>
                 {getStatusInfo().label}
@@ -491,8 +491,8 @@ export const TenantDetail = () => {
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-600 mb-2">Oluşturulma Tarihi</label>
-            <div className="input bg-slate-50">
+            <label className="block text-sm font-medium text-muted-foreground mb-2">Oluşturulma Tarihi</label>
+            <div className="input bg-muted">
               {formatDate(tenant?.created_at)}
             </div>
           </div>
@@ -501,18 +501,18 @@ export const TenantDetail = () => {
 
       {/* Users */}
       {tenant?.users && tenant.users.length > 0 && (
-        <div className="pt-6 border-t border-slate-200">
-          <h3 className="text-lg font-semibold text-slate-900 mb-4">Kullanıcılar</h3>
+        <div className="pt-6 border-t border-border">
+          <h3 className="text-lg font-semibold text-foreground mb-4">Kullanıcılar</h3>
           <div className="space-y-2">
             {tenant.users.map((user) => (
-              <div key={user.id} className="flex items-center justify-between p-3 rounded-lg bg-slate-50">
+              <div key={user.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center">
-                    <Users className="w-5 h-5 text-indigo-600" />
+                  <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                    <Users className="w-5 h-5 text-primary" />
                   </div>
                   <div>
-                    <div className="text-slate-900 font-medium">{user.name || user.email}</div>
-                    <div className="text-sm text-slate-500">{user.email}</div>
+                    <div className="text-foreground font-medium">{user.name || user.email}</div>
+                    <div className="text-sm text-muted-foreground">{user.email}</div>
                   </div>
                 </div>
                 <Badge variant={user.is_active ? 'success' : 'error'}>
@@ -571,13 +571,13 @@ export const TenantDetail = () => {
       <div className="space-y-6">
         {/* Logo */}
         <div>
-          <h3 className="text-lg font-semibold text-slate-900 mb-4">Logo</h3>
+          <h3 className="text-lg font-semibold text-foreground mb-4">Logo</h3>
           <div className="flex items-start gap-6">
             <div
               className={`w-32 h-32 rounded-xl border-2 border-dashed flex items-center justify-center overflow-hidden transition-all cursor-pointer group relative ${
                 dragOverLogo
-                  ? 'border-indigo-500 bg-indigo-50'
-                  : 'border-slate-200 bg-slate-50 hover:border-indigo-300 hover:bg-indigo-50/50'
+                  ? 'border-primary bg-primary/10'
+                  : 'border-border bg-muted/50 hover:border-primary/30 hover:bg-primary/5'
               }`}
               onClick={() => isEditing && logoInputRef.current?.click()}
               onDrop={(e) => isEditing && handleDrop(e, 'logo')}
@@ -585,7 +585,7 @@ export const TenantDetail = () => {
               onDragLeave={(e) => isEditing && handleDragLeave(e, 'logo')}
             >
               {uploadingLogo ? (
-                <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
+                <Loader2 className="w-8 h-8 animate-spin text-primary" />
               ) : editData.logo_url ? (
                 <>
                   <img src={editData.logo_url} alt="Logo" className="w-full h-full object-contain" />
@@ -597,8 +597,8 @@ export const TenantDetail = () => {
                 </>
               ) : (
                 <div className="text-center p-2">
-                  <Upload className="w-8 h-8 text-slate-400 mx-auto mb-1" />
-                  <span className="text-xs text-slate-400">Yükle</span>
+                  <Upload className="w-8 h-8 text-muted-foreground mx-auto mb-1" />
+                  <span className="text-xs text-muted-foreground">Yükle</span>
                 </div>
               )}
               <input
@@ -620,7 +620,7 @@ export const TenantDetail = () => {
                 onChange={(e) => handleInputChange('logo_url', e.target.value)}
                 disabled={!isEditing}
               />
-              <p className="text-sm text-slate-500">
+              <p className="text-sm text-muted-foreground">
                 Dosya yükleyin veya URL girin. Önerilen: 200x200px, PNG/SVG
               </p>
             </div>
@@ -628,14 +628,14 @@ export const TenantDetail = () => {
         </div>
 
         {/* Favicon */}
-        <div className="pt-6 border-t border-slate-200">
-          <h3 className="text-lg font-semibold text-slate-900 mb-4">Favicon</h3>
+        <div className="pt-6 border-t border-border">
+          <h3 className="text-lg font-semibold text-foreground mb-4">Favicon</h3>
           <div className="flex items-start gap-6">
             <div
               className={`w-16 h-16 rounded-lg border-2 border-dashed flex items-center justify-center overflow-hidden transition-all cursor-pointer group relative ${
                 dragOverFavicon
-                  ? 'border-indigo-500 bg-indigo-50'
-                  : 'border-slate-200 bg-slate-50 hover:border-indigo-300 hover:bg-indigo-50/50'
+                  ? 'border-primary bg-primary/10'
+                  : 'border-border bg-muted/50 hover:border-primary/30 hover:bg-primary/5'
               }`}
               onClick={() => isEditing && faviconInputRef.current?.click()}
               onDrop={(e) => isEditing && handleDrop(e, 'favicon')}
@@ -643,7 +643,7 @@ export const TenantDetail = () => {
               onDragLeave={(e) => isEditing && handleDragLeave(e, 'favicon')}
             >
               {uploadingFavicon ? (
-                <Loader2 className="w-5 h-5 animate-spin text-indigo-500" />
+                <Loader2 className="w-5 h-5 animate-spin text-primary" />
               ) : editData.favicon_url ? (
                 <>
                   <img src={editData.favicon_url} alt="Favicon" className="w-full h-full object-contain" />
@@ -654,7 +654,7 @@ export const TenantDetail = () => {
                   )}
                 </>
               ) : (
-                <Upload className="w-5 h-5 text-slate-400" />
+                <Upload className="w-5 h-5 text-muted-foreground" />
               )}
               <input
                 ref={faviconInputRef}
@@ -675,7 +675,7 @@ export const TenantDetail = () => {
                 onChange={(e) => handleInputChange('favicon_url', e.target.value)}
                 disabled={!isEditing}
               />
-              <p className="text-sm text-slate-500 mt-2">
+              <p className="text-sm text-muted-foreground mt-2">
                 Dosya yükleyin veya URL girin. Önerilen: 32x32px, ICO/PNG
               </p>
             </div>
@@ -683,10 +683,10 @@ export const TenantDetail = () => {
         </div>
 
         {/* Primary Color */}
-        <div className="pt-6 border-t border-slate-200">
-          <h3 className="text-lg font-semibold text-slate-900 mb-4">Renk Şeması</h3>
+        <div className="pt-6 border-t border-border">
+          <h3 className="text-lg font-semibold text-foreground mb-4">Renk Şeması</h3>
           <div>
-            <label className="block text-sm font-medium text-slate-600 mb-3">Ana Renk</label>
+            <label className="block text-sm font-medium text-muted-foreground mb-3">Ana Renk</label>
 
             {/* Color swatch + hex input + preview row */}
             <div className="flex items-center gap-4 mb-4">
@@ -696,7 +696,7 @@ export const TenantDetail = () => {
                   type="button"
                   disabled={!isEditing}
                   onClick={() => isEditing && setShowColorPicker(!showColorPicker)}
-                  className={`w-12 h-12 rounded-xl border-2 border-slate-200 shadow-sm transition-all ${
+                  className={`w-12 h-12 rounded-xl border-2 border-border shadow-sm transition-all ${
                     isEditing ? 'cursor-pointer hover:scale-105 hover:shadow-md' : 'cursor-not-allowed opacity-60'
                   }`}
                   style={{ backgroundColor: primaryColor }}
@@ -705,9 +705,9 @@ export const TenantDetail = () => {
 
                 {/* Color Picker Popup */}
                 {showColorPicker && isEditing && (
-                  <div className="absolute top-14 left-0 z-50 bg-white rounded-2xl shadow-2xl border border-slate-200 p-4 w-[280px]">
+                  <div className="absolute top-14 left-0 z-50 bg-popover rounded-2xl shadow-2xl border border-border p-4 w-[280px]">
                     {/* Arrow */}
-                    <div className="absolute -top-2 left-4 w-4 h-4 bg-white border-l border-t border-slate-200 rotate-45" />
+                    <div className="absolute -top-2 left-4 w-4 h-4 bg-popover border-l border-t border-border rotate-45" />
 
                     {/* Spectrum Picker */}
                     <div className="relative rounded-xl overflow-hidden mb-4" style={{ height: '160px' }}>
@@ -720,7 +720,7 @@ export const TenantDetail = () => {
 
                     {/* Preset Swatches */}
                     <div className="mb-3">
-                      <label className="block text-xs font-medium text-slate-400 mb-2">Hazır Renkler</label>
+                      <label className="block text-xs font-medium text-muted-foreground mb-2">Hazır Renkler</label>
                       <div className="grid grid-cols-16 gap-1" style={{ gridTemplateColumns: 'repeat(16, 1fr)' }}>
                         {PRESET_COLORS.map((color, idx) => (
                           <button
@@ -742,7 +742,7 @@ export const TenantDetail = () => {
                     {/* Hex Input inside popup */}
                     <div className="flex items-center gap-2">
                       <div
-                        className="w-8 h-8 rounded-lg border border-slate-200 flex-shrink-0"
+                        className="w-8 h-8 rounded-lg border border-border flex-shrink-0"
                         style={{ backgroundColor: primaryColor }}
                       />
                       <input
@@ -754,7 +754,7 @@ export const TenantDetail = () => {
                             handleInputChange('primary_color', val);
                           }
                         }}
-                        className="flex-1 px-3 py-1.5 text-sm rounded-lg border border-slate-200 font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        className="flex-1 px-3 py-1.5 text-sm rounded-lg border border-border font-mono focus:outline-none focus:ring-2 focus:ring-primary"
                         placeholder="#4f46e5"
                       />
                     </div>
@@ -790,18 +790,18 @@ export const TenantDetail = () => {
               </div>
             </div>
 
-            <p className="text-sm text-slate-500">
+            <p className="text-sm text-muted-foreground">
               Butonlar, linkler ve vurgulanan elementler için kullanılır. Renk kutusuna tıklayarak seçici açabilirsiniz.
             </p>
           </div>
         </div>
 
         {/* Dashboard Welcome Message */}
-        <div className="pt-6 border-t border-slate-200">
-          <h3 className="text-lg font-semibold text-slate-900 mb-4">Dashboard Karşılama Mesajı</h3>
+        <div className="pt-6 border-t border-border">
+          <h3 className="text-lg font-semibold text-foreground mb-4">Dashboard Karşılama Mesajı</h3>
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-slate-600 mb-2">Karşılama Mesajı</label>
+              <label className="block text-sm font-medium text-muted-foreground mb-2">Karşılama Mesajı</label>
               <textarea
                 value={editData.welcome_message || ''}
                 onChange={(e) => handleInputChange('welcome_message', e.target.value)}
@@ -809,14 +809,14 @@ export const TenantDetail = () => {
                 placeholder="Örn: Prestige Auto Yönetim Paneline Hoş Geldiniz!"
                 className="input w-full h-20 resize-none"
               />
-              <p className="text-sm text-slate-500 mt-2">
+              <p className="text-sm text-muted-foreground mt-2">
                 Tenant panelinde header'da gösterilir. Boş bırakılırsa varsayılan "Hoş Geldiniz, Kullanıcı Adı" gösterilir.
               </p>
             </div>
 
             {/* Dashboard Önizleme */}
             <div>
-              <label className="block text-sm font-medium text-slate-600 mb-2">Önizleme</label>
+              <label className="block text-sm font-medium text-muted-foreground mb-2">Önizleme</label>
               <div className="rounded-xl border border-slate-200 overflow-hidden bg-slate-100">
                 {/* Mini browser chrome */}
                 <div className="flex items-center gap-2 px-4 py-2 bg-slate-200 border-b border-slate-300">
@@ -921,12 +921,13 @@ export const TenantDetail = () => {
   // Seçili asistan detaylarını göster/gizle
   const [showCurrentDetails, setShowCurrentDetails] = useState(false);
 
+  const industryTemplates = templates.filter(t => t.industry === tenant?.industry);
+  const selectedTemplate = industryTemplates.find(t => t.id === selectedTemplateId) || null;
+
   const renderAssistantTab = () => {
     const industryUseCases = availableUseCases.length > 0
       ? availableUseCases
       : (INDUSTRY_USE_CASES[tenant?.industry] || INDUSTRY_USE_CASES.automotive);
-
-    const industryTemplates = templates.filter(t => t.industry === tenant?.industry);
 
     // Mevcut aktif şablon
     const currentTemplate = tenantTemplate?.template_id
@@ -986,13 +987,10 @@ export const TenantDetail = () => {
       }
     };
 
-    // Seçili şablonun özellikleri
-    const selectedTemplate = industryTemplates.find(t => t.id === selectedTemplateId);
-
     if (useCasesLoading || templatesLoading) {
       return (
         <div className="flex items-center justify-center py-12">
-          <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
         </div>
       );
     }
@@ -1031,7 +1029,7 @@ export const TenantDetail = () => {
                 {/* Info */}
                 <div>
                   <div className="flex items-center gap-2 mb-1">
-                    <span className="text-sm text-slate-500">Seçili Asistan:</span>
+                    <span className="text-sm text-muted-foreground">Seçili Asistan:</span>
                     <span className={`px-2 py-0.5 rounded-full text-white text-xs font-bold ${
                       currentTemplate
                         ? (tierColors[currentTemplate.tier]?.badge || 'bg-blue-600')
@@ -1040,10 +1038,10 @@ export const TenantDetail = () => {
                       {currentTemplate ? tierLabels[currentTemplate.tier] : 'Özel'}
                     </span>
                   </div>
-                  <h3 className="text-xl font-bold text-slate-900">
+                  <h3 className="text-xl font-bold text-foreground">
                     {currentTemplate ? currentTemplate.name_tr : 'Özel Asistan'}
                   </h3>
-                  <p className="text-sm text-slate-600 mt-1">
+                  <p className="text-sm text-muted-foreground mt-1">
                     {currentTemplate
                       ? currentTemplate.description_tr
                       : `${tenantUseCases.length} özellik ile özelleştirilmiş asistan`
@@ -1052,7 +1050,7 @@ export const TenantDetail = () => {
 
                   {/* Quick Stats */}
                   <div className="flex items-center gap-4 mt-3">
-                    <span className="flex items-center gap-1.5 text-sm text-slate-600">
+                    <span className="flex items-center gap-1.5 text-sm text-muted-foreground">
                       <Wrench className="w-4 h-4" />
                       {currentTemplate
                         ? (currentTemplate.included_use_cases?.length || 0)
@@ -1074,7 +1072,7 @@ export const TenantDetail = () => {
                 <span className="px-3 py-1 bg-emerald-500 text-white text-xs font-bold rounded-full">
                   AKTİF
                 </span>
-                <button className="p-2 hover:bg-white/50 rounded-lg transition-colors text-slate-400">
+                <button className="p-2 hover:bg-background/50 rounded-lg transition-colors text-muted-foreground">
                   {showCurrentDetails ? '▲ Gizle' : '▼ Detaylar'}
                 </button>
               </div>
@@ -1082,15 +1080,15 @@ export const TenantDetail = () => {
 
             {/* Expandable Details */}
             {showCurrentDetails && (
-              <div className="mt-4 pt-4 border-t border-slate-200/50 space-y-3">
-                <h4 className="text-sm font-semibold text-slate-700">Aktif Özellikler:</h4>
+              <div className="mt-4 pt-4 border-t border-border/50 space-y-3">
+                <h4 className="text-sm font-semibold text-foreground">Aktif Özellikler:</h4>
                 <div className="flex flex-wrap gap-2">
                   {(currentTemplate ? currentTemplate.included_use_cases : tenantUseCases)?.map((ucId) => {
                     const uc = industryUseCases.find(u => u.id === ucId);
                     return (
                       <span
                         key={ucId}
-                        className="px-3 py-1.5 bg-white/80 text-slate-700 text-sm rounded-lg border border-slate-200 flex items-center gap-1.5"
+                        className="px-3 py-1.5 bg-background/80 text-foreground text-sm rounded-lg border border-border flex items-center gap-1.5"
                       >
                         <CheckCircle className="w-3.5 h-3.5 text-emerald-500" />
                         {uc?.name_tr || ucId}
@@ -1111,7 +1109,7 @@ export const TenantDetail = () => {
                   })}
                 </div>
                 {tenantTemplate?.selected_at && (
-                  <p className="text-xs text-slate-400 mt-2">
+                  <p className="text-xs text-muted-foreground mt-2">
                     Seçilme tarihi: {new Date(tenantTemplate.selected_at).toLocaleDateString('tr-TR')}
                   </p>
                 )}
@@ -1122,7 +1120,7 @@ export const TenantDetail = () => {
 
         {/* Asistan Bilgileri */}
         <div>
-          <h3 className="text-lg font-semibold text-slate-900 mb-4">Asistan Bilgileri</h3>
+          <h3 className="text-lg font-semibold text-foreground mb-4">Asistan Bilgileri</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <Input
               label="Asistan Adı"
@@ -1131,7 +1129,7 @@ export const TenantDetail = () => {
               disabled={!isEditing}
             />
             <div>
-              <label className="block text-sm font-medium text-slate-600 mb-2">Varsayılan Dil</label>
+              <label className="block text-sm font-medium text-muted-foreground mb-2">Varsayılan Dil</label>
               <select
                 value={editData.default_language || 'tr'}
                 onChange={(e) => handleInputChange('default_language', e.target.value)}
@@ -1147,11 +1145,11 @@ export const TenantDetail = () => {
         </div>
 
         {/* Asistan Seçimi Başlık */}
-        <div className="pt-6 border-t border-slate-200">
+        <div className="pt-6 border-t border-border">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-lg font-semibold text-slate-900">Asistan Değiştir</h3>
-              <p className="text-sm text-slate-500 mt-1">
+              <h3 className="text-lg font-semibold text-foreground">Asistan Değiştir</h3>
+              <p className="text-sm text-muted-foreground mt-1">
                 {currentTemplate
                   ? `Mevcut: ${currentTemplate.name_tr} • Değiştirmek için yeni bir şablon seçin`
                   : tenantUseCases.length > 0
@@ -1161,7 +1159,7 @@ export const TenantDetail = () => {
               </p>
             </div>
             {(currentTemplate || tenantUseCases.length > 0) && (
-              <span className="text-xs text-slate-400 bg-slate-100 px-2 py-1 rounded">
+              <span className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded">
                 Yeşil kenarlı = Mevcut aktif
               </span>
             )}
@@ -1189,8 +1187,8 @@ export const TenantDetail = () => {
                   isCurrent
                     ? 'border-emerald-500 bg-emerald-50 shadow-lg ring-2 ring-emerald-200'
                     : isSelected
-                    ? 'border-indigo-500 bg-indigo-50 shadow-lg scale-[1.02]'
-                    : 'border-slate-200 bg-white hover:border-slate-300 hover:shadow-md'
+                    ? 'border-primary bg-primary/5 shadow-lg scale-[1.02]'
+                    : 'border-border bg-background hover:border-border/80 hover:shadow-md'
                 }`}
               >
                 {/* Tier Badge */}
@@ -1208,17 +1206,17 @@ export const TenantDetail = () => {
 
                 {/* Seçim İndikatörü */}
                 <div className={`absolute top-4 right-4 w-6 h-6 rounded-full border-2 flex items-center justify-center ${
-                  isSelected ? 'border-indigo-500 bg-indigo-500' : 'border-slate-300'
+                  isSelected ? 'border-primary bg-primary' : 'border-border'
                 }`}>
                   {isSelected && <CheckCircle className="w-4 h-4 text-white" />}
                 </div>
 
                 <div className="pt-4">
-                  <h4 className="font-bold text-slate-900 text-lg mb-2">{template.name_tr}</h4>
-                  <p className="text-sm text-slate-500 mb-4 line-clamp-2">{template.description_tr}</p>
+                  <h4 className="font-bold text-foreground text-lg mb-2">{template.name_tr}</h4>
+                  <p className="text-sm text-muted-foreground mb-4 line-clamp-2">{template.description_tr}</p>
 
                   {/* Özellik Sayısı */}
-                  <div className="flex items-center gap-2 text-sm text-slate-600">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <Wrench className="w-4 h-4" />
                     <span>{template.included_use_cases?.length || 0} özellik</span>
                   </div>
@@ -1229,13 +1227,13 @@ export const TenantDetail = () => {
                       {template.included_use_cases.slice(0, 3).map((ucId, idx) => {
                         const uc = industryUseCases.find(u => u.id === ucId);
                         return (
-                          <span key={idx} className="text-xs px-2 py-0.5 bg-slate-100 text-slate-600 rounded">
+                          <span key={idx} className="text-xs px-2 py-0.5 bg-muted text-muted-foreground rounded">
                             {uc?.name_tr || ucId}
                           </span>
                         );
                       })}
                       {template.included_use_cases.length > 3 && (
-                        <span className="text-xs text-slate-400">+{template.included_use_cases.length - 3}</span>
+                        <span className="text-xs text-muted-foreground">+{template.included_use_cases.length - 3}</span>
                       )}
                     </div>
                   )}
@@ -1255,7 +1253,7 @@ export const TenantDetail = () => {
                     ? 'border-emerald-500 bg-emerald-50 shadow-lg ring-2 ring-emerald-200'
                     : assistantMode === 'custom'
                     ? 'border-purple-500 bg-purple-50 shadow-lg scale-[1.02]'
-                    : 'border-dashed border-slate-300 bg-white hover:border-slate-400 hover:shadow-md'
+                    : 'border-dashed border-border bg-background hover:border-muted-foreground/40 hover:shadow-md'
                 }`}
               >
                 {/* Badge */}
@@ -1274,15 +1272,15 @@ export const TenantDetail = () => {
                 {/* Seçim İndikatörü */}
                 {!isCustomCurrent && (
                   <div className={`absolute top-4 right-4 w-6 h-6 rounded-full border-2 flex items-center justify-center ${
-                    assistantMode === 'custom' ? 'border-purple-500 bg-purple-500' : 'border-slate-300'
+                    assistantMode === 'custom' ? 'border-purple-500 bg-purple-500' : 'border-border'
                   }`}>
                     {assistantMode === 'custom' && <CheckCircle className="w-4 h-4 text-white" />}
                   </div>
                 )}
 
                 <div className="pt-4">
-                  <h4 className="font-bold text-slate-900 text-lg mb-2">Özel Asistan</h4>
-                  <p className="text-sm text-slate-500 mb-4">İstediğiniz özellikleri tek tek seçin</p>
+                  <h4 className="font-bold text-foreground text-lg mb-2">Özel Asistan</h4>
+                  <p className="text-sm text-muted-foreground mb-4">İstediğiniz özellikleri tek tek seçin</p>
 
                   <div className="flex items-center gap-2 text-sm text-purple-600">
                     <Settings className="w-4 h-4" />
@@ -1302,11 +1300,11 @@ export const TenantDetail = () => {
 
         {/* Seçili Şablonun Detayları veya Özel Seçim */}
         {assistantMode === 'template' && selectedTemplate && (
-          <div className="p-6 bg-indigo-50 border border-indigo-200 rounded-xl">
+          <div className="p-6 bg-primary/5 border border-primary/20 rounded-xl">
             <div className="flex items-start justify-between mb-4">
               <div>
-                <h4 className="font-semibold text-slate-900 text-lg">{selectedTemplate.name_tr}</h4>
-                <p className="text-sm text-slate-600">{selectedTemplate.description_tr}</p>
+                <h4 className="font-semibold text-foreground text-lg">{selectedTemplate.name_tr}</h4>
+                <p className="text-sm text-muted-foreground">{selectedTemplate.description_tr}</p>
               </div>
               <Badge variant="info">{selectedTemplate.included_use_cases?.length || 0} özellik</Badge>
             </div>
@@ -1315,9 +1313,9 @@ export const TenantDetail = () => {
               {selectedTemplate.included_use_cases?.map((ucId) => {
                 const uc = industryUseCases.find(u => u.id === ucId);
                 return (
-                  <div key={ucId} className="flex items-center gap-2 p-3 bg-white rounded-lg">
+                  <div key={ucId} className="flex items-center gap-2 p-3 bg-background rounded-lg">
                     <CheckCircle className="w-4 h-4 text-emerald-500 flex-shrink-0" />
-                    <span className="text-sm text-slate-700">{uc?.name_tr || ucId}</span>
+                    <span className="text-sm text-foreground">{uc?.name_tr || ucId}</span>
                   </div>
                 );
               })}
@@ -1329,8 +1327,8 @@ export const TenantDetail = () => {
           <div className="p-6 bg-purple-50 border border-purple-200 rounded-xl">
             <div className="flex items-center justify-between mb-4">
               <div>
-                <h4 className="font-semibold text-slate-900 text-lg">Özellik Seçimi</h4>
-                <p className="text-sm text-slate-600">Asistanınızın kullanacağı özellikleri seçin</p>
+                <h4 className="font-semibold text-foreground text-lg">Özellik Seçimi</h4>
+                <p className="text-sm text-muted-foreground">Asistanınızın kullanacağı özellikleri seçin</p>
               </div>
               <Badge variant="info">{tenantUseCases.length} seçili</Badge>
             </div>
@@ -1345,19 +1343,19 @@ export const TenantDetail = () => {
                     className={`flex items-start gap-3 p-3 rounded-lg cursor-pointer transition-all ${
                       isEnabled
                         ? 'bg-purple-100 border border-purple-300'
-                        : 'bg-white border border-slate-200 hover:bg-slate-50'
+                        : 'bg-background border border-border hover:bg-muted/50'
                     }`}
                   >
                     <div className={`w-5 h-5 rounded flex items-center justify-center flex-shrink-0 mt-0.5 ${
-                      isEnabled ? 'bg-purple-600 text-white' : 'bg-white border border-slate-300'
+                      isEnabled ? 'bg-purple-600 text-white' : 'bg-background border border-border'
                     }`}>
                       {isEnabled && <CheckCircle className="w-3 h-3" />}
                     </div>
                     <div>
-                      <p className={`font-medium text-sm ${isEnabled ? 'text-slate-900' : 'text-slate-600'}`}>
+                      <p className={`font-medium text-sm ${isEnabled ? 'text-foreground' : 'text-muted-foreground'}`}>
                         {useCase.name_tr || useCase.name}
                       </p>
-                      <p className="text-xs text-slate-500 mt-0.5">
+                      <p className="text-xs text-muted-foreground mt-0.5">
                         {useCase.description_tr || useCase.description}
                       </p>
                     </div>
@@ -1369,12 +1367,12 @@ export const TenantDetail = () => {
         )}
 
         {/* Kaydet Butonu */}
-        <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-200">
+        <div className="flex items-center justify-between p-4 bg-muted/30 rounded-xl border border-border">
           <div>
-            <p className="font-medium text-slate-900">
+            <p className="font-medium text-foreground">
               {assistantMode === 'template' ? `Seçili: ${selectedTemplate?.name_tr || 'Şablon seçin'}` : `${tenantUseCases.length} özellik seçili`}
             </p>
-            <p className="text-sm text-slate-500">Değişiklikleri kaydetmek için butona tıklayın</p>
+            <p className="text-sm text-muted-foreground">Değişiklikleri kaydetmek için butona tıklayın</p>
           </div>
           <Button
             variant="primary"
@@ -1390,48 +1388,6 @@ export const TenantDetail = () => {
           </Button>
         </div>
 
-        {/* Yönetim Panelleri */}
-        <div className="pt-6 border-t border-slate-200">
-          <h4 className="text-md font-semibold text-slate-900 mb-4">Yönetim Panelleri</h4>
-          <div className="space-y-4">
-            <AppointmentsViewer tenantId={id} />
-            <CustomersViewer tenantId={id} />
-            <FeedbackViewer tenantId={id} />
-          </div>
-        </div>
-
-        {/* Gerekli Veriler */}
-        {(assistantMode === 'custom' ? tenantUseCases.length > 0 : selectedTemplate?.included_use_cases?.length > 0) && (
-          <div className="pt-6 border-t border-slate-200">
-            <h4 className="text-md font-semibold text-slate-900 mb-4">Gerekli Veriler</h4>
-            <div className="space-y-4">
-              <SlotManagerEditor
-                tenantId={id}
-                tenant={tenant}
-                onTenantUpdate={(updatedTenant) => setTenant(updatedTenant)}
-              />
-
-              {(assistantMode === 'custom' ? tenantUseCases.includes('test_drive') : selectedTemplate?.included_use_cases?.includes('test_drive')) && (
-                <VehicleCatalogEditor tenantId={id} />
-              )}
-
-              {(assistantMode === 'custom'
-                ? (tenantUseCases.includes('beauty_services') || tenantUseCases.includes('hairdresser_services'))
-                : (selectedTemplate?.included_use_cases?.includes('beauty_services') || selectedTemplate?.included_use_cases?.includes('hairdresser_services'))
-              ) && (
-                <BeautyServicesEditor tenantId={id} />
-              )}
-
-              {(assistantMode === 'custom' ? tenantUseCases.includes('staff_selection') : selectedTemplate?.included_use_cases?.includes('staff_selection')) && (
-                <StaffEditor tenantId={id} />
-              )}
-
-              {(assistantMode === 'custom' ? tenantUseCases.includes('promotions') : selectedTemplate?.included_use_cases?.includes('promotions')) && (
-                <PromotionsEditor tenantId={id} />
-              )}
-            </div>
-          </div>
-        )}
       </div>
     );
   };
@@ -1439,7 +1395,7 @@ export const TenantDetail = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
-        <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
       </div>
     );
   }
@@ -1448,7 +1404,7 @@ export const TenantDetail = () => {
     return (
       <div className="text-center py-12">
         <XCircle className="w-12 h-12 mx-auto text-red-500 mb-4" />
-        <h2 className="text-xl font-semibold text-slate-900">Tenant bulunamadı</h2>
+        <h2 className="text-xl font-semibold text-foreground">Tenant bulunamadı</h2>
         <Button
           variant="primary"
           className="mt-4"
@@ -1460,6 +1416,47 @@ export const TenantDetail = () => {
     );
   }
 
+  const renderDataTab = () => (
+    <div className="space-y-4">
+      <AppointmentsViewer tenantId={id} />
+      <CustomersViewer tenantId={id} />
+      <FeedbackViewer tenantId={id} />
+
+      {/* Gerekli Veriler */}
+      {(assistantMode === 'custom' ? tenantUseCases.length > 0 : selectedTemplate?.included_use_cases?.length > 0) && (
+        <div className="pt-6 border-t border-border">
+          <h4 className="text-md font-semibold text-foreground mb-4">Gerekli Veriler</h4>
+          <div className="space-y-4">
+            <SlotManagerEditor
+              tenantId={id}
+              tenant={tenant}
+              onTenantUpdate={(updatedTenant) => setTenant(updatedTenant)}
+            />
+
+            {(assistantMode === 'custom' ? tenantUseCases.includes('test_drive') : selectedTemplate?.included_use_cases?.includes('test_drive')) && (
+              <VehicleCatalogEditor tenantId={id} />
+            )}
+
+            {(assistantMode === 'custom'
+              ? (tenantUseCases.includes('beauty_services') || tenantUseCases.includes('hairdresser_services'))
+              : (selectedTemplate?.included_use_cases?.includes('beauty_services') || selectedTemplate?.included_use_cases?.includes('hairdresser_services'))
+            ) && (
+              <BeautyServicesEditor tenantId={id} />
+            )}
+
+            {(assistantMode === 'custom' ? tenantUseCases.includes('staff_selection') : selectedTemplate?.included_use_cases?.includes('staff_selection')) && (
+              <StaffEditor tenantId={id} />
+            )}
+
+            {(assistantMode === 'custom' ? tenantUseCases.includes('promotions') : selectedTemplate?.included_use_cases?.includes('promotions')) && (
+              <PromotionsEditor tenantId={id} />
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
   const renderPhoneTab = () => {
     // Lazy load phone status when tab is opened
     if (!phoneStatus && !phoneLoading) {
@@ -1469,8 +1466,8 @@ export const TenantDetail = () => {
     if (phoneLoading && !phoneStatus) {
       return (
         <div className="flex items-center justify-center py-12">
-          <Loader2 className="w-6 h-6 animate-spin text-indigo-600 mr-2" />
-          <span className="text-slate-500">Telefon durumu yukleniyor...</span>
+          <Loader2 className="w-6 h-6 animate-spin text-primary mr-2" />
+          <span className="text-muted-foreground">Telefon durumu yukleniyor...</span>
         </div>
       );
     }
@@ -1481,20 +1478,20 @@ export const TenantDetail = () => {
     return (
       <div className="space-y-6">
         {/* Status Card */}
-        <div className={`p-4 rounded-lg border ${isAssigned ? 'bg-green-50 border-green-200' : 'bg-slate-50 border-slate-200'}`}>
+        <div className={`p-4 rounded-lg border ${isAssigned ? 'bg-green-50 border-green-200' : 'bg-muted border-border'}`}>
           <div className="flex items-center gap-3">
-            <div className={`w-10 h-10 rounded-full flex items-center justify-center ${isAssigned ? 'bg-green-100' : 'bg-slate-200'}`}>
-              <Phone className={`w-5 h-5 ${isAssigned ? 'text-green-600' : 'text-slate-400'}`} />
+            <div className={`w-10 h-10 rounded-full flex items-center justify-center ${isAssigned ? 'bg-green-100' : 'bg-muted'}`}>
+              <Phone className={`w-5 h-5 ${isAssigned ? 'text-green-600' : 'text-muted-foreground'}`} />
             </div>
             <div className="flex-1">
-              <h3 className="font-medium text-slate-900">
+              <h3 className="font-medium text-foreground">
                 {isAssigned ? 'Telefon Numarasi Aktif' : 'Telefon Numarasi Atanmamis'}
               </h3>
               {isAssigned && (
                 <p className="text-sm text-green-700 font-mono">{phoneStatus.phoneNumber}</p>
               )}
               {!isAssigned && (
-                <p className="text-sm text-slate-500">Bu tenant'a henuz bir telefon numarasi atanmamis.</p>
+                <p className="text-sm text-muted-foreground">Bu tenant'a henuz bir telefon numarasi atanmamis.</p>
               )}
             </div>
             {isAssigned && (
@@ -1509,23 +1506,23 @@ export const TenantDetail = () => {
         {isAssigned && (
           <div className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="p-3 bg-slate-50 rounded-lg">
-                <label className="text-xs font-medium text-slate-500 uppercase">VAPI Phone ID</label>
-                <p className="text-sm font-mono text-slate-700 mt-1 break-all">{phoneStatus.vapiPhoneNumberId}</p>
+              <div className="p-3 bg-muted/50 rounded-lg">
+                <label className="text-xs font-medium text-muted-foreground uppercase">VAPI Phone ID</label>
+                <p className="text-sm font-mono text-foreground mt-1 break-all">{phoneStatus.vapiPhoneNumberId}</p>
               </div>
-              <div className="p-3 bg-slate-50 rounded-lg">
-                <label className="text-xs font-medium text-slate-500 uppercase">Credential ID</label>
-                <p className="text-sm font-mono text-slate-700 mt-1 break-all">{credentialId || '-'}</p>
+              <div className="p-3 bg-muted/50 rounded-lg">
+                <label className="text-xs font-medium text-muted-foreground uppercase">Credential ID</label>
+                <p className="text-sm font-mono text-foreground mt-1 break-all">{credentialId || '-'}</p>
               </div>
             </div>
 
             {/* SIP URI for Verimor Configuration */}
             {phoneStatus.sipUri && (
-              <div className="p-4 bg-indigo-50 border border-indigo-200 rounded-lg">
-                <label className="text-xs font-medium text-indigo-600 uppercase">Verimor Inbound SIP URI</label>
-                <p className="text-sm text-slate-500 mt-1">Bu URI'yi Verimor OIM'de numara icin inbound routing olarak ayarlayin:</p>
+              <div className="p-4 bg-primary/5 border border-primary/20 rounded-lg">
+                <label className="text-xs font-medium text-primary uppercase">Verimor Inbound SIP URI</label>
+                <p className="text-sm text-muted-foreground mt-1">Bu URI'yi Verimor OIM'de numara icin inbound routing olarak ayarlayin:</p>
                 <div className="mt-2 flex items-center gap-2">
-                  <code className="flex-1 px-3 py-2 bg-white border border-indigo-200 rounded text-sm font-mono text-indigo-800 break-all">
+                  <code className="flex-1 px-3 py-2 bg-background border border-primary/20 rounded text-sm font-mono text-primary break-all">
                     {phoneStatus.sipUri}
                   </code>
                   <Button
@@ -1543,16 +1540,16 @@ export const TenantDetail = () => {
 
             {/* VAPI Status */}
             {phoneStatus.vapiStatus && (
-              <div className="p-3 bg-slate-50 rounded-lg">
-                <label className="text-xs font-medium text-slate-500 uppercase">VAPI Durumu</label>
-                <pre className="text-xs font-mono text-slate-600 mt-1 overflow-auto max-h-32">
+              <div className="p-3 bg-muted/50 rounded-lg">
+                <label className="text-xs font-medium text-muted-foreground uppercase">VAPI Durumu</label>
+                <pre className="text-xs font-mono text-muted-foreground mt-1 overflow-auto max-h-32">
                   {JSON.stringify(phoneStatus.vapiStatus, null, 2)}
                 </pre>
               </div>
             )}
 
             {/* Remove Button */}
-            <div className="flex justify-between items-center pt-4 border-t border-slate-200">
+            <div className="flex justify-between items-center pt-4 border-t border-border">
               <Button
                 variant="outline"
                 size="sm"
@@ -1578,7 +1575,7 @@ export const TenantDetail = () => {
         {!isAssigned && (
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
+              <label className="block text-sm font-medium text-foreground mb-1">
                 Telefon Numarasi (E.164 Format)
               </label>
               <div className="flex gap-2">
@@ -1600,7 +1597,7 @@ export const TenantDetail = () => {
                   )}
                 </Button>
               </div>
-              <p className="text-xs text-slate-500 mt-1">
+              <p className="text-xs text-muted-foreground mt-1">
                 Verimor OIM'den alinan numara. Ornek: +905321234567
               </p>
             </div>
@@ -1626,10 +1623,10 @@ export const TenantDetail = () => {
         >
           <div className="text-center py-4">
             <Phone className="w-12 h-12 text-red-500 mx-auto mb-3" />
-            <p className="text-slate-600 mb-2">
+            <p className="text-muted-foreground mb-2">
               <strong>{phoneStatus?.phoneNumber}</strong> numarasini bu tenant'tan kaldirmak istediginize emin misiniz?
             </p>
-            <p className="text-sm text-slate-500">
+            <p className="text-sm text-muted-foreground">
               Bu islem VAPI'deki telefon numarasini da silecektir. Verimor tarafindaki routing ayarlarini da kaldirmayi unutmayin.
             </p>
           </div>
@@ -1653,18 +1650,18 @@ export const TenantDetail = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-start justify-between">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" onClick={() => navigate('/admin/tenants')}>
+          <Button variant="ghost" size="icon" onClick={() => navigate('/admin/tenants')}>
             <ArrowLeft className="w-5 h-5" />
           </Button>
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-xl bg-slate-100 flex items-center justify-center text-2xl">
+            <div className="w-12 h-12 rounded-xl bg-muted flex items-center justify-center text-2xl">
               {industry.icon || '🏢'}
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-slate-900">{tenant.name}</h1>
-              <p className="text-slate-500">{tenant.email}</p>
+              <h1 className="text-2xl font-bold text-foreground">{tenant.name}</h1>
+              <p className="text-sm text-muted-foreground">{tenant.email}</p>
             </div>
           </div>
           <Badge variant={getStatusInfo().variant}>
@@ -1672,76 +1669,37 @@ export const TenantDetail = () => {
           </Badge>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
+          <Button variant="secondary" size="sm" onClick={handleTestCall} disabled={testingCall}>
+            {testingCall ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <PhoneCall className="w-4 h-4 mr-2" />}
+            Test Araması
+          </Button>
+          <Button variant="secondary" size="sm" onClick={handleSync} disabled={syncing}>
+            {syncing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-2" />}
+            VAPI Sync
+          </Button>
+          <div className="w-px h-6 bg-border mx-1" />
           {!isEditing ? (
-            <Button
-              variant="secondary"
-              onClick={() => setIsEditing(true)}
-            >
-              <Edit3 className="w-4 h-4 mr-2" />
-              Düzenle
+            <Button variant="secondary" size="sm" onClick={() => setIsEditing(true)}>
+              <Edit3 className="w-4 h-4 mr-2" />Düzenle
             </Button>
           ) : (
             <>
-              <Button variant="ghost" onClick={handleCancel} disabled={saving}>
-                İptal
-              </Button>
-              <Button variant="primary" onClick={handleSave} disabled={saving || !hasChanges}>
-                {saving ? (
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                ) : (
-                  <Save className="w-4 h-4 mr-2" />
-                )}
+              <Button variant="ghost" size="sm" onClick={handleCancel} disabled={saving}>İptal</Button>
+              <Button variant="primary" size="sm" onClick={handleSave} disabled={saving || !hasChanges}>
+                {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
                 Kaydet
               </Button>
             </>
           )}
-          <Button
-            variant="ghost"
-            onClick={() => setShowDeleteModal(true)}
-          >
-            <Trash2 className="w-4 h-4 text-red-400" />
+          <Button variant="ghost" size="sm" onClick={() => setShowDeleteModal(true)}>
+            <Trash2 className="w-4 h-4 text-destructive" />
           </Button>
         </div>
       </div>
 
-      {/* Quick Actions */}
-      <Card>
-        <CardContent>
-          <div className="flex items-center gap-4">
-            <span className="text-slate-500">Hızlı İşlemler:</span>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={handleTestCall}
-              disabled={testingCall}
-            >
-              {testingCall ? (
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              ) : (
-                <PhoneCall className="w-4 h-4 mr-2" />
-              )}
-              Test Araması
-            </Button>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={handleSync}
-              disabled={syncing}
-            >
-              {syncing ? (
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              ) : (
-                <RefreshCw className="w-4 h-4 mr-2" />
-              )}
-              VAPI Sync
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
       {/* Tabs */}
-      <div className="border-b border-slate-200">
+      <div className="border-b border-border">
         <div className="flex gap-1">
           {tabs.map((tab) => (
             <button
@@ -1749,8 +1707,8 @@ export const TenantDetail = () => {
               onClick={() => setActiveTab(tab.id)}
               className={`flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors border-b-2 -mb-px ${
                 activeTab === tab.id
-                  ? 'text-indigo-600 border-indigo-600'
-                  : 'text-slate-500 border-transparent hover:text-slate-900'
+                  ? 'text-primary border-primary'
+                  : 'text-muted-foreground border-transparent hover:text-foreground'
               }`}
             >
               <tab.icon className="w-4 h-4" />
@@ -1761,14 +1719,13 @@ export const TenantDetail = () => {
       </div>
 
       {/* Tab Content */}
-      <Card>
-        <CardContent>
-          {activeTab === 'general' && renderGeneralTab()}
-          {activeTab === 'branding' && renderBrandingTab()}
-          {activeTab === 'assistant' && renderAssistantTab()}
-          {activeTab === 'phone' && renderPhoneTab()}
-        </CardContent>
-      </Card>
+      <div className="pt-2">
+        {activeTab === 'general' && renderGeneralTab()}
+        {activeTab === 'branding' && renderBrandingTab()}
+        {activeTab === 'assistant' && renderAssistantTab()}
+        {activeTab === 'data' && renderDataTab()}
+        {activeTab === 'phone' && renderPhoneTab()}
+      </div>
 
       {/* Delete Confirmation Modal */}
       <Modal
@@ -1781,10 +1738,10 @@ export const TenantDetail = () => {
           <div className="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-4">
             <Trash2 className="w-8 h-8 text-red-500" />
           </div>
-          <p className="text-slate-600">
-            <span className="font-semibold text-slate-900">{tenant?.name}</span> tenant'ını silmek istediğinize emin misiniz?
+          <p className="text-muted-foreground">
+            <span className="font-semibold text-foreground">{tenant?.name}</span> tenant'ını silmek istediğinize emin misiniz?
           </p>
-          <p className="text-sm text-slate-500 mt-2">
+          <p className="text-sm text-muted-foreground mt-2">
             Bu işlem geri alınamaz.
           </p>
         </div>
@@ -1793,8 +1750,7 @@ export const TenantDetail = () => {
             İptal
           </Button>
           <Button
-            variant="primary"
-            className="!bg-red-500 hover:!bg-red-600"
+            variant="danger"
             onClick={handleDelete}
             disabled={deleting}
           >

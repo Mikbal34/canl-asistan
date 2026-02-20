@@ -22,7 +22,7 @@ import { customersAdminAPI } from '../../services/api';
  * Shows all customers with their appointment history
  */
 export const CustomersViewer = ({ tenantId, onUpdate }) => {
-  const [isExpanded, setIsExpanded] = useState(true);
+  const [isExpanded, setIsExpanded] = useState(false);
   const [customers, setCustomers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);

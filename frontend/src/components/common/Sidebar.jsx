@@ -17,10 +17,8 @@ import {
 import { useAuth } from '../../hooks/useAuth';
 import { useTenant } from '../../hooks/useTenant';
 import { useTenantBranding } from '../../context/TenantBrandingContext';
+import { cn } from '@/lib/utils';
 
-/**
- * Sidebar navigation component
- */
 export const Sidebar = () => {
   const { t } = useTranslation();
   const location = useLocation();
@@ -30,78 +28,83 @@ export const Sidebar = () => {
 
   const isActive = (path) => location.pathname === path;
 
-  // Sektör bilgisini user.tenant'tan veya tenantSettings'ten al
   const industry = user?.tenant?.industry || tenantIndustry || tenantSettings?.industry;
-
-  // Get branding info - prefer branding context when tenant is resolved
   const logoUrl = tenantResolved ? branding.logo_url : (tenantSettings?.logo_url || user?.tenant?.logo_url);
   const primaryColor = tenantResolved ? branding.primary_color : (tenantSettings?.primary_color || user?.tenant?.primary_color);
   const displayName = tenantResolved ? branding.name : (tenantSettings?.name || user?.tenant?.name || 'Dashboard');
 
-  // Sektore gore navigation items olustur
-  const getNavItems = () => {
-    const baseItems = [
+  const getNavGroups = () => {
+    if (user?.role === 'super_admin') {
+      return [
+        {
+          label: 'ANA MENÜ',
+          items: [
+            { path: '/admin/dashboard', icon: LayoutDashboard, label: t('navigation.dashboard') },
+            { path: '/admin/tenants', icon: Building2, label: t('navigation.tenants') },
+            { path: '/admin/presets', icon: Palette, label: t('navigation.presets') },
+          ],
+        },
+      ];
+    }
+
+    const mainItems = [
       { path: '/dashboard', icon: LayoutDashboard, label: t('navigation.dashboard') },
       { path: '/appointments', icon: Calendar, label: t('navigation.appointments') },
       { path: '/customers', icon: Users, label: t('navigation.customers') },
     ];
 
-    // Management items - available for all industries
     const managementItems = [
       { path: '/slot-manager', icon: CalendarClock, label: t('navigation.slotManager') },
     ];
-
-    // Automotive-only: vehicle catalog
     if (industry === 'automotive') {
       managementItems.push({ path: '/vehicles', icon: Car, label: t('navigation.vehicleCatalog') });
     }
-
-    // Campaigns - available for all industries
     managementItems.push({ path: '/promotions', icon: Tag, label: t('navigation.promotions') });
 
-    return [
-      ...baseItems,
-      ...managementItems,
+    const systemItems = [
       { path: '/notifications', icon: Bell, label: t('navigation.notifications') },
       { path: '/call-logs', icon: Phone, label: t('navigation.callLogs') },
       { path: '/settings', icon: Settings, label: t('navigation.settings') },
     ];
+
+    return [
+      { label: 'ANA MENÜ', items: mainItems },
+      { label: 'YÖNETİM', items: managementItems },
+      { label: 'SİSTEM', items: systemItems },
+    ];
   };
 
-  const tenantNavItems = getNavItems();
+  const navGroups = getNavGroups();
 
-  const adminNavItems = [
-    { path: '/admin/dashboard', icon: LayoutDashboard, label: t('navigation.dashboard') },
-    { path: '/admin/tenants', icon: Building2, label: t('navigation.tenants') },
-    { path: '/admin/presets', icon: Palette, label: t('navigation.presets') },
-  ];
-
-  const navItems = user?.role === 'super_admin' ? adminNavItems : tenantNavItems;
+  const getInitials = (name) => {
+    if (!name) return 'U';
+    return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+  };
 
   return (
-    <aside className="fixed left-0 top-0 h-screen w-64 bg-white border-r border-slate-200 flex flex-col">
+    <aside className="fixed left-0 top-0 h-screen w-64 bg-card border-r border-border flex flex-col z-50">
       {/* Logo */}
-      <div className="p-6 border-b border-slate-200">
+      <div className="p-5 border-b border-border">
         <div className="flex items-center gap-3">
           {logoUrl ? (
             <img
               src={logoUrl}
               alt={displayName}
-              className="w-10 h-10 rounded-lg object-contain"
+              className="w-9 h-9 rounded-lg object-contain"
             />
           ) : (
             <div
-              className="w-10 h-10 rounded-lg flex items-center justify-center"
+              className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
               style={{ backgroundColor: primaryColor || '#4f46e5' }}
             >
-              <Phone className="w-6 h-6 text-white" />
+              <Phone className="w-5 h-5 text-white" />
             </div>
           )}
-          <div>
-            <h1 className="text-xl font-bold text-slate-900 truncate max-w-[140px]">
+          <div className="min-w-0">
+            <h1 className="text-sm font-bold text-foreground truncate">
               {user?.role === 'super_admin' ? 'Voice AI' : displayName}
             </h1>
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-muted-foreground">
               {user?.role === 'super_admin' ? 'Admin Panel' : 'Dashboard'}
             </p>
           </div>
@@ -109,40 +112,63 @@ export const Sidebar = () => {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 p-4 overflow-y-auto">
-        <ul className="space-y-2">
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            const active = isActive(item.path);
-            return (
-              <li key={item.path}>
-                <Link
-                  to={item.path}
-                  className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 ${
-                    active
-                      ? 'text-white font-medium'
-                      : 'text-slate-600 hover:bg-slate-100'
-                  }`}
-                  style={active ? { backgroundColor: primaryColor || '#4f46e5' } : {}}
-                >
-                  <Icon className="w-5 h-5" />
-                  <span>{item.label}</span>
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
+      <nav className="flex-1 p-3 overflow-y-auto space-y-4">
+        {navGroups.map((group) => (
+          <div key={group.label}>
+            <p className="px-3 mb-1.5 text-[10px] font-semibold tracking-widest text-muted-foreground uppercase">
+              {group.label}
+            </p>
+            <ul className="space-y-0.5">
+              {group.items.map((item) => {
+                const Icon = item.icon;
+                const active = isActive(item.path);
+                return (
+                  <li key={item.path}>
+                    <Link
+                      to={item.path}
+                      className={cn(
+                        'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all duration-150',
+                        active
+                          ? 'text-white font-medium'
+                          : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                      )}
+                      style={active ? { backgroundColor: primaryColor || '#4f46e5' } : {}}
+                    >
+                      <Icon className="w-4 h-4 flex-shrink-0" />
+                      <span>{item.label}</span>
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        ))}
       </nav>
 
-      {/* User role badge */}
-      {user?.role === 'super_admin' && (
-        <div className="p-4 border-t border-slate-200">
-          <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-50 border border-indigo-200">
-            <Shield className="w-4 h-4 text-indigo-600" />
-            <span className="text-sm font-medium text-indigo-600">Super Admin</span>
+      {/* User footer */}
+      <div className="p-3 border-t border-border">
+        {user?.role === 'super_admin' ? (
+          <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-indigo-50 dark:bg-indigo-950/50 border border-indigo-200 dark:border-indigo-800">
+            <Shield className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+            <span className="text-sm font-medium text-indigo-600 dark:text-indigo-400">Super Admin</span>
           </div>
-        </div>
-      )}
+        ) : (
+          <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-muted transition-colors cursor-default">
+            <div
+              className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
+              style={{ backgroundColor: primaryColor || '#4f46e5' }}
+            >
+              {getInitials(user?.name)}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-medium text-foreground truncate">
+                {user?.name || 'Kullanıcı'}
+              </p>
+              <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
+            </div>
+          </div>
+        )}
+      </div>
     </aside>
   );
 };

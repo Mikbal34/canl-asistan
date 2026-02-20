@@ -32,7 +32,7 @@ const serviceCategories = [
  * Used in Use Cases tab when beauty_services use case is selected
  */
 export const BeautyServicesEditor = ({ tenantId, onUpdate }) => {
-  const [isExpanded, setIsExpanded] = useState(true);
+  const [isExpanded, setIsExpanded] = useState(false);
   const [services, setServices] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -156,25 +156,25 @@ export const BeautyServicesEditor = ({ tenantId, onUpdate }) => {
   };
 
   return (
-    <div className="border border-slate-200 rounded-lg overflow-hidden">
+    <div className="border border-border rounded-lg overflow-hidden">
       {/* Header */}
       <button
         onClick={() => setIsExpanded(!isExpanded)}
-        className="w-full flex items-center justify-between p-4 bg-slate-50 hover:bg-slate-100 transition-colors"
+        className="w-full flex items-center justify-between p-4 bg-muted/40 hover:bg-muted/60 transition-colors"
       >
         <div className="flex items-center gap-3">
           <Scissors className="w-5 h-5 text-pink-600" />
           <div className="text-left">
-            <h4 className="font-medium text-slate-900">Hizmet Kataloğu</h4>
-            <p className="text-sm text-slate-500">beauty_services use case için gerekli</p>
+            <h4 className="font-medium text-foreground">Hizmet Kataloğu</h4>
+            <p className="text-sm text-muted-foreground">beauty_services use case için gerekli</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
           <Badge variant="info">{services.length} hizmet</Badge>
           {isExpanded ? (
-            <ChevronUp className="w-5 h-5 text-slate-400" />
+            <ChevronUp className="w-5 h-5 text-muted-foreground" />
           ) : (
-            <ChevronDown className="w-5 h-5 text-slate-400" />
+            <ChevronDown className="w-5 h-5 text-muted-foreground" />
           )}
         </div>
       </button>
@@ -199,12 +199,12 @@ export const BeautyServicesEditor = ({ tenantId, onUpdate }) => {
 
           {/* Form */}
           {showForm && (
-            <div className="mb-4 p-4 border border-pink-200 bg-pink-50 rounded-lg">
+            <div className="mb-4 p-4 border border-pink-200 dark:border-pink-800/50 bg-pink-50 dark:bg-pink-950/30 rounded-lg">
               <div className="flex items-center justify-between mb-4">
-                <h5 className="font-medium text-slate-900">
+                <h5 className="font-medium text-foreground">
                   {editingService ? 'Hizmeti Düzenle' : 'Yeni Hizmet Ekle'}
                 </h5>
-                <button onClick={resetForm} className="text-slate-400 hover:text-slate-600">
+                <button onClick={resetForm} className="text-muted-foreground hover:text-foreground">
                   <X className="w-5 h-5" />
                 </button>
               </div>
@@ -216,7 +216,7 @@ export const BeautyServicesEditor = ({ tenantId, onUpdate }) => {
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 />
                 <div>
-                  <label className="block text-sm font-medium text-slate-600 mb-2">Kategori</label>
+                  <label className="block text-sm font-medium text-muted-foreground mb-2">Kategori</label>
                   <select
                     value={formData.category}
                     onChange={(e) => setFormData({ ...formData, category: e.target.value })}
@@ -244,7 +244,7 @@ export const BeautyServicesEditor = ({ tenantId, onUpdate }) => {
                   onChange={(e) => setFormData({ ...formData, price: parseFloat(e.target.value) })}
                 />
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-slate-600 mb-2">Açıklama</label>
+                  <label className="block text-sm font-medium text-muted-foreground mb-2">Açıklama</label>
                   <textarea
                     value={formData.description}
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
@@ -258,9 +258,9 @@ export const BeautyServicesEditor = ({ tenantId, onUpdate }) => {
                       type="checkbox"
                       checked={formData.is_active}
                       onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
-                      className="w-4 h-4 rounded border-slate-300"
+                      className="w-4 h-4 rounded border-border"
                     />
-                    <span className="text-sm text-slate-700">Aktif</span>
+                    <span className="text-sm text-foreground">Aktif</span>
                   </label>
                 </div>
               </div>
@@ -294,7 +294,7 @@ export const BeautyServicesEditor = ({ tenantId, onUpdate }) => {
 
           {/* Error */}
           {error && (
-            <div className="flex items-center gap-2 p-4 bg-red-50 text-red-700 rounded-lg">
+            <div className="flex items-center gap-2 p-4 bg-destructive/10 border border-destructive/20 text-destructive rounded-lg">
               <AlertCircle className="w-5 h-5" />
               <span>{error}</span>
             </div>
@@ -302,8 +302,8 @@ export const BeautyServicesEditor = ({ tenantId, onUpdate }) => {
 
           {/* Service List */}
           {!loading && !error && services.length === 0 && (
-            <div className="text-center py-8 text-slate-500">
-              <Scissors className="w-12 h-12 mx-auto mb-3 text-slate-300" />
+            <div className="text-center py-8 text-muted-foreground">
+              <Scissors className="w-12 h-12 mx-auto mb-3 text-muted-foreground/30" />
               <p>Henüz hizmet eklenmemiş</p>
             </div>
           )}
@@ -313,31 +313,31 @@ export const BeautyServicesEditor = ({ tenantId, onUpdate }) => {
               {services.map((service) => (
                 <div
                   key={service.id}
-                  className="flex items-center justify-between p-3 rounded-lg bg-slate-50 hover:bg-slate-100"
+                  className="flex items-center justify-between p-3 rounded-lg bg-muted/40 hover:bg-muted/60"
                 >
                   <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 rounded-lg bg-pink-100 flex items-center justify-center">
+                    <div className="w-10 h-10 rounded-lg bg-pink-100 dark:bg-pink-950/50 flex items-center justify-center">
                       <Scissors className="w-5 h-5 text-pink-600" />
                     </div>
                     <div>
-                      <p className="font-medium text-slate-900">{service.name}</p>
-                      <p className="text-sm text-slate-500">
+                      <p className="font-medium text-foreground">{service.name}</p>
+                      <p className="text-sm text-muted-foreground">
                         {getCategoryLabel(service.category)} • {formatDuration(service.duration)}
                         {service.description && ` • ${service.description.substring(0, 30)}...`}
                       </p>
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
-                    <span className="font-medium text-slate-900">{formatPrice(service.price)}</span>
+                    <span className="font-medium text-foreground">{formatPrice(service.price)}</span>
                     <Badge variant={service.is_active ? 'success' : 'error'}>
                       {service.is_active ? 'Aktif' : 'Pasif'}
                     </Badge>
                     <div className="flex gap-1">
                       <button
                         onClick={() => handleEdit(service)}
-                        className="p-2 hover:bg-slate-200 rounded-lg transition-colors"
+                        className="p-2 hover:bg-muted rounded-lg transition-colors"
                       >
-                        <Edit3 className="w-4 h-4 text-slate-600" />
+                        <Edit3 className="w-4 h-4 text-muted-foreground" />
                       </button>
                       <button
                         onClick={() => {
@@ -368,8 +368,8 @@ export const BeautyServicesEditor = ({ tenantId, onUpdate }) => {
         size="sm"
       >
         <div className="text-center py-4">
-          <p className="text-slate-600">
-            <span className="font-semibold text-slate-900">{serviceToDelete?.name}</span> hizmetini
+          <p className="text-muted-foreground">
+            <span className="font-semibold text-foreground">{serviceToDelete?.name}</span> hizmetini
             silmek istediğinize emin misiniz?
           </p>
         </div>

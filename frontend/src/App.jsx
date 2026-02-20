@@ -3,6 +3,7 @@ import { AuthProvider } from './context/AuthContext';
 import { TenantProvider } from './context/TenantContext';
 import { TenantBrandingProvider } from './context/TenantBrandingContext';
 import { NotificationProvider } from './context/NotificationContext';
+import { ThemeProvider } from './context/ThemeContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { Layout } from './components/common/Layout';
 
@@ -31,6 +32,7 @@ import { Notifications } from './pages/tenant/Notifications';
 import { AdminDashboard } from './pages/admin/AdminDashboard';
 import { Tenants } from './pages/admin/Tenants';
 import { TenantDetail } from './pages/admin/TenantDetail';
+import { TenantDataViewer } from './pages/admin/TenantDataViewer';
 import { Presets } from './pages/admin/Presets';
 import { PresetConfig } from './pages/admin/PresetConfig';
 
@@ -39,6 +41,7 @@ import { PresetConfig } from './pages/admin/PresetConfig';
  */
 function App() {
   return (
+    <ThemeProvider>
     <Router>
       <AuthProvider>
         <TenantBrandingProvider>
@@ -190,6 +193,16 @@ function App() {
               }
             />
             <Route
+              path="/admin/tenants/:id/data"
+              element={
+                <ProtectedRoute requiredRole="super_admin">
+                  <Layout>
+                    <TenantDataViewer />
+                  </Layout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
               path="/admin/presets"
               element={
                 <ProtectedRoute requiredRole="super_admin">
@@ -221,6 +234,7 @@ function App() {
         </TenantBrandingProvider>
       </AuthProvider>
     </Router>
+    </ThemeProvider>
   );
 }
 

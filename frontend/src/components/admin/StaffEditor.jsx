@@ -31,7 +31,7 @@ const staffAPI = {
  * Used in Use Cases tab when staff_selection use case is selected
  */
 export const StaffEditor = ({ tenantId, onUpdate }) => {
-  const [isExpanded, setIsExpanded] = useState(true);
+  const [isExpanded, setIsExpanded] = useState(false);
   const [staff, setStaff] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -65,11 +65,10 @@ export const StaffEditor = ({ tenantId, onUpdate }) => {
       const response = await staffAPI.getAll();
       setStaff(response.data.data || response.data || []);
     } catch (err) {
-      console.error('Failed to fetch staff:', err);
-      // API henüz yoksa boş liste göster
       if (err.response?.status === 404) {
         setStaff([]);
       } else {
+        console.error('Failed to fetch staff:', err);
         setError('Personel listesi yüklenirken hata oluştu');
       }
     } finally {
@@ -147,25 +146,25 @@ export const StaffEditor = ({ tenantId, onUpdate }) => {
   };
 
   return (
-    <div className="border border-slate-200 rounded-lg overflow-hidden">
+    <div className="border border-border rounded-lg overflow-hidden">
       {/* Header */}
       <button
         onClick={() => setIsExpanded(!isExpanded)}
-        className="w-full flex items-center justify-between p-4 bg-slate-50 hover:bg-slate-100 transition-colors"
+        className="w-full flex items-center justify-between p-4 bg-muted/40 hover:bg-muted/60 transition-colors"
       >
         <div className="flex items-center gap-3">
           <Users className="w-5 h-5 text-emerald-600" />
           <div className="text-left">
-            <h4 className="font-medium text-slate-900">Personel Listesi</h4>
-            <p className="text-sm text-slate-500">staff_selection use case için gerekli</p>
+            <h4 className="font-medium text-foreground">Personel Listesi</h4>
+            <p className="text-sm text-muted-foreground">staff_selection use case için gerekli</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
           <Badge variant="info">{staff.length} personel</Badge>
           {isExpanded ? (
-            <ChevronUp className="w-5 h-5 text-slate-400" />
+            <ChevronUp className="w-5 h-5 text-muted-foreground" />
           ) : (
-            <ChevronDown className="w-5 h-5 text-slate-400" />
+            <ChevronDown className="w-5 h-5 text-muted-foreground" />
           )}
         </div>
       </button>
@@ -190,12 +189,12 @@ export const StaffEditor = ({ tenantId, onUpdate }) => {
 
           {/* Form */}
           {showForm && (
-            <div className="mb-4 p-4 border border-emerald-200 bg-emerald-50 rounded-lg">
+            <div className="mb-4 p-4 border border-emerald-200 dark:border-emerald-800/50 bg-emerald-50 dark:bg-emerald-950/30 rounded-lg">
               <div className="flex items-center justify-between mb-4">
-                <h5 className="font-medium text-slate-900">
+                <h5 className="font-medium text-foreground">
                   {editingStaff ? 'Personeli Düzenle' : 'Yeni Personel Ekle'}
                 </h5>
-                <button onClick={resetForm} className="text-slate-400 hover:text-slate-600">
+                <button onClick={resetForm} className="text-muted-foreground hover:text-foreground">
                   <X className="w-5 h-5" />
                 </button>
               </div>
@@ -237,13 +236,13 @@ export const StaffEditor = ({ tenantId, onUpdate }) => {
                       type="checkbox"
                       checked={formData.is_active}
                       onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
-                      className="w-4 h-4 rounded border-slate-300"
+                      className="w-4 h-4 rounded border-border"
                     />
-                    <span className="text-sm text-slate-700">Aktif</span>
+                    <span className="text-sm text-foreground">Aktif</span>
                   </label>
                 </div>
               </div>
-              <p className="text-xs text-slate-500 mt-2">
+              <p className="text-xs text-muted-foreground mt-2">
                 * Uzmanlık alanlarını virgülle ayırarak yazın
               </p>
               <div className="mt-4 flex justify-end gap-2">
@@ -276,7 +275,7 @@ export const StaffEditor = ({ tenantId, onUpdate }) => {
 
           {/* Error */}
           {error && (
-            <div className="flex items-center gap-2 p-4 bg-red-50 text-red-700 rounded-lg">
+            <div className="flex items-center gap-2 p-4 bg-destructive/10 border border-destructive/20 text-destructive rounded-lg">
               <AlertCircle className="w-5 h-5" />
               <span>{error}</span>
             </div>
@@ -284,8 +283,8 @@ export const StaffEditor = ({ tenantId, onUpdate }) => {
 
           {/* Staff List */}
           {!loading && !error && staff.length === 0 && (
-            <div className="text-center py-8 text-slate-500">
-              <Users className="w-12 h-12 mx-auto mb-3 text-slate-300" />
+            <div className="text-center py-8 text-muted-foreground">
+              <Users className="w-12 h-12 mx-auto mb-3 text-muted-foreground/30" />
               <p>Henüz personel eklenmemiş</p>
             </div>
           )}
@@ -295,15 +294,15 @@ export const StaffEditor = ({ tenantId, onUpdate }) => {
               {staff.map((member) => (
                 <div
                   key={member.id}
-                  className="flex items-center justify-between p-3 rounded-lg bg-slate-50 hover:bg-slate-100"
+                  className="flex items-center justify-between p-3 rounded-lg bg-muted/40 hover:bg-muted/60"
                 >
                   <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center">
+                    <div className="w-10 h-10 rounded-full bg-emerald-100 dark:bg-emerald-950/50 flex items-center justify-center">
                       <Users className="w-5 h-5 text-emerald-600" />
                     </div>
                     <div>
-                      <p className="font-medium text-slate-900">{member.name}</p>
-                      <p className="text-sm text-slate-500">
+                      <p className="font-medium text-foreground">{member.name}</p>
+                      <p className="text-sm text-muted-foreground">
                         {member.role}
                         {member.specialties && member.specialties.length > 0 && (
                           <span className="ml-2">
@@ -312,7 +311,7 @@ export const StaffEditor = ({ tenantId, onUpdate }) => {
                               ? member.specialties.slice(0, 2).join(', ')
                               : member.specialties}
                             {Array.isArray(member.specialties) && member.specialties.length > 2 && (
-                              <span className="text-slate-400">
+                              <span className="text-muted-foreground/60">
                                 {' '}
                                 +{member.specialties.length - 2}
                               </span>
@@ -335,9 +334,9 @@ export const StaffEditor = ({ tenantId, onUpdate }) => {
                     <div className="flex gap-1">
                       <button
                         onClick={() => handleEdit(member)}
-                        className="p-2 hover:bg-slate-200 rounded-lg transition-colors"
+                        className="p-2 hover:bg-muted rounded-lg transition-colors"
                       >
-                        <Edit3 className="w-4 h-4 text-slate-600" />
+                        <Edit3 className="w-4 h-4 text-muted-foreground" />
                       </button>
                       <button
                         onClick={() => {
@@ -368,8 +367,8 @@ export const StaffEditor = ({ tenantId, onUpdate }) => {
         size="sm"
       >
         <div className="text-center py-4">
-          <p className="text-slate-600">
-            <span className="font-semibold text-slate-900">{staffToDelete?.name}</span> personelini
+          <p className="text-muted-foreground">
+            <span className="font-semibold text-foreground">{staffToDelete?.name}</span> personelini
             silmek istediğinize emin misiniz?
           </p>
         </div>

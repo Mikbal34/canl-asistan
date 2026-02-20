@@ -54,7 +54,7 @@ export const SlotManagerEditor = ({ tenantId, tenant, onTenantUpdate, mode = 'ad
   const saveWorkingHoursApi = isAdmin
     ? (hours) => adminAPI.updateTenant(tenantId, { working_hours: hours })
     : (hours) => tenantSlotAPI.updateWorkingHours(hours);
-  const [isExpanded, setIsExpanded] = useState(true);
+  const [isExpanded, setIsExpanded] = useState(false);
   const [activeView, setActiveView] = useState('calendar'); // 'calendar' | 'settings'
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(null);
@@ -392,18 +392,18 @@ export const SlotManagerEditor = ({ tenantId, tenant, onTenantUpdate, mode = 'ad
   const showCollapsible = isAdmin;
 
   return (
-    <div className={showCollapsible ? "border border-slate-200 rounded-lg overflow-hidden" : ""}>
+    <div className={showCollapsible ? "border border-border rounded-lg overflow-hidden" : ""}>
       {/* Header - only in admin mode */}
       {showCollapsible && (
         <button
           onClick={() => setIsExpanded(!isExpanded)}
-          className="w-full flex items-center justify-between p-4 bg-slate-50 hover:bg-slate-100 transition-colors"
+          className="w-full flex items-center justify-between p-4 bg-muted/40 hover:bg-muted/60 transition-colors"
         >
           <div className="flex items-center gap-3">
             <Calendar className="w-5 h-5 text-indigo-600" />
             <div className="text-left">
-              <h4 className="font-medium text-slate-900">Takvim & Slot Yönetimi</h4>
-              <p className="text-sm text-slate-500">Çalışma saatleri ve randevu slotları</p>
+              <h4 className="font-medium text-foreground">Takvim & Slot Yönetimi</h4>
+              <p className="text-sm text-muted-foreground">Çalışma saatleri ve randevu slotları</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -411,9 +411,9 @@ export const SlotManagerEditor = ({ tenantId, tenant, onTenantUpdate, mode = 'ad
               <Badge variant="warning">Kaydedilmemiş</Badge>
             )}
             {isExpanded ? (
-              <ChevronUp className="w-5 h-5 text-slate-400" />
+              <ChevronUp className="w-5 h-5 text-muted-foreground" />
             ) : (
-              <ChevronDown className="w-5 h-5 text-slate-400" />
+              <ChevronDown className="w-5 h-5 text-muted-foreground" />
             )}
           </div>
         </button>
@@ -423,13 +423,13 @@ export const SlotManagerEditor = ({ tenantId, tenant, onTenantUpdate, mode = 'ad
       {(showCollapsible ? isExpanded : true) && (
         <div className={showCollapsible ? "p-4" : ""}>
           {/* View Toggle */}
-          <div className="flex gap-2 mb-4 p-1 bg-slate-100 rounded-lg w-fit">
+          <div className="flex gap-2 mb-4 p-1 bg-muted rounded-lg w-fit">
             <button
               onClick={() => setActiveView('calendar')}
               className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${
                 activeView === 'calendar'
-                  ? 'bg-white text-indigo-600 shadow-sm'
-                  : 'text-slate-600 hover:text-slate-900'
+                  ? 'bg-card text-primary shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
               }`}
             >
               <Calendar className="w-4 h-4" />
@@ -439,8 +439,8 @@ export const SlotManagerEditor = ({ tenantId, tenant, onTenantUpdate, mode = 'ad
               onClick={() => setActiveView('settings')}
               className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${
                 activeView === 'settings'
-                  ? 'bg-white text-indigo-600 shadow-sm'
-                  : 'text-slate-600 hover:text-slate-900'
+                  ? 'bg-card text-primary shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
               }`}
             >
               <Settings className="w-4 h-4" />
@@ -455,18 +455,18 @@ export const SlotManagerEditor = ({ tenantId, tenant, onTenantUpdate, mode = 'ad
               <div className="flex items-center justify-between mb-4">
                 <button
                   onClick={goToPrevMonth}
-                  className="p-2 rounded-lg hover:bg-slate-100 transition-colors"
+                  className="p-2 rounded-lg hover:bg-muted/60 transition-colors"
                 >
-                  <ChevronLeft className="w-5 h-5 text-slate-600" />
+                  <ChevronLeft className="w-5 h-5 text-muted-foreground" />
                 </button>
-                <h3 className="text-lg font-semibold text-slate-900">
+                <h3 className="text-lg font-semibold text-foreground">
                   {monthNames[currentMonth]} {currentYear}
                 </h3>
                 <button
                   onClick={goToNextMonth}
-                  className="p-2 rounded-lg hover:bg-slate-100 transition-colors"
+                  className="p-2 rounded-lg hover:bg-muted/60 transition-colors"
                 >
-                  <ChevronRight className="w-5 h-5 text-slate-600" />
+                  <ChevronRight className="w-5 h-5 text-muted-foreground" />
                 </button>
               </div>
 
@@ -474,7 +474,7 @@ export const SlotManagerEditor = ({ tenantId, tenant, onTenantUpdate, mode = 'ad
               <div className="mb-4">
                 <div className="grid grid-cols-7 gap-1 mb-1">
                   {dayNames.map(day => (
-                    <div key={day} className="text-center text-sm font-medium text-slate-500 py-2">
+                    <div key={day} className="text-center text-sm font-medium text-muted-foreground py-2">
                       {day}
                     </div>
                   ))}
@@ -495,7 +495,7 @@ export const SlotManagerEditor = ({ tenantId, tenant, onTenantUpdate, mode = 'ad
                     if (selected) {
                       colorClass = 'bg-indigo-600 text-white hover:bg-indigo-700';
                     } else if (past) {
-                      colorClass = 'text-slate-300 cursor-not-allowed bg-slate-50';
+                      colorClass = 'text-muted-foreground/30 cursor-not-allowed bg-muted/60';
                     } else if (closed) {
                       colorClass = 'bg-red-100 text-red-500';
                     } else if (hasSlots) {
@@ -540,7 +540,7 @@ export const SlotManagerEditor = ({ tenantId, tenant, onTenantUpdate, mode = 'ad
               </div>
 
               {/* Legend */}
-              <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500 mb-4 pb-4 border-b border-slate-200">
+              <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground mb-4 pb-4 border-b border-border">
                 <div className="flex items-center gap-1">
                   <div className="w-3 h-3 rounded bg-emerald-500"></div>
                   <span>Slot Var</span>
@@ -558,7 +558,7 @@ export const SlotManagerEditor = ({ tenantId, tenant, onTenantUpdate, mode = 'ad
                   <span>Seçili</span>
                 </div>
                 <div className="flex items-center gap-1">
-                  <div className="w-3 h-3 rounded bg-slate-100 border border-slate-200"></div>
+                  <div className="w-3 h-3 rounded bg-muted border border-border"></div>
                   <span>Geçmiş</span>
                 </div>
               </div>
@@ -566,12 +566,12 @@ export const SlotManagerEditor = ({ tenantId, tenant, onTenantUpdate, mode = 'ad
               {/* Selected Date Section */}
               {selectedDate && (
                 <div className="pt-2">
-                  <h4 className="font-medium text-slate-900 mb-4">
+                  <h4 className="font-medium text-foreground mb-4">
                     {formatDateDisplay(selectedDate)}
                   </h4>
 
                   {isDayClosed(selectedDate) ? (
-                    <div className="text-center py-8 bg-red-50 rounded-lg border border-red-200">
+                    <div className="text-center py-8 bg-red-100/50 dark:bg-red-950/30 rounded-lg border border-red-200 dark:border-red-800/50">
                       <X className="w-12 h-12 mx-auto mb-2 text-red-300" />
                       <p className="text-red-600 font-medium">Bu gün kapalı</p>
                       <p className="text-sm text-red-500 mt-1">
@@ -592,8 +592,8 @@ export const SlotManagerEditor = ({ tenantId, tenant, onTenantUpdate, mode = 'ad
                       <Loader2 className="w-6 h-6 animate-spin text-indigo-600" />
                     </div>
                   ) : slots.length === 0 ? (
-                    <div className="text-center py-8 text-slate-500">
-                      <Clock className="w-12 h-12 mx-auto mb-2 text-slate-300" />
+                    <div className="text-center py-8 text-muted-foreground">
+                      <Clock className="w-12 h-12 mx-auto mb-2 text-muted-foreground/30" />
                       <p>Bu gün için slot oluşturulmamış.</p>
                       <p className="text-sm mt-1">Haftalık ayarlardan çalışma saatlerini kontrol edin.</p>
                       <Button
@@ -610,7 +610,7 @@ export const SlotManagerEditor = ({ tenantId, tenant, onTenantUpdate, mode = 'ad
                     /* Default Slots (Preview Mode) */
                     <>
                       {/* Info Banner */}
-                      <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                      <div className="mb-4 p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/50 rounded-lg">
                         <p className="text-sm text-amber-800">
                           <strong>Önizleme:</strong> Bu slotlar henüz veritabanına kaydedilmedi.
                           İstediğiniz saatleri ayarlayıp "Slotları Oluştur" butonuna tıklayın.
@@ -641,7 +641,7 @@ export const SlotManagerEditor = ({ tenantId, tenant, onTenantUpdate, mode = 'ad
                             Tümünü Kapat
                           </Button>
                         </div>
-                        <span className="text-sm text-slate-500">
+                        <span className="text-sm text-muted-foreground">
                           {slots.filter(s => s.is_available).length}/{slots.length} açık
                         </span>
                       </div>
@@ -661,8 +661,8 @@ export const SlotManagerEditor = ({ tenantId, tenant, onTenantUpdate, mode = 'ad
                             className={`
                               flex items-center justify-center gap-1 px-3 py-2 rounded-lg text-sm font-medium transition-all
                               ${slot.is_available
-                                ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200 border border-emerald-200'
-                                : 'bg-red-100 text-red-700 hover:bg-red-200 border border-red-200'
+                                ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200 border border-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-400 dark:hover:bg-emerald-900/50 dark:border-emerald-800/50'
+                                : 'bg-red-100 text-red-700 hover:bg-red-200 border border-red-200 dark:bg-red-950/50 dark:text-red-400 dark:hover:bg-red-900/50 dark:border-red-800/50'
                               }
                             `}
                           >
@@ -720,7 +720,7 @@ export const SlotManagerEditor = ({ tenantId, tenant, onTenantUpdate, mode = 'ad
                             Tümünü Kapat
                           </Button>
                         </div>
-                        <span className="text-sm text-slate-500">
+                        <span className="text-sm text-muted-foreground">
                           {slots.filter(s => s.is_available).length}/{slots.length} açık
                         </span>
                       </div>
@@ -734,8 +734,8 @@ export const SlotManagerEditor = ({ tenantId, tenant, onTenantUpdate, mode = 'ad
                             className={`
                               flex items-center justify-center gap-1 px-3 py-2 rounded-lg text-sm font-medium transition-all
                               ${slot.is_available
-                                ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200 border border-emerald-200'
-                                : 'bg-red-100 text-red-700 hover:bg-red-200 border border-red-200'
+                                ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200 border border-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-400 dark:hover:bg-emerald-900/50 dark:border-emerald-800/50'
+                                : 'bg-red-100 text-red-700 hover:bg-red-200 border border-red-200 dark:bg-red-950/50 dark:text-red-400 dark:hover:bg-red-900/50 dark:border-red-800/50'
                               }
                             `}
                           >
@@ -773,8 +773,8 @@ export const SlotManagerEditor = ({ tenantId, tenant, onTenantUpdate, mode = 'ad
               )}
 
               {!selectedDate && (
-                <div className="text-center py-8 text-slate-500">
-                  <Calendar className="w-12 h-12 mx-auto mb-2 text-slate-300" />
+                <div className="text-center py-8 text-muted-foreground">
+                  <Calendar className="w-12 h-12 mx-auto mb-2 text-muted-foreground/30" />
                   <p>Slotları görüntülemek için takvimden bir tarih seçin.</p>
                 </div>
               )}
@@ -784,16 +784,16 @@ export const SlotManagerEditor = ({ tenantId, tenant, onTenantUpdate, mode = 'ad
           {/* Weekly Settings View */}
           {activeView === 'settings' && (
             <div className="space-y-3">
-              <p className="text-sm text-slate-500 mb-4">
+              <p className="text-sm text-muted-foreground mb-4">
                 Haftalık çalışma saatlerinizi ayarlayın. Kapalı günlerde slot oluşturulmaz.
               </p>
 
               {daysOfWeek.map((day) => {
                 const hours = workingHours[day.id] || defaultWorkingHours[day.id];
                 return (
-                  <div key={day.id} className="flex items-center justify-between p-3 rounded-lg bg-slate-50">
+                  <div key={day.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/40">
                     <div className="flex items-center gap-3">
-                      <span className="w-24 text-slate-900 font-medium">{day.label}</span>
+                      <span className="w-24 text-foreground font-medium">{day.label}</span>
                     </div>
                     <div className="flex items-center gap-3">
                       {hours.closed ? (
@@ -806,7 +806,7 @@ export const SlotManagerEditor = ({ tenantId, tenant, onTenantUpdate, mode = 'ad
                             className="input py-1 px-2 w-28 text-sm"
                             onChange={(e) => handleHourChange(day.id, 'open', e.target.value)}
                           />
-                          <span className="text-slate-400">-</span>
+                          <span className="text-muted-foreground">-</span>
                           <input
                             type="time"
                             value={hours.close || '18:00'}
@@ -819,8 +819,8 @@ export const SlotManagerEditor = ({ tenantId, tenant, onTenantUpdate, mode = 'ad
                         onClick={() => toggleDayClosed(day.id)}
                         className={`text-xs px-3 py-1.5 rounded font-medium ${
                           hours.closed
-                            ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
-                            : 'bg-red-100 text-red-700 hover:bg-red-200'
+                            ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-400 dark:hover:bg-emerald-900/50'
+                            : 'bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-950/50 dark:text-red-400 dark:hover:bg-red-900/50'
                         }`}
                       >
                         {hours.closed ? 'Aç' : 'Kapat'}
@@ -850,9 +850,9 @@ export const SlotManagerEditor = ({ tenantId, tenant, onTenantUpdate, mode = 'ad
               )}
 
               {/* Bulk Slot Generation */}
-              <div className="mt-6 pt-4 border-t border-slate-200">
-                <h5 className="font-medium text-slate-900 mb-2">Toplu Slot Oluşturma</h5>
-                <p className="text-sm text-slate-500 mb-3">
+              <div className="mt-6 pt-4 border-t border-border">
+                <h5 className="font-medium text-foreground mb-2">Toplu Slot Oluşturma</h5>
+                <p className="text-sm text-muted-foreground mb-3">
                   Seçtiğiniz süre için çalışma saatlerine göre otomatik slot oluşturun.
                 </p>
                 <div className="flex items-center gap-3">
